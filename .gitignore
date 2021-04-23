@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+int*
+
+# data files
+fort*

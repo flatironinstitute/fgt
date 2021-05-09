@@ -3583,7 +3583,7 @@ C
 C
       do ind=1,nd
          do j=1,nexp
-            pwexp2(j,ind) = pwexp1(j,ind)
+            pwexp2(j,ind) = pwexp2(j,ind)+pwexp1(j,ind)
          enddo
       enddo
 c

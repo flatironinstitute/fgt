@@ -548,17 +548,19 @@ c
             do i = 1,nnodes
                dx = xi - xnodes(i)
                rsum = rsum +
-     1         legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1             legev(m,i)*exp(-dx*dx/delta)*whts(i)
+               
                dx = xim1 - xnodes(i)
                rsumm1 = rsumm1 +
-     1         legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1             legev(m,i)*exp(-dx*dx/delta)*whts(i)
+               
                dx = xip1 - xnodes(i)
                rsump1 = rsump1 +
-     1         legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1             legev(m,i)*exp(-dx*dx/delta)*whts(i)
             enddo
             tab_colleague(m,j,-1) = rsumm1
-            tab_colleague(m,j,0) = rsum
-            tab_colleague(m,j,1) = rsump1
+            tab_colleague(m,j,0)  = rsum
+            tab_colleague(m,j,1)  = rsump1
          enddo
       enddo
       return
@@ -576,19 +578,22 @@ c              int_{source box} P_n(x) exp( (\xi_j -x)^2/delta)
 c              where boxdim is the box dimension of TARGET BOX 
 c              at current level in tree hierarchy and 
 c              \xi_j is either on 
-c              [-D,-D/2]   -> tab_stob(n,n,1)
-c              [-D/2,0]    -> tab_stob(n,n,2)
-c              [0,D/2]     -> tab_stob(n,n,3)
-c              [D/2,D]     -> tab_stob(n,n,4)
+c              [-5D/4,-D/4]     -> tab_stob(n,n,1)
+c              [-3D/4, D/4]     -> tab_stob(n,n,2)
+c              [ -D/4,3D/4]     -> tab_stob(n,n,3)
+c              [  D/4,5D/4]     -> tab_stob(n,n,4)
+c              
+c     Here we assume that the source box is centered at the origin.        
+c              
 c              
 c      _____ _____ ____  
 c     |     |     |    | 
 c     |     |     |    | 
 c     |_____|_____|____| 
-c     |     |A |  |    | For target points in large box B, of
-c     |     |--|--| B  | dimension D, adjacent small box centers 
+c     |     |  |A |    | For target points in large box B, of
+c     |     |--|--| B  | dimension D, adjacent small source box centers 
 c     |_____|__|__|____| can be offset by one of -3D/4,-D/4,D/4,3D/4
-c     |     |     |    | in either x or y.
+c     |     |     |    | in either x, y, or z.
 c     |     |     |    |  
 c     |_____|_____|____|   
 c                          
@@ -597,7 +602,7 @@ c     INPUT:
 c     n        dimension of coeff array
 c     nnodes   number of nodes used in numerical quadrature
 c     delta    Gaussian variance
-c     boxdim   box dimension at current level
+c     boxdim   target box dimension at current level
 c
 c     OUTPUT:
 c     tab_stob 
@@ -643,24 +648,30 @@ c
             xi2 = xnodest(j) - boxdim/4.0d0
             xi3 = xnodest(j) + boxdim/4.0d0
             xi4 = xnodest(j) + 3.0d0*boxdim/4.0d0
+            
             rsum1 = 0.0d0
             rsum2 = 0.0d0
             rsum3 = 0.0d0
             rsum4 = 0.0d0
+
             do i = 1,nnodes
                dx = xi1 - xnodes(i)
                rsum1 = rsum1 +
-     1         legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1             legev(m,i)*exp(-dx*dx/delta)*whts(i)
+               
                dx = xi2 - xnodes(i)
                rsum2 = rsum2 +
-     1         legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1             legev(m,i)*exp(-dx*dx/delta)*whts(i)
+
                dx = xi3 - xnodes(i)
                rsum3 = rsum3 +
-     1         legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1             legev(m,i)*exp(-dx*dx/delta)*whts(i)
+               
                dx = xi4 - xnodes(i)
                rsum4 = rsum4 +
-     1         legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1             legev(m,i)*exp(-dx*dx/delta)*whts(i)
             enddo
+            
             tab_stob(m,j,1) = rsum1
             tab_stob(m,j,2) = rsum2
             tab_stob(m,j,3) = rsum3
@@ -684,19 +695,22 @@ c              int_{source box} P_n(x) exp( (\xi_j -x)^2/delta)
 c              where boxdim is the box dimension of TARGET BOX 
 c              at current level in tree hierarchy and 
 c              \xi_j is either on 
-c              [-D,-D/2]   -> tab_btos(n,n,1)
-c              [-D/2,0]    -> tab_btos(n,n,2)
-c              [0,D/2]     -> tab_btos(n,n,3)
-c              [D/2,D]     -> tab_btos(n,n,4)
+c              [-2D,-D]    -> tab_btos(n,n,1)
+c              [ -D, 0]    -> tab_btos(n,n,2)
+c              [  0, D]    -> tab_btos(n,n,3)
+c              [  D,2D]    -> tab_btos(n,n,4)
+c              
+c     Here we assume that the source box is centered at the origin.        
+c              
 c              
 c      _____ _____ ____  
 c     |     |     |    | 
-c     |     |     |    | 
+c     |  A  |     |    | 
 c     |_____|_____|____| 
-c     |     |A |  |    | For target points in large box B, of
-c     |     |--|--| B  | dimension D, adjacent small box centers 
+c     |     |B |  |    | For target points in small target box B, of
+c     |     |--|--|    | dimension D, adjacent large source box A centers 
 c     |_____|__|__|____| can be offset by one of -3D/2,-D/2,D/2,3D/2
-c     |     |     |    | in either x or y.
+c     |     |     |    | in either x, y, or z.
 c     |     |     |    |  
 c     |_____|_____|____|   
 c                          
@@ -705,7 +719,7 @@ c     INPUT:
 c     n        dimension of coeff array
 c     nnodes   number of nodes used in numerical quadrature
 c     delta    Gaussian variance
-c     boxdim   box dimension at current level
+c     boxdim   target box dimension at current level
 c
 c     OUTPUT:
 c     tab_stob 

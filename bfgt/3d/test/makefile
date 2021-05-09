@@ -28,7 +28,9 @@ endif
 ifeq ($(HOST),linux-gfortran)
 FC = gfortran
 FFLAGS = -fPIC -O3 -march=native -funroll-loops -ftree-vectorize -ffast-math -c -w
+FFLAGS = -fPIC -O3 -march=native -funroll-loops -ftree-vectorize -ffast-math -std=legacy -c -w
 FLINK = gfortran -w -o $(EXEC) $(ABSDYNLIB) $(LIBSFFT)
+FLINK = gfortran -o $(EXEC) $(ABSDYNLIB) $(LIBSFFT)
 FEND = -lblas -llapack
 #FEND = -lopenblas -L/usr/local/opt/openblas/lib 
 endif

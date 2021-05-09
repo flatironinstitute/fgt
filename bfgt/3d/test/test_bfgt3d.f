@@ -26,13 +26,13 @@
 c
 c      initialize function parameters
 c
-      delta = 1d-2
+      delta = 1d-3
       boxlen = 1.0d0
       
       rsig = 1.0d0/13.0d0
 cc      rsig = 0.005d0
 
-      nd = 1
+      nd = 2
       dpars(1) = 0.4d0
       dpars(2) = 0.6d0
       dpars(3) = 0.55d0
@@ -45,7 +45,7 @@ cc      rsig = 0.005d0
 
       dpars(8) = rsig*2
 
-      norder = 8
+      norder = 16
       iptype = 0
       eta = 2
 
@@ -102,7 +102,7 @@ C$     t1 = omp_get_wtime()
      2   pot,timeinfo,tprecomp)
       call cpu_time(t2) 
 C$     t2 = omp_get_wtime()      
-      call prin2('time taken in fmm=*',t2-t1,1)
+      call prin2('time taken in fgt=*',t2-t1,1)
 
       nlfbox = 0
       do ilevel=1,nlevels
@@ -144,8 +144,8 @@ C$     t2 = omp_get_wtime()
 
 
       erra = sqrt(erra/ra)
-      call prin2('erra=*',erra,1)
-      call prin2('ra=*',ra,1)
+      call prin2('relative l2 error=*',erra,1)
+cccc      call prin2('ra=*',ra,1)
 
       stop
       end

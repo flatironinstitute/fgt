@@ -172,11 +172,11 @@ endif
 
 # SOURCE FILE LIST
 #
-vpath %.f .:./common
+vpath %.f .:../src:../src/common
 
 FMODS = 
 
-FSRCS = volint3d_dr.f fgt3dvolrouts.f fgt2dvolrouts.f g3drouts.f legeexps.f prini.f legetens.f
+FSRCS = volint3d_dr.f fgt3dvolrouts.f fgt2dvolrouts.f g3drouts.f legeexps.f prini_new.f legetens.f
 
 ifeq ($(WITH_SECOND),1) 
 FSRCS += second-r8.f

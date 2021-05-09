@@ -57,7 +57,10 @@ C
       targ(1) = 2.0d0
       targ(2) = 2.1d0
       targ(3) = 2.3d0
-      delta = 0.8d0
+      targ(1) = center(1)
+      targ(2) = center(2)
+      targ(3) = center(3)
+      delta = 8d-1
       rsum = 0.0d0
       do i=1,n
       do j=1,n
@@ -98,14 +101,14 @@ ccc      call prin2(' Legendre expansion for f is *',coeff,n*n)
       call prin2(' ts is *',ts,npw)
       nnodes = 100
       call mk_leg2pw(n,npw,nnodes,ws,ts,delta,boxdim,tab_leg2pw)
-      call prin2(' tab_leg2pw is *',tab_leg2pw,n*npw*2)
+cccc      call prin2(' tab_leg2pw is *',tab_leg2pw,n*npw*2)
       t0 = second()
-      do ii = 1,1000
+      do ii = 1,1
          call leg3d_to_pw(nd,n,coeff,npw,ff,ff2,tab_leg2pw,pwexp)
       enddo
       t1 = second()
-      call prin2(' time for n*n*10000 is *',t1-t0,1)
-      call prin2(' pwexp is *',pwexp,npw*npw*npw)
+      call prin2(' time for n*n*n*1000 is *',t1-t0,1)
+cccc      call prin2(' pwexp is *',pwexp,npw*npw*npw)
       call g3dpwevalp_vec(nd,delta,center,npw,ws,ts,
      1              pwexp,targ,ntarg,pot)
       call prin2(' pot = *',pot,1)

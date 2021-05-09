@@ -1,16 +1,23 @@
 c-----------------------------------------------------------------------------
+c     This file contains subroutines determining the proper number terms
+c     for the expansions used in the FGT.
 c
-c      g3dhlterms - determine number of terms in Hermite/local expansions 
+c
+c
+c     fgthlterms - determine number of terms in Hermite/local expansions 
 c           for boxes of size "bsize" with Gaussian variance "delta".
 c
-c      g3dpwterms - determine number of terms in the plane wave expansions 
+c     fgtpwterms - determine number of terms in the plane wave expansions 
 c           for boxes of size "bsize" with Gaussian variance "delta".
+c
+c     get_pwnodes : returns PW weights and nodes, midpoint rule is used
+c                   so the number is always an even number!
 c
 c-----------------------------------------------------------------------------
 c
 c
 c
-      subroutine g3dhlterms(ndim,bsize,delta,eps,nterms)
+      subroutine fgthlterms(ndim,bsize,delta,eps,nterms)
 c      
 c     Determine the number of terms in the Taylor/Hermite expansions 
 c     for boxes with side length = bsize
@@ -62,7 +69,7 @@ c
 c
 c
 c
-      subroutine g3dpwterms(bsize,delta,eps,pmax,npw)
+      subroutine fgtpwterms(bsize,delta,eps,pmax,npw)
 c      
 c     Determine the number of terms in the plane wave expansions 
 c     for boxes with side length = bsize
@@ -112,7 +119,7 @@ c
       rmax = bsize/sqrt(delta)
 
       d = sqrt(log(1.0d0/eps))
-cccc      print *, 'in g3dpwterms, rmax/d=',rmax/d
+cccc      print *, 'in fgtpwterms, rmax/d=',rmax/d
       pmax = 2.0d0*d
 
       h = 2*pi/(rmax+d)
@@ -129,5 +136,37 @@ c
 c
 c
 c
+c*********************************************************************
+C
+C get plane wave approximation nodes and weights
+C
+C*********************************************************************
+      subroutine get_pwnodes(pmax,npw,ws,ts)
+C
+C     Get planewave exp weights,nodes
+C
+C     midpoint rule is used. Probably should switch back to the 
+C     trapezoidal rule for the NUFFT code so that we could get
+c     a factor of 2 from NUFFTs.
+c      
+      implicit real *8 (a-h,o-z)
+      real *8 ws(-npw/2:npw/2-1),ts(-npw/2:npw/2-1)
+
+      pi = 4.0d0*datan(1.0d0)
+      npw2=npw/2
+      h = pmax/npw2
+      w = h/(2.0d0*dsqrt(pi))
+
+      do j =-npw2,npw2-1
+         ts(j) = (j+0.5d0)*h
+         ws(j) = w*dexp(-ts(j)*ts(j)/4)
+      enddo
+c
+      return
+      end
+C
+C
+c
+C
 
       

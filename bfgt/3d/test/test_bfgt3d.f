@@ -26,10 +26,10 @@
 c
 c      initialize function parameters
 c
-      delta = 1d-3
+      delta = 2d-3
       boxlen = 1.0d0
       
-      rsig = 1.0d0/13.0d0
+      rsig = 1.0d0/30.0d0
 cc      rsig = 0.005d0
 
       nd = 2

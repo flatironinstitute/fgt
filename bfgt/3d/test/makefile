@@ -7,17 +7,6 @@ HOST=linux-gfortran
 #HOST=linux-gfortran-prof
 #HOST=linux-gfortran-openmp
 
-LIBS = -lm
-DYLIBS = -lm
-F2PYDYLIBS = -lm -lblas -llapack
-
-FINUFFT = /home/shidong/finufft
-ABSDYNLIB = $(FINUFFT)/lib/libfinufft.so
-# FFTW base name, and math linking...
-FFTWNAME = fftw3
-
-LIBSFFT := -l$(FFTWNAME)  $(LIBS)
-
 ifeq ($(HOST),osx)
 FC = gfortran
 FFLAGS = -O3 -march=native --openmp -funroll-loops -c -w
@@ -28,9 +17,7 @@ endif
 ifeq ($(HOST),linux-gfortran)
 FC = gfortran
 FFLAGS = -fPIC -O3 -march=native -funroll-loops -ftree-vectorize -ffast-math -c -w
-FFLAGS = -fPIC -O3 -march=native -funroll-loops -ftree-vectorize -ffast-math -std=legacy -c -w
-FLINK = gfortran -w -o $(EXEC) $(ABSDYNLIB) $(LIBSFFT)
-FLINK = gfortran -o $(EXEC) $(ABSDYNLIB) $(LIBSFFT)
+FLINK = gfortran -w -o $(EXEC)
 FEND = -lblas -llapack
 #FEND = -lopenblas -L/usr/local/opt/openblas/lib 
 endif
@@ -71,14 +58,12 @@ SOURCES =  test_bfgt3d.f \
   $(SRC)/common/voltab3d.f \
   $(SRC)/common/hkrand.f \
   $(SRC)/common/dlaran.f \
-  $(SRC)/bfgt3d.f \
-  $(SRC)/g3dterms.f \
-  $(SRC)/g3drouts.f \
-  $(SRC)/fgt2dvolrouts.f \
-  $(SRC)/fgt3dvolrouts.f \
   $(SRC)/common/tree_routs3d.f \
   $(SRC)/common/tree_vol_coeffs2.f \
-#  $(SRC)/tree_vol.f \
+  $(SRC)/bfgt3d.f \
+  $(SRC)/fgtterms.f \
+  $(SRC)/fgtvolrouts.f \
+  $(SRC)/g3dvolrouts.f \
 
 ifeq ($(WITH_SECOND),1)
 SOURCES += $(SRC)/second-r8.f

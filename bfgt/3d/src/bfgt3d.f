@@ -124,7 +124,7 @@ c     compute the length of plane wave expansion
       npw=0
       if (npwlevel.ge.0.and.npwlevel.le.nlevels) then
          bsize=2*boxsize(npwlevel)
-         call g3dpwterms(bsize,delta,eps,pmax,npw)
+         call fgtpwterms(bsize,delta,eps,pmax,npw)
       endif
       call prinf(' npw =*',npw,1)
 c       

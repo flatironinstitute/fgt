@@ -620,8 +620,8 @@ c
      4       itree(iptr(7)))
       endif
 
-      call prinf('nboxes0=*',nboxes0,1)
-      call prinf('nlevels=*',nlevels,1)
+cccc      call prinf('nboxes0=*',nboxes0,1)
+cccc      call prinf('nlevels=*',nlevels,1)
       return
       end
 c

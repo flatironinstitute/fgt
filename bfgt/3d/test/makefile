@@ -67,15 +67,15 @@ SOURCES =  test_bfgt3d.f \
   $(SRC)/common/legeexps.f \
   $(SRC)/common/legetens.f \
   $(SRC)/common/voltab3d.f \
+  $(SRC)/common/hkrand.f \
+  $(SRC)/common/dlaran.f \
   $(SRC)/bfgt3d.f \
   $(SRC)/g3dterms.f \
   $(SRC)/g3drouts.f \
   $(SRC)/fgt2dvolrouts.f \
   $(SRC)/fgt3dvolrouts.f \
-  $(SRC)/tree_routs3d.f \
-  $(SRC)/common/hkrand.f \
-  $(SRC)/common/dlaran.f \
-  $(SRC)/tree_vol_coeffs2.f \
+  $(SRC)/common/tree_routs3d.f \
+  $(SRC)/common/tree_vol_coeffs2.f \
 #  $(SRC)/tree_vol.f \
 
 ifeq ($(WITH_SECOND),1)

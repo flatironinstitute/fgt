@@ -124,7 +124,7 @@ c
       integer nbmax,nlmax,npbox,npc
       real *8, allocatable :: grid(:,:),qwts(:)
       real *8, allocatable:: xq(:),wts(:),umat(:,:),vmat(:,:)
-      real *8 xyz(3)
+      real *8 xyz(2)
       real *8, allocatable :: wts3(:),xref3(:,:),umat3(:,:)
       real *8 rintl(0:200)
       real *8 rint
@@ -147,9 +147,9 @@ c
 
       
       allocate(laddr(2,0:nlmax),ilevel(nbmax),iparent(nbmax))
-      allocate(nchild(nbmax),ichild(8,nbmax))
+      allocate(nchild(nbmax),ichild(4,nbmax))
 
-      allocate(fvals(nd,norder**3,nbmax),centers(3,nbmax))
+      allocate(fvals(nd,norder**2,nbmax),centers(2,nbmax))
 
       allocate(rintbs(nbmax))
 
@@ -161,18 +161,17 @@ c
       ilevel(1) = 0
       iparent(1) = -1
       nchild(1) = 0
-      do i=1,8
+      do i=1,4
         ichild(i,1) = -1
       enddo
 
       centers(1,1) = 0
       centers(2,1) = 0
-      centers(3,1) = 0
 
 c
 c
-      npbox = norder**3
-      allocate(grid(3,npbox))
+      npbox = norder**2
+      allocate(grid(2,npbox))
 c
 c     Generate a grid on the box [-1/2,1/2]^3
 c
@@ -186,13 +185,12 @@ c
         xq(i) = xq(i)/2
       enddo
 
-      call mesh3d(xq,norder,xq,norder,xq,norder,grid)
+      call mesh2d(xq,norder,xq,norder,grid)
 
-
-      npols = norder**3
-      allocate(wts3(npbox),xref3(3,npbox))
+      npols = norder**2
+      allocate(wts3(npbox),xref3(2,npbox))
       itype = 1
-      call legetens_exps_3d(itype,norder,'f',xref3,umat3,npols,
+      call legetens_exps_2d(itype,norder,'f',xref3,umat3,npols,
      1   vmat,1,wts3)
       
 c
@@ -208,12 +206,10 @@ c
 c   note extra factor of 8 sincee wts3 are on [-1,1]^3 
 c   as opposed to [-1/2,1/2]^3
 c
-      rsc = boxlen**3/8
-
+      rsc = boxlen**2/4
       do i=1,npbox
         xyz(1) = grid(1,i)*boxlen
         xyz(2) = grid(2,i)*boxlen
-        xyz(3) = grid(3,i)*boxlen
         call fun(nd,xyz,dpars,zpars,ipars,fvals(1,i,1))
         if(iptype.eq.0) then
           do idim=1,nd
@@ -251,13 +247,13 @@ c
 
         nbloc = ilastbox-ifirstbox+1
 
-        allocate(fval1(nd,norder**3,8,nbloc))
-        allocate(centerstmp(3,8,nbloc))
+        allocate(fval1(nd,norder**2,4,nbloc))
+        allocate(centerstmp(2,4,nbloc))
         allocate(irefinebox(nbloc))
 
         
-        if(iptype.eq.2) rsc = sqrt(1.0d0/boxsize(0)**3)
-        if(iptype.eq.1) rsc = (1.0d0/boxsize(0)**3)
+        if(iptype.eq.2) rsc = sqrt(1.0d0/boxsize(0)**2)
+        if(iptype.eq.1) rsc = (1.0d0/boxsize(0)**2)
         if(iptype.eq.0) rsc = 1.0d0
 
         rsc = rsc*rint
@@ -276,7 +272,7 @@ c
 
         nbadd = 0 
         do i=1,nbloc
-          if(irefinebox(i).eq.1) nbadd = nbadd+8
+          if(irefinebox(i).eq.1) nbadd = nbadd+4
         enddo
 
         nbtot = nbctr+nbadd
@@ -286,8 +282,8 @@ c         if current memory is not sufficient reallocate
 c
         if(nbtot.gt.nbmax) then
           print *, "Reallocating"
-          allocate(centers2(3,nbmax),ilevel2(nbmax),iparent2(nbmax))
-          allocate(nchild2(nbmax),ichild2(8,nbmax))
+          allocate(centers2(2,nbmax),ilevel2(nbmax),iparent2(nbmax))
+          allocate(nchild2(nbmax),ichild2(4,nbmax))
           allocate(fvals2(nd,npbox,nbmax),rintbs2(nbmax))
 
           call vol_tree_copy(nd,nbctr,npbox,centers,ilevel,iparent,
@@ -298,8 +294,8 @@ c
           deallocate(centers,ilevel,iparent,nchild,ichild,fvals,rintbs)
 
           nbmax = nbtot
-          allocate(centers(3,nbmax),ilevel(nbmax),iparent(nbmax))
-          allocate(nchild(nbmax),ichild(8,nbmax),fvals(nd,npbox,nbmax))
+          allocate(centers(2,nbmax),ilevel(nbmax),iparent(nbmax))
+          allocate(nchild(nbmax),ichild(4,nbmax),fvals(nd,npbox,nbmax))
           allocate(rintbs(nbmax))
 
           call vol_tree_copy(nd,nbctr,npbox,centers2,ilevel2,iparent2,
@@ -321,7 +317,7 @@ c
      2      boxsize(ilev+1),nbctr,ilev+1,ilevel,iparent,nchild,ichild)
 
 
-          rsc = boxsize(ilev+1)**3/8
+          rsc = boxsize(ilev+1)**2/4
           call update_rints(nd,npbox,nbmax,fvals,ifirstbox,nbloc,
      1       iptype,nchild,ichild,wts3,rsc,rintbs,rint)
           
@@ -341,11 +337,11 @@ c
 
       if(nlevels.ge.2) then
 
-        nbtot = 16*nboxes
+        nbtot = 8*nboxes
         if(nbtot.gt.nbmax) then
           print *, "Reallocating"
-          allocate(centers2(3,nbmax),ilevel2(nbmax),iparent2(nbmax))
-          allocate(nchild2(nbmax),ichild2(8,nbmax))
+          allocate(centers2(2,nbmax),ilevel2(nbmax),iparent2(nbmax))
+          allocate(nchild2(nbmax),ichild2(4,nbmax))
           allocate(fvals2(nd,npbox,nbmax),rintbs2(nbmax))
 
           call vol_tree_copy(nd,nboxes,npbox,centers,ilevel,iparent,
@@ -356,8 +352,8 @@ c
           deallocate(centers,ilevel,iparent,nchild,ichild,fvals,rintbs)
 
           nbmax = nbtot
-          allocate(centers(3,nbmax),ilevel(nbmax),iparent(nbmax))
-          allocate(nchild(nbmax),ichild(8,nbmax),fvals(nd,npbox,nbmax))
+          allocate(centers(2,nbmax),ilevel(nbmax),iparent(nbmax))
+          allocate(nchild(nbmax),ichild(4,nbmax),fvals(nd,npbox,nbmax))
           allocate(rintbs(nbmax))
 
           call vol_tree_copy(nd,nboxes,npbox,centers2,ilevel2,iparent2,
@@ -370,11 +366,11 @@ c
         endif
 
         allocate(nnbors(nbmax))
-        allocate(nbors(27,nbmax))
+        allocate(nbors(9,nbmax))
 
         do i=1,nboxes
           nnbors(i) = 0
-          do j=1,27
+          do j=1,9
             nbors(j,i) = -1
           enddo
         enddo
@@ -391,7 +387,7 @@ c
         endif
       endif
 
-      ltree = 39*nboxes + 2*(nlevels+1)
+      ltree = 17*nboxes + 2*(nlevels+1) + 1
 
       return
       end
@@ -476,7 +472,7 @@ c
       integer nlevels,nboxes,ltree,norder
       integer iptr(8)
       integer itree(ltree),ier
-      real *8 fvals(nd,norder**3,nboxes),centers(3,nboxes)
+      real *8 fvals(nd,norder**2,nboxes),centers(2,nboxes)
       real *8, allocatable :: fval1(:,:,:,:),centerstmp(:,:,:)
       integer, allocatable :: irefinebox(:)
       real *8 boxsize(0:nlevels)
@@ -485,7 +481,7 @@ c      real *8 vmat(norder,norder)
       real *8, allocatable :: xq(:),wts(:),umat(:,:),vmat(:,:)
       real *8, allocatable :: grid(:,:),ximat(:,:),qwts(:)
       real *8 rintl(0:nlevels)
-      real *8 xyz(3)
+      real *8 xyz(2)
 
       integer i,ilev,irefine,itype,nbmax,nlmax,npbox,npc,ii
       integer ifirstbox,ilastbox,nbctr,nbloc
@@ -504,9 +500,9 @@ c
       iptr(3) = iptr(2) + nboxes
       iptr(4) = iptr(3) + nboxes
       iptr(5) = iptr(4) + nboxes
-      iptr(6) = iptr(5) + 8*nboxes
+      iptr(6) = iptr(5) + 4*nboxes
       iptr(7) = iptr(6) + nboxes
-      iptr(8) = iptr(7) + 27*nboxes
+      iptr(8) = iptr(7) + 9*nboxes
 
 
 
@@ -514,7 +510,6 @@ c
 
       centers(1,1) = 0
       centers(2,1) = 0
-      centers(3,1) = 0
 
 c
 c      set tree info for level 0
@@ -524,13 +519,13 @@ c
       itree(iptr(2)) = 0
       itree(iptr(3)) = -1
       itree(iptr(4)) = 0
-      do i=1,8
+      do i=1,4
         itree(iptr(5)+i-1) = -1
       enddo
 c
 c
-      npbox = norder**3
-      allocate(grid(3,npbox))
+      npbox = norder**2
+      allocate(grid(2,npbox))
 c
 c     Generate a grid on the box [-1/2,1/2]^3
 c
@@ -541,13 +536,12 @@ c
         xq(i) = xq(i)/2
       enddo
 
-      call mesh3d(xq,norder,xq,norder,xq,norder,grid)
-      npols = norder**3
+      call mesh2d(xq,norder,xq,norder,grid)
+      npols = norder**2
 
       do i=1,npbox
         xyz(1) = grid(1,i)*boxlen
         xyz(2) = grid(2,i)*boxlen
-        xyz(3) = grid(3,i)*boxlen
         call fun(nd,xyz,dpars,zpars,ipars,fvals(1,i,1))
       enddo
 
@@ -565,13 +559,13 @@ c
 
         nbloc = ilastbox-ifirstbox+1
 
-        allocate(fval1(nd,norder**3,8,nbloc))
-        allocate(centerstmp(3,8,nbloc))
+        allocate(fval1(nd,norder**2,4,nbloc))
+        allocate(centerstmp(2,4,nbloc))
         allocate(irefinebox(nbloc))
 
         
-        if(iptype.eq.2) rsc = sqrt(1.0d0/boxsize(0)**3)
-        if(iptype.eq.1) rsc = (1.0d0/boxsize(0)**3)
+        if(iptype.eq.2) rsc = sqrt(1.0d0/boxsize(0)**2)
+        if(iptype.eq.1) rsc = (1.0d0/boxsize(0)**2)
         if(iptype.eq.0) rsc = 1.0d0
         rsc = rsc*rintl(ilev)
         call vol_tree_find_box_refine(nd,iptype,eta,eps,zk,norder,npbox,
@@ -602,8 +596,8 @@ c
 
       do i=1,nboxes0
         itree(iptr(6)+i-1) = 0
-        do j=1,27
-          itree(iptr(7)+27*(i-1)+j-1) = -1
+        do j=1,9
+          itree(iptr(7)+9*(i-1)+j-1) = -1
         enddo
       enddo
 
@@ -641,7 +635,7 @@ c
       real *8, allocatable :: fcoefs(:,:,:),rmask(:)
       integer, allocatable :: iind2p(:,:)
       real *8 alpha,beta,boxsize,rsum
-      integer irefinebox(nbloc),xind(8),yind(8),zind(8)
+      integer irefinebox(nbloc),xind(4),yind(4)
       complex *16 zk
       integer ifirstbox
 
@@ -649,9 +643,8 @@ c
 
       integer i,j,k,l,ibox,ifunif,i1
       real *8 rscale2,err,bs,bs2
-      data xind/-1,1,-1,1,-1,1,-1,1/ 
-      data yind/-1,-1,1,1,-1,-1,1,1/ 
-      data zind/-1,-1,-1,-1,1,1,1,1/ 
+      data xind/-1,1,-1,1/
+      data yind/-1,-1,1,1/
 
       character *1 transa,transb
 
@@ -664,8 +657,8 @@ c
 
 
       allocate(fcoefs(nd,npols,nbloc))
-      allocate(iind2p(3,npols))
-      call legetens_ind2pow_3d(norder-1,'f',iind2p)
+      allocate(iind2p(2,npols))
+      call legetens_ind2pow_2d(norder-1,'f',iind2p)
 
       
       allocate(rmask(npols))
@@ -673,7 +666,7 @@ c
       rsum = 0
       do i=1,npols
         rmask(i) = 0.0d0
-        i1=iind2p(1,i)+iind2p(2,i)+iind2p(3,i)
+        i1=iind2p(1,i)+iind2p(2,i)
         if(i1.eq.norder-1) then
           rmask(i) = 1.0d0
           rsum = rsum + 1
@@ -707,15 +700,12 @@ C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,err)
 
         ibox = ifirstbox + i-1
 
-        call legval2coefs_3d(nd,norder,fvals(1,1,ibox),
+        call legval2coefs_2d(nd,norder,fvals(1,1,ibox),
      1      fcoefs(1,1,i),umat)
-
         call fun_err(nd,npols,fcoefs(1,1,i),rmask,
      1     iptype,rscale2,err)
      
         err = err/rsum
-
-        
         if(err.gt.eps*rsc) then
           irefinebox(i) = 1
         endif
@@ -757,21 +747,20 @@ c
       complex *16 zpars(*)
       real *8 fvals(nd,npbox,nboxes)
       integer nboxes,nbloc,nbctr,nlctr
-      real *8 grid(3,npbox),bs,xyz(3)
-      real *8 centers(3,nboxes)
+      real *8 grid(2,npbox),bs,xyz(2)
+      real *8 centers(2,nboxes)
       integer ilevel(nboxes),iparent(nboxes)
-      integer ichild(8,nboxes),nchild(nboxes)
+      integer ichild(4,nboxes),nchild(nboxes)
       integer irefinebox(nbloc)
       integer ifirstbox
       integer, allocatable :: isum(:)
 
       integer i,ibox,nel0,j,l,jbox,nel1,nbl
-      integer xind(8),yind(8),zind(8)
+      integer xind(4),yind(4)
 
       real *8 bsh
-      data xind/-1,1,-1,1,-1,1,-1,1/ 
-      data yind/-1,-1,1,1,-1,-1,1,1/ 
-      data zind/-1,-1,-1,-1,1,1,1,1/
+      data xind/-1,1,-1,1/
+      data yind/-1,-1,1,1/
 
 
       external fun
@@ -786,23 +775,21 @@ C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,nbl,j,jbox,l,xyz)
       do i = 1,nbloc
         ibox = ifirstbox + i-1
         if(irefinebox(i).eq.1) then
-          nbl = nbctr + (isum(i)-1)*8
-          nchild(ibox) = 8
-          do j=1,8
+          nbl = nbctr + (isum(i)-1)*4
+          nchild(ibox) = 4
+          do j=1,4
             jbox = nbl+j
             centers(1,jbox) = centers(1,ibox)+xind(j)*bsh
             centers(2,jbox) = centers(2,ibox)+yind(j)*bsh
-            centers(3,jbox) = centers(3,ibox)+zind(j)*bsh
 
             do l=1,npbox
               xyz(1) = centers(1,jbox) + grid(1,l)*bs
               xyz(2) = centers(2,jbox) + grid(2,l)*bs
-              xyz(3) = centers(3,jbox) + grid(3,l)*bs
               call fun(nd,xyz,dpars,zpars,ipars,fvals(1,l,jbox))
             enddo
             iparent(jbox) = ibox
             nchild(jbox) = 0
-            do l=1,8
+            do l=1,4
               ichild(l,jbox) = -1
             enddo
             ichild(j,ibox) = jbox
@@ -812,7 +799,7 @@ C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,nbl,j,jbox,l,xyz)
       enddo
 C$OMP END PARALLEL DO      
 
-      nbctr = nbctr + isum(nbloc)*8
+      nbctr = nbctr + isum(nbloc)*4
 
 
       return
@@ -963,7 +950,7 @@ c
       integer, intent(in) :: nd,npbox,nbmax
       real *8, intent(in) :: fvals(nd,npbox,nbmax)
       integer, intent(in) :: ifirstbox,nbloc,iptype
-      integer, intent(in) :: nchild(nbmax),ichild(8,nbmax)
+      integer, intent(in) :: nchild(nbmax),ichild(4,nbmax)
       real *8, intent(in) :: wts(npbox),rsc
       real *8, intent(inout) :: rintbs(nbmax),rint
 
@@ -976,7 +963,7 @@ c
         do i=1,nbloc
           ibox = ifirstbox+i-1
           if(nchild(ibox).gt.0) then
-            do j=1,8
+            do j=1,4
               jbox = ichild(j,ibox)
               rintbs(jbox) = maxval(fvals(1:nd,1:npbox,jbox))
               if(rintbs(jbox).gt.rint) rint = rintbs(jbox)
@@ -1000,7 +987,7 @@ c
         do i=1,nbloc
           ibox = ifirstbox+i-1
           if(nchild(ibox).gt.0) then
-            do j=1,8
+            do j=1,4
               jbox = ichild(j,ibox)
               rintbs(jbox) = 0
               do l=1,npbox
@@ -1031,7 +1018,7 @@ c
         do i=1,nbloc
           ibox = ifirstbox+i-1
           if(nchild(ibox).gt.0) then
-            do j=1,8
+            do j=1,4
               jbox = ichild(j,ibox)
               rintbs(jbox) = 0
               do l=1,npbox
@@ -1062,15 +1049,13 @@ c
       ipt = 1
       do i=1,norder
         do j=1,norder
-          do k=1,norder
-            qwts(ipt) = wts(i)*wts(j)*wts(k)/8
-            ipt = ipt+1
-          enddo
+           qwts(ipt) = wts(i)*wts(j)/4
+           ipt = ipt+1
         enddo
       enddo
 
-      npbox = norder**3
-      do i=1,7
+      npbox = norder**2
+      do i=1,3
         do j=1,npbox
           qwts(i*npbox+j) = qwts(j)
         enddo
@@ -1091,11 +1076,11 @@ c
 
        implicit none
        integer nd,nb,npb
-       real *8 centers(3,nb),centers2(3,nb)
+       real *8 centers(2,nb),centers2(2,nb)
        integer ilevel(nb),ilevel2(nb)
        integer iparent(nb),iparent2(nb)
        integer nchild(nb),nchild2(nb)
-       integer ichild(8,nb),ichild2(8,nb)
+       integer ichild(4,nb),ichild2(4,nb)
        real *8 fvals(nd,npb,nb),fvals2(nd,npb,nb)
 
        integer i,j,nel
@@ -1107,11 +1092,10 @@ C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j)
        do i=1,nb
          centers2(1,i) = centers(1,i)
          centers2(2,i) = centers(2,i)
-         centers2(3,i) = centers(3,i)
          ilevel2(i) = ilevel(i)
          iparent2(i) = iparent(i)
          nchild2(i) = nchild(i)
-         do j=1,8
+         do j=1,4
            ichild2(j,i) = ichild(j,i)
          enddo
        enddo
@@ -1137,12 +1121,12 @@ c
       implicit none
       integer nd,ipars(*),norder,npbox,nlevels,nboxes,nlmax
       integer nbmax
-      real *8 dpars(*),fvals(nd,npbox,nbmax),grid(3,npbox)
-      real *8 centers(3,nbmax),boxsize(0:nlmax)
+      real *8 dpars(*),fvals(nd,npbox,nbmax),grid(2,npbox)
+      real *8 centers(2,nbmax),boxsize(0:nlmax)
       complex *16 zpars(*)
       integer laddr(2,0:nlmax),ilevel(nbmax),iparent(nbmax)
-      integer nchild(nbmax),ichild(8,nbmax),nnbors(nbmax)
-      integer nbors(27,nbmax)
+      integer nchild(nbmax),ichild(4,nbmax),nnbors(nbmax)
+      integer nbors(9,nbmax)
       integer laddrtail(2,0:nlmax),isum
       integer, allocatable :: iflag(:)
 
@@ -1197,12 +1181,10 @@ c              eliminates the granddad
                if(nchild(jbox).eq.0.and.iflag(jbox).eq.0) then
                    xdis = centers(1,jbox) - centers(1,idad)
                    ydis = centers(2,jbox) - centers(2,idad)
-                   zdis = centers(3,jbox) - centers(3,idad)
                    ict = 0
                    if(abs(xdis).le.distest) ict = ict + 1
                    if(abs(ydis).le.distest) ict = ict + 1
-                   if(abs(zdis).le.distest) ict = ict + 1
-                   if(ict.eq.3) then
+                   if(ict.eq.2) then
                       iflag(jbox) = 1
                    endif
                endif
@@ -1247,12 +1229,10 @@ c                 eliminates the dad
                   if(nchild(jbox).eq.0.and.iflag(jbox).eq.0) then
                      xdis = centers(1,jbox) - centers(1,ibox)
                      ydis = centers(2,jbox) - centers(2,ibox)
-                     zdis = centers(3,jbox) - centers(3,ibox)
                      ict = 0
                      if(abs(xdis).le.distest) ict = ict + 1
                      if(abs(ydis).le.distest) ict = ict + 1
-                     if(abs(zdis).le.distest) ict = ict + 1
-                     if(ict.eq.3) then
+                     if(ict.eq.2) then
                         iflag(jbox) = 2
                      endif
                   endif
@@ -1312,7 +1292,7 @@ c     Compute colleague information again
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j)
       do i=1,nboxes
          nnbors(i) = 0
-         do j=1,27
+         do j=1,9
             nbors(j,i) = -1
          enddo
       enddo
@@ -1393,7 +1373,7 @@ c           Loop over the neighbors of the parent box
 c           to find out colleagues
             do i=1,nnbors(idad)
                 jbox = nbors(i,idad)
-                do j=1,8
+                do j=1,4
 c               ichild(j,jbox) is one of the children of the
 c               neighbors of the parent of the current
 c               box
@@ -1403,9 +1383,7 @@ c               Check if kbox is a nearest neighbor or in list 2
                       if((abs(centers(1,kbox)-centers(1,ibox)).le.
      1                   1.05*boxsize(ilev+1)).and.
      2                   (abs(centers(2,kbox)-centers(2,ibox)).le.
-     3                   1.05*boxsize(ilev+1)).and.
-     4                   abs(centers(3,kbox)-centers(3,ibox)).le.
-     5                   1.05*boxsize(ilev+1)) then
+     3                   1.05*boxsize(ilev+1))) then
                      
                          nnbors(ibox) = nnbors(ibox)+1
                          nbors(nnbors(ibox),ibox) = kbox
@@ -1427,7 +1405,7 @@ c     Compute colleague information again
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j)
       do i=1,nboxes
          nnbors(i) = 0
-         do j=1,27
+         do j=1,9
             nbors(j,i) = -1
          enddo
       enddo
@@ -1501,13 +1479,13 @@ c                 level restricted tree from adaptive tree
       implicit none
 c     Calling sequence variables and temporary variables
       integer nboxes,nlevels,npbox,nd
-      double precision centers(3,nboxes)
+      double precision centers(2,nboxes)
       integer laddr(2,0:nlevels), tladdr(2,0:nlevels)
       integer laddrtail(2,0:nlevels)
       integer ilevel(nboxes)
       integer iparent(nboxes)
       integer nchild(nboxes)
-      integer ichild(8,nboxes)
+      integer ichild(4,nboxes)
       integer iflag(nboxes)
       double precision fvals(nd,npbox,nboxes)
       
@@ -1524,8 +1502,8 @@ c     Temporary variables
       integer ibox,ilev, curbox,idim,nblev
 
       allocate(tilevel(nboxes),tiparent(nboxes),tnchild(nboxes))
-      allocate(tichild(8,nboxes),tiflag(nboxes),iboxtocurbox(nboxes))
-      allocate(tfvals(nd,npbox,nboxes),tcenters(3,nboxes))
+      allocate(tichild(4,nboxes),tiflag(nboxes),iboxtocurbox(nboxes))
+      allocate(tfvals(nd,npbox,nboxes),tcenters(2,nboxes))
 
       do ilev = 0,nlevels
          tladdr(1,ilev) = laddr(1,ilev)
@@ -1567,7 +1545,6 @@ c     Rearrange old arrays now
             nchild(curbox) = tnchild(ibox)
             centers(1,curbox) = tcenters(1,ibox)
             centers(2,curbox) = tcenters(2,ibox)
-            centers(3,curbox) = tcenters(3,ibox)
             do i=1,npbox
               do idim=1,nd
                 fvals(idim,i,curbox) = tfvals(idim,i,ibox)
@@ -1582,7 +1559,6 @@ c     Rearrange old arrays now
             ilevel(curbox) = tilevel(ibox)
             centers(1,curbox) = tcenters(1,ibox)
             centers(2,curbox) = tcenters(2,ibox)
-            centers(3,curbox) = tcenters(3,ibox)
             nchild(curbox) = tnchild(ibox)
             do i=1,npbox
               do idim=1,nd
@@ -1604,7 +1580,7 @@ c     using the mapping iboxtocurbox
          if(tiparent(ibox).eq.-1) iparent(iboxtocurbox(ibox)) = -1
          if(tiparent(ibox).gt.0) 
      1    iparent(iboxtocurbox(ibox)) = iboxtocurbox(tiparent(ibox))
-         do i=1,8
+         do i=1,4
             if(tichild(i,ibox).eq.-1) ichild(i,iboxtocurbox(ibox)) = -1
             if(tichild(i,ibox).gt.0) 
      1      ichild(i,iboxtocurbox(ibox)) = iboxtocurbox(tichild(i,ibox))
@@ -1667,10 +1643,10 @@ c
       implicit none
 c     Calling sequence variables
       integer curlev, nboxes, nlevels
-      integer laddr(2,0:nlevels),nchild(nboxes),ichild(8,nboxes)
-      integer nnbors(nboxes), nbors(27,nboxes)
+      integer laddr(2,0:nlevels),nchild(nboxes),ichild(4,nboxes)
+      integer nnbors(nboxes), nbors(9,nboxes)
       integer iflag(nboxes)
-      double precision centers(3,nboxes),boxsize(0:nlevels)
+      double precision centers(2,nboxes),boxsize(0:nlevels)
 
 c     Temporary variables
       integer i,j,k,l,ibox,jbox,kbox,lbox, ict
@@ -1694,18 +1670,16 @@ c              Note we do not need to exclude self from
 c              the list of colleagues as a self box which
 c              is flag++ does not have any children 
 c              and will not enter the next loop
-               do j=1,8
+               do j=1,4
                   kbox = ichild(j,jbox)
                   if(kbox.gt.0) then
                      if(nchild(kbox).gt.0) then
                         xdis = centers(1,kbox) - centers(1,ibox)
                         ydis = centers(2,kbox) - centers(2,ibox)
-                        zdis = centers(3,kbox) - centers(3,ibox)
                         ict = 0
                         if(abs(xdis).le.distest) ict = ict + 1
                         if(abs(ydis).le.distest) ict = ict + 1
-                        if(abs(zdis).le.distest) ict = ict + 1
-                        if(ict.eq.3) then
+                        if(ict.eq.2) then
                            iflag(ibox) = 1
                            goto 1111
                         endif
@@ -1740,9 +1714,9 @@ c
       integer nd,npbox,nboxes
       real *8 fvals(nd,npbox,nboxes)
       integer nbloc,nbctr,nlctr
-      real *8 centers(3,nboxes),bs,grid(3,npbox),xyz(3)
+      real *8 centers(2,nboxes),bs,grid(2,npbox),xyz(2)
       integer ilevel(nboxes),iparent(nboxes)
-      integer ichild(8,nboxes),nchild(nboxes)
+      integer ichild(4,nboxes),nchild(nboxes)
       integer iflag(nboxes)
       integer ifirstbox,ilastbox
       integer, allocatable :: isum(:)
@@ -1751,12 +1725,11 @@ c
       complex *16 zpars(*)
 
       integer i,ibox,nel,j,l,jbox,nbl,ii
-      integer xind(8),yind(8),zind(8)
+      integer xind(4),yind(4)
 
       real *8 bsh
-      data xind/-1,1,-1,1,-1,1,-1,1/ 
-      data yind/-1,-1,1,1,-1,-1,1,1/ 
-      data zind/-1,-1,-1,-1,1,1,1,1/
+      data xind/-1,1,-1,1/
+      data yind/-1,-1,1,1/
 
       external fun
 
@@ -1775,22 +1748,20 @@ C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,j,jbox,nbl,l)
 C$OMP$PRIVATE(xyz)
       do ibox = ifirstbox,ilastbox
         if(iflag(ibox).gt.0) then
-          nchild(ibox) = 8
-          nbl = nbctr + (isum(ibox-ifirstbox+1)-1)*8
-          do j=1,8
+          nchild(ibox) = 4
+          nbl = nbctr + (isum(ibox-ifirstbox+1)-1)*4
+          do j=1,4
             jbox = nbl+j
             centers(1,jbox) = centers(1,ibox)+xind(j)*bsh
             centers(2,jbox) = centers(2,ibox)+yind(j)*bsh
-            centers(3,jbox) = centers(3,ibox)+zind(j)*bsh
             do l=1,npbox
               xyz(1) = centers(1,jbox) + grid(1,l)*bs
               xyz(2) = centers(2,jbox) + grid(2,l)*bs
-              xyz(3) = centers(3,jbox) + grid(3,l)*bs
               call fun(nd,xyz,dpars,zpars,ipars,fvals(1,l,jbox))
             enddo
             iparent(jbox) = ibox
             nchild(jbox) = 0
-            do l=1,8
+            do l=1,4
               ichild(l,jbox) = -1
             enddo
             ichild(j,ibox) = jbox
@@ -1802,7 +1773,7 @@ C$OMP$PRIVATE(xyz)
       enddo
 C$OMP END PARALLEL DO
       
-      if(nbloc.gt.0) nbctr = nbctr + isum(nbloc)*8
+      if(nbloc.gt.0) nbctr = nbctr + isum(nbloc)*4
 
 
       return
@@ -1879,189 +1850,3 @@ c
 c
 c
 c
-      subroutine get_list1(nboxes,nlevels,itree,ltree,iptr,
-     1     centers,boxsize,nlist1,list1)
-      implicit real *8 (a-h,o-z)
-c
-c       this subroutine returns the list1 of a given a tree
-c
-c       input:
-c         nboxes - integer
-c            total number of boxes
-c         nlevels - integer
-c            number of levels
-c         itree - integer(ltree)
-c            the tree structure
-c         ltree - integer
-c            length of tree
-c         iptr - integer(8)
-c           iptr(1) - laddr
-c           iptr(2) - ilevel
-c           iptr(3) - iparent
-c           iptr(4) - nchild
-c           iptr(5) - ichild
-c           iptr(6) - ncoll
-c           iptr(7) - coll
-c           iptr(8) - ltree
-c         centers - real *8 (3,nboxes)
-c           centers of boxes in the tree structure
-c         boxsize - real *8 (0:nlevels)
-c           size of the boxes at each level
-c         
-c       output:
-c         nlist1 - integer(nboxes)
-c           number of boxes in list1
-c         list1 - integer(139,nboxes)
-c           list of boxes in list1
-c
-      integer nboxes,nlevels,itree(ltree),iptr(8),ltree
-      integer list1(139,nboxes),nlist1(nboxes)
-      real *8 centers(3,nboxes),boxsize(0:nlevels)
-      integer firstbox,lastbox,dad
-
-C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,j)
-      do ibox=1,nboxes
-        nlist1(ibox) = 0
-        do j=1,139
-          list1(j,ibox) = -1
-        enddo
-      enddo
-C$OMP END PARALLEL DO      
-    
-      if(itree(iptr(4)).eq.0) then
-        nlist1(1) = 1
-        list1(14,1) = 1
-        return
-      endif
-
-
-      do ilev=1,nlevels
-        firstbox = itree(iptr(1)+2*ilev)
-        lastbox = itree(iptr(1)+2*ilev+1)
-        distest0 = 1.05d0*(boxsize(ilev)+boxsize(ilev-1))/2.0d0
-C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,nchild,nnbors,i,jbox,nchildj,ix,iy,iz,iind)
-C$OMP$PRIVATE(j,kbox,xdis,ydis,zdis,dad)
-        do ibox=firstbox,lastbox
-          nc = itree(iptr(4)+ibox-1)
-          if(nc.eq.0) then
-            nnbors = itree(iptr(6)+ibox-1)
-            do i=1,nnbors
-              jbox = itree(iptr(7)+27*(ibox-1)+i-1)
-              nchildj = itree(iptr(4)+jbox-1)
-              if(nchildj.eq.0) then
-                nlist1(ibox) = nlist1(ibox)+1
-                
-                ix = (centers(1,jbox)-centers(1,ibox))/boxsize(ilev)
-                iy = (centers(2,jbox)-centers(2,ibox))/boxsize(ilev)
-                iz = (centers(3,jbox)-centers(3,ibox))/boxsize(ilev)
-
-                iind = (iz+1)*3*3 + (iy+1)*3 + ix+2
-                list1(iind,ibox) = jbox
-              else
-                do j=1,8
-                  distest = 1.05d0*(boxsize(ilev)+boxsize(ilev+1))/2.0d0
-                  kbox = itree(iptr(5)+(jbox-1)*8+j-1)
-                  if(kbox.gt.0) then
-                    xdis = centers(1,kbox)-centers(1,ibox)
-                    ydis = centers(2,kbox)-centers(2,ibox)
-                    zdis = centers(3,kbox)-centers(3,ibox)
-                    if(abs(xdis).lt.distest.and.abs(ydis).lt.distest.
-     1                  and.abs(zdis).lt.distest) then
-                      nlist1(ibox) = nlist1(ibox)+1
-                      ix = (xdis + boxsize(ilev)/4)/boxsize(ilev)*2.0d0
-                      iy = (ydis + boxsize(ilev)/4)/boxsize(ilev)*2.0d0
-                      iz = (zdis + boxsize(ilev)/4)/boxsize(ilev)*2.0d0
-
-                      ix = ix + 1
-                      iy = iy + 1
-                      iz = iz + 1
-
-                      call get_iind_list1(ix,iy,iz,iind)
-                      iind = iind + 27
-
-                      list1(iind,ibox) = kbox
-                    endif
-                  endif
-                enddo
-              endif
-            enddo
-c
-c
-c                compute list1 at level ilev-1
-c
-            dad = itree(iptr(3)+ibox-1)
-            nnbors = itree(iptr(6)+dad-1)
-            do i=1,nnbors
-              jbox = itree(iptr(7)+27*(dad-1)+i-1)
-              nchildj = itree(iptr(4)+jbox-1)
-              if(nchildj.eq.0) then
-                xdis = centers(1,jbox)-centers(1,ibox)
-                ydis = centers(2,jbox)-centers(2,ibox)
-                zdis = centers(3,jbox)-centers(3,ibox)
-
-                if(abs(xdis).lt.distest0.and.abs(ydis).lt.distest0.and.
-     1               abs(zdis).lt.distest0) then
-                  ix = (xdis - boxsize(ilev)/2.0d0)/boxsize(ilev)
-                  iy = (ydis - boxsize(ilev)/2.0d0)/boxsize(ilev)
-                  iz = (zdis - boxsize(ilev)/2.0d0)/boxsize(ilev)
-                  ix = ix + 2
-                  iy = iy + 2
-                  iz = iz + 2
-                  call get_iind_list1(ix,iy,iz,iind)
-                  iind = iind + 27 + 56
-                  nlist1(ibox) = nlist1(ibox)+1
-                  list1(iind,ibox) = jbox
-                endif
-              endif
-            enddo
-          endif
-        enddo
-C$OMP END PARALLEL DO         
-      enddo
-
-      return
-      end
-c
-c
-c
-c
-      subroutine get_iind_list1(ix,iy,iz,iind)
-      implicit none
-      integer ix,iy,iz,iind
-
-      iind = iz*16 + iy*4 + ix + 1
-      if(iz.ge.2) iind = iind-(iz-1)*4
-      if((iz.eq.1.or.iz.eq.2).and.iy.ge.2) iind = iind-(iy-1)*2
-      if((iz.eq.2.or.iz.eq.1).and.(iy.eq.2.or.iy.eq.1).and.ix.eq.3) 
-     1    iind = iind - 2
-       
-      return
-      end
-
-c
-c
-c
-c
-c 
-      subroutine get_list1boxes_type(itype,istart,iend,nboxes,
-     1   nlist1,list1,ijlist,n)
-      implicit real *8 (a-h,o-z)
-      integer itype,istart,iend,nlist1(nboxes),list1(139,nboxes),
-     1   ijlist(2,nboxes)
-
-      n = 0
-      do i=istart,iend
-        if(list1(itype,i).gt.0) then
-          n = n+1
-          ijlist(1,n) = i
-          ijlist(2,n) = list1(itype,i)
-        endif
-      enddo
-
-      return
-      end
-
-      
-      
-c-----------------------------------------------------------------

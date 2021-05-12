@@ -455,7 +455,7 @@ c     compute the tables converting planewave expansions to potential values
      1    wpwshift)
 
       nmax = nlevels-max(npwlevel,0)      
-      allocate(wpwmsshift(nexp,8,nmax))
+      allocate(wpwmsshift(nexp,4,nmax))
       xmin2 = boxsize(nlevels)/sqrt(delta)/2
       call merge_split_pw_matrices(xmin2,npw,ts,nmax,wpwmsshift)
 c     xmin is used in shiftpw subroutines to
@@ -507,8 +507,8 @@ c
      $   call prinf("=== STEP 1 (coefs -> mp) ====*",i,0)
       
       do 1100 ilev = nlevels,nlevstart,-1
-         nb=0
-         dt=0
+cccc         nb=0
+cccc         dt=0
 C
 C$OMP PARALLEL DO DEFAULT (SHARED)
 C$OMP$PRIVATE(ibox,nchild)
@@ -520,19 +520,19 @@ c              do nothing here
                nchild = itree(iptr(4)+ibox-1)
 c              Check if current box is a leaf box            
                if(nchild.eq.0) then
-                  nb=nb+1
-                  call cpu_time(t1)
+cccc                  nb=nb+1
+cccc                  call cpu_time(t1)
 c                 form PW expansion directly
                   call leg2d_to_pw(nd,norder,fcoefs(1,1,ibox),npw,
      1                ff,tab_leg2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
-                  call cpu_time(t2)
-                  dt=dt+t2-t1
+cccc                  call cpu_time(t2)
+cccc                  dt=dt+t2-t1
                endif
             endif
          enddo
 C$OMP END PARALLEL DO
  111     format ('ilev=', i1,4x, 'nb=',i6, 4x,'formpw=', f5.2)         
-         write(6,111) ilev,nb,dt
+cccc         write(6,111) ilev,nb,dt
 c     end of ilev do loop
  1100 continue
       
@@ -558,7 +558,7 @@ C$OMP$SCHEDULE(DYNAMIC)
 
             dx= (centers(1,ibox) - centers(1,jbox))
             dy= (centers(2,ibox) - centers(2,jbox))
-            if (dx.gt.0 .and. dy.gt.0 .and. dz.gt.0) then
+            if (dx.gt.0 .and. dy.gt.0) then
                k=1
             elseif (dx.gt.0 .and. dy.lt.0) then
                k=2
@@ -634,7 +634,7 @@ C$OMP$SCHEDULE(DYNAMIC)
              jbox = itree(iptr(5)+4*(ibox-1)+i-1)
              dx= centers(1,jbox) - centers(1,ibox)
              dy= centers(2,jbox) - centers(2,ibox)
-             if (dx.gt.0 .and. dy.gt.0 .and. dz.gt.0) then
+             if (dx.gt.0 .and. dy.gt.0) then
                 k=1
              elseif (dx.gt.0 .and. dy.lt.0) then
                 k=2
@@ -666,27 +666,27 @@ C$    time1=omp_get_wtime()
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,nchild)
 C$OMP$SCHEDULE(DYNAMIC)
-         call cpu_time(t1)
-         nb=0
-         dt=0
+cccc         call cpu_time(t1)
+cccc         nb=0
+cccc         dt=0
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
            if (ilev .eq. npwlevel .and. iflocal(ibox).eq.0) then
 c            do nothing here
            else    
              nchild = itree(iptr(4)+ibox-1)
              if(nchild.eq.0) then
-                nb=nb+1
+cccc                nb=nb+1
                 call cpu_time(t1)
                 call g2d_pw2pot(nd,norder,npw,rmlexp(iaddr(2,ibox)),
      1              gg,tab_pw2pot(1,1,ilev),pot(1,1,ibox))
-                call cpu_time(t2)
-                dt=dt+t2-t1
+cccc                call cpu_time(t2)
+cccc                dt=dt+t2-t1
              endif
            endif
 ccc    end of ibox loop        
         enddo
  222    format ('ilev=', i1,4x, 'nb=',i6, 4x,'pweval=', f5.2)         
-        write(6,222) ilev,nb,dt
+cccc        write(6,222) ilev,nb,dt
 C$OMP END PARALLEL DO        
  1500 continue
 

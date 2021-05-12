@@ -137,7 +137,7 @@ c
 c
 c
 C*********************************************************************C
-      subroutine g3d_pw2pot(nd,n,npw,pwexp,ff,tab_pw2pot,pot)
+      subroutine g2d_pw2pot(nd,n,npw,pwexp,ff,tab_pw2pot,pot)
 C*********************************************************************C
 c     This routine computes the potential on a tensor grid from 
 c     the plane wave expansion coefficients (implicitly about the box center).

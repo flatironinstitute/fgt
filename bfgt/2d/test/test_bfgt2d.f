@@ -26,10 +26,10 @@
 c
 c      initialize function parameters
 c
-      delta = 2d-3
+      delta = 2d-5
       boxlen = 1.0d0
       
-      rsig = 1.0d0/30.0d0
+      rsig = 1.0d0/40.0d0
 cc      rsig = 0.005d0
 
       nd = 1
@@ -43,13 +43,13 @@ cc      rsig = 0.005d0
 
       dpars(8) = rsig*2
 
-      norder = 16
+      norder = 8
       iptype = 0
-      eta = 1.5d0
+      eta = 1.0d0
 
       npbox = norder*norder
 
-      eps = 1.0d-6
+      eps = 1.0d-10
       call cpu_time(t1)
 C$      t1 = omp_get_wtime()
 
@@ -158,13 +158,13 @@ c
       implicit real *8 (a-h,o-z)
       integer nd,ipars
       complex *16 zpars
-      real *8 dpars(*),f(nd),xyz(2)
+      real *8 dpars(*),f(nd),xy(2)
 
 
       do i=1,nd
         idp = (i-1)*3
-        rr = (xyz(1)+0.5d0 - dpars(idp+1))**2 + 
-     1       (xyz(2)+0.5d0 - dpars(idp+2))**2
+        rr = (xy(1)+0.5d0 - dpars(idp+1))**2 + 
+     1       (xy(2)+0.5d0 - dpars(idp+2))**2
 
         sigma = (dpars(idp+3)**2)*2
         f(i) = exp(-rr/sigma)

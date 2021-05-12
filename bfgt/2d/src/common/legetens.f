@@ -1434,6 +1434,49 @@ c
 c
 c
 c
+      subroutine legval2coefs_2d(nd,norder,fvals,fcoefs,umat)
+c
+c     converts function values at 2d Legendre tensor product grid
+c     to Legendre expansion coefficients
+c
+c
+      implicit real *8 (a-h,o-z)
+      real *8 fvals(nd,norder,norder)
+      real *8 fcoefs(nd,norder,norder),umat(norder,norder)
+      real *8, allocatable:: fcv(:,:,:)
+
+      allocate(fcv(nd,norder,norder))
+      
+      do j=1,norder
+         do k=1,norder
+            do ind=1,nd
+               dd=0
+               do k1=1,norder
+                  dd=dd+umat(k,k1)*fvals(ind,k1,j)
+               enddo
+               fcv(ind,k,j)=dd
+            enddo
+         enddo
+      enddo
+
+      do j=1,norder
+         do k=1,norder
+            do ind=1,nd
+               dd=0
+               do j1=1,norder
+                  dd=dd+umat(j,j1)*fcv(ind,k,j1)
+               enddo
+               fcoefs(ind,k,j)=dd
+            enddo
+         enddo
+      enddo
+
+      return
+      end
+c
+c
+c
+c
       subroutine legval2coefs_3d(nd,norder,fvals,fcoefs,umat)
 c
 c   convert a 3d legendre expansion at collection of points 

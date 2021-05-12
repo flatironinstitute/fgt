@@ -23,8 +23,8 @@ c
       do iy = 1,ny
          do ix = 1,nx
             ind = ind+1
-            xyz(1,ind) = x(ix)
-            xyz(2,ind) = y(iy)
+            xy(1,ind) = x(ix)
+            xy(2,ind) = y(iy)
          enddo
       enddo
 
@@ -36,8 +36,8 @@ c
       dimension x(*), y(*), xy(2,*)
 
       do i = 1,n
-         x(i) = xyz(1,i)
-         y(i) = xyz(2,i)
+         x(i) = xy(1,i)
+         y(i) = xy(2,i)
       enddo
 
       return

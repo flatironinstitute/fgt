@@ -58,7 +58,7 @@ SOURCES =  test_bfgt2d.f \
   $(SRC)/common/hkrand.f \
   $(SRC)/common/dlaran.f \
   $(SRC)/common/voltab2d.f \
-  $(SRC)/common/tree_routs2d.f \
+  $(SRC)/common/tree_routs4.f \
   $(SRC)/common/tree_vol_coeffs.f \
   $(SRC)/bfgt2d.f \
   $(SRC)/fgtterms.f \

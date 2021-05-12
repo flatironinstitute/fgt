@@ -272,7 +272,7 @@ c
       real *8 timelev(0:200)
       real *8 ws(100),ts(100)
       
-      complex *16, allocatable :: wpwshift(:,:,:,:)
+      complex *16, allocatable :: wpwshift(:,:,:)
       complex *16, allocatable :: wpwmsshift(:,:,:)
       
       complex *16, allocatable :: tab_leg2pw(:,:,:),tab_pw2pot(:,:,:)
@@ -354,23 +354,17 @@ c
 c
 c       compute list info
 c
-      mnbors = 9
       isep = 1
       iper = 0
-      
-      call computemnlist1(nlevels,nboxes,itree(iptr(1)),boxsize,
-     1  centers,itree(iptr(3)),itree(iptr(4)),
-     2  itree(iptr(5)),isep,itree(iptr(6)),mnbors,
-     2  itree(iptr(7)),iper,mnlist1)
+      mnlist1 = 13
       
       allocate(list1(mnlist1,nboxes),nlist1(nboxes))
 
 c     modified list1 for direct evaluation
       call compute_modified_list1(nlevels,npwlevel,
-     1  nboxes,itree(iptr(1)),boxsize,
-     1  centers,itree(iptr(3)),itree(iptr(4)),
-     2  itree(iptr(5)),isep,itree(iptr(6)),mnbors,
-     3  itree(iptr(7)),iper,nlist1,mnlist1,list1)
+     1  nboxes,itree,ltree,iptr,
+     2  centers,boxsize,
+     3  iper,mnlist1,nlist1,list1)
 
 c     compute the tables converting Legendre polynomial expansion to potential
 c     values, used in direct evaluation
@@ -479,9 +473,8 @@ c
 c     listpw contains source boxes in the pw interaction
       call gt2d_computelistpw(nlevels,npwlevel,nboxes,
      1    itree,ltree,iptr,centers,
-     2    itree(iptr(4)),itree(iptr(5)),
-     1    boxsize,itree(iptr(1)),
-     2    mnlistpw,nlistpw,listpw)
+     2    boxsize,itree(iptr(1)),
+     3    mnlistpw,nlistpw,listpw)
       
 c
 c     ... set all multipole and local expansions to zero

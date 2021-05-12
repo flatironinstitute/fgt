@@ -51,19 +51,19 @@ UTILS_DIR = ../src/common
 
 .PHONY: all clean list
 
-SOURCES =  test_bfgt3d.f \
+SOURCES =  test_bfgt2d.f \
   $(SRC)/common/prini_new.f \
   $(SRC)/common/legeexps.f \
   $(SRC)/common/legetens.f \
   $(SRC)/common/hkrand.f \
   $(SRC)/common/dlaran.f \
-  $(SRC)/common/voltab3d.f \
-  $(SRC)/common/tree_routs3d.f \
-  $(SRC)/common/tree_vol_coeffs2.f \
-  $(SRC)/bfgt3d.f \
+  $(SRC)/common/voltab2d.f \
+  $(SRC)/common/tree_routs2d.f \
+  $(SRC)/common/tree_vol_coeffs.f \
+  $(SRC)/bfgt2d.f \
   $(SRC)/fgtterms.f \
   $(SRC)/fgtvolrouts.f \
-  $(SRC)/g3dvolrouts.f \
+  $(SRC)/g2dvolrouts.f \
 
 ifeq ($(WITH_SECOND),1)
 SOURCES += $(SRC)/second-r8.f

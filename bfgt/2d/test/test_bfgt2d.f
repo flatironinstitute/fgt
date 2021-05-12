@@ -11,7 +11,7 @@
       real *8, allocatable :: pot(:,:,:),potex(:,:,:)
       complex *16 ima,zz,ztmp,zk
 
-      real *8 alpha,beta,targ(3)
+      real *8 alpha,beta,targ(2)
 
       character *1 type
       data ima/(0.0d0,1.0d0)/
@@ -35,21 +35,19 @@ cc      rsig = 0.005d0
       nd = 1
       dpars(1) = 0.4d0
       dpars(2) = 0.6d0
-      dpars(3) = 0.55d0
 
-      dpars(4) = rsig
+      dpars(3) = rsig
       
-      dpars(5) = 0.312d0
-      dpars(6) = 0.5d0
-      dpars(7) = 0.4d0
+      dpars(4) = 0.312d0
+      dpars(5) = 0.5d0
 
       dpars(8) = rsig*2
 
       norder = 16
       iptype = 0
-      eta = 2
+      eta = 1.5d0
 
-      npbox = norder*norder*norder
+      npbox = norder*norder
 
       eps = 1.0d-6
       call cpu_time(t1)
@@ -62,7 +60,7 @@ C$      t1 = omp_get_wtime()
       call prinf('nlevels=*',nlevels,1)
 
 
-      allocate(fvals(nd,npbox,nboxes),centers(3,nboxes))
+      allocate(fvals(nd,npbox,nboxes),centers(2,nboxes))
       allocate(boxsize(0:nlevels),itree(ltree))
 
       call vol_tree_build(eps,zk,boxlen,norder,iptype,eta,fgaussn,nd,
@@ -74,14 +72,14 @@ C$      t2 = omp_get_wtime()
 
       call prin2('time taken to build tree=*',t2-t1,1)
       call prin2('speed in points per sec=*',
-     1   (nboxes*norder**3+0.0d0)/(t2-t1),1)
+     1   (nboxes*norder**2+0.0d0)/(t2-t1),1)
 c
 c
 c       convert values to coefs
 c
       
 cccc      npols = norder*(norder+1)*(norder+2)/6
-      npols = norder*norder*norder
+      npols = norder*norder
 
       allocate(pot(nd,npbox,nboxes))
 
@@ -97,7 +95,7 @@ cccc      npols = norder*(norder+1)*(norder+2)/6
       
       call cpu_time(t1) 
 C$     t1 = omp_get_wtime()      
-      call bfgt3d(nd,delta,eps,nboxes,nlevels,ltree,itree,
+      call bfgt2d(nd,delta,eps,nboxes,nlevels,ltree,itree,
      1   iptr,norder,npols,type,fvals,centers,boxsize,npbox,
      2   pot,timeinfo,tprecomp)
       call cpu_time(t2) 
@@ -119,8 +117,8 @@ C$     t2 = omp_get_wtime()
       allocate(potex(nd,npbox,nboxes))
 
       itype = 0
-      allocate(xref(3,npbox))
-      call legetens_exps_3d(itype,norder,type,xref,umat,1,vmat,1,wts)
+      allocate(xref(2,npbox))
+      call legetens_exps_2d(itype,norder,type,xref,umat,1,vmat,1,wts)
 
       do ilevel=1,nlevels
         do ibox=itree(2*ilevel+1),itree(2*ilevel+2)
@@ -128,8 +126,6 @@ C$     t2 = omp_get_wtime()
             do j=1,npbox
               targ(1)=centers(1,ibox) + xref(1,j)*boxsize(ilevel)/2.0d0
               targ(2)=centers(2,ibox) + xref(2,j)*boxsize(ilevel)/2.0d0
-              targ(3)=centers(3,ibox) + xref(3,j)*boxsize(ilevel)/2.0d0
-
 
               call exact(nd,delta,targ,dpars,potex(1,j,ibox))
 
@@ -162,16 +158,15 @@ c
       implicit real *8 (a-h,o-z)
       integer nd,ipars
       complex *16 zpars
-      real *8 dpars(*),f(nd),xyz(3)
+      real *8 dpars(*),f(nd),xyz(2)
 
 
       do i=1,nd
-        idp = (i-1)*4 
+        idp = (i-1)*3
         rr = (xyz(1)+0.5d0 - dpars(idp+1))**2 + 
-     1       (xyz(2)+0.5d0 - dpars(idp+2))**2 + 
-     1       (xyz(3)+0.5d0 - dpars(idp+3))**2
+     1       (xyz(2)+0.5d0 - dpars(idp+2))**2
 
-        sigma = (dpars(idp+4)**2)*2
+        sigma = (dpars(idp+3)**2)*2
         f(i) = exp(-rr/sigma)
       enddo
 
@@ -185,11 +180,9 @@ c
       subroutine exact(nd,delta,targ,dpars,pot)
 
       implicit real*8 (a-h,o-z)
-      real*8 targ(3),pot(nd)
-      real*8 gf(3),dpars(*)
+      real*8 targ(2),pot(nd)
+      real*8 gf(2),dpars(*)
 c
-      real*8 w(5),ddc(5),cc(2,5)  
-      
       one=1.0d0
       pi=4*atan(one)
 
@@ -199,12 +192,12 @@ c-----------------------
       enddo
 c-----------------------
       do ind=1,nd
-         idp = (ind-1)*4
-         sigma = (dpars(idp+4)**2)*2
+         idp = (ind-1)*3
+         sigma = (dpars(idp+3)**2)*2
          dc = sigma
          d = delta
          
-         do k=1,3
+         do k=1,2
             c=dpars(idp+k)
             x=targ(k)+0.5d0
             gf(k)=sqrt(pi)/2.0d0*dexp(-(x-c)**2/(dc+d))
@@ -212,7 +205,7 @@ c-----------------------
      2          +erf((x*dc+d*c)/d/dc/dsqrt((dc+d)/d/dc)))
      3          /dsqrt(((dc+d)/d/dc))
          enddo
-         pot(ind)=gf(1)*gf(2)*gf(3)
+         pot(ind)=gf(1)*gf(2)
       enddo
 
       return

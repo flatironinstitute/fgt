@@ -67,7 +67,7 @@ c
       call legeexps(itype,nnodes,xnodes,u,v,whts)
 c
       do i = 1,nnodes
-         call legepols(xnodes(i),n,legev(1,i))
+         call legepols(xnodes(i),n-1,legev(1,i))
       enddo
 ccc      call prin2(' legev is *',legev,n*nnodes)
 c
@@ -191,7 +191,7 @@ ccc      call prin2(' Legendre nodes are *',xnodest,n)
 ccc      call prin2(' Legendre nodes are *',xnodes,nnodes)
 c
       do i = 1,nnodes
-         call legepols(xnodes(i),n,legev(1,i))
+         call legepols(xnodes(i),n-1,legev(1,i))
       enddo
       do i=1,nnodes
          xnodes(i) = boxdim*xnodes(i)/2.0d0
@@ -295,7 +295,7 @@ c
 c     fine grid points for numerical integration on source
 c
       do i = 1,nnodes
-         call legepols(xnodes(i),n,legev(1,i))
+         call legepols(xnodes(i),n-1,legev(1,i))
       enddo
       do i=1,nnodes
          xnodes(i) = boxdim*xnodes(i)/4.0d0
@@ -412,7 +412,7 @@ c
 c     fine grid points for numerical integration on source
 c
       do i = 1,nnodes
-         call legepols(xnodes(i),n,legev(1,i))
+         call legepols(xnodes(i),n-1,legev(1,i))
       enddo
       do i=1,nnodes
          xnodes(i) = boxdim*xnodes(i)

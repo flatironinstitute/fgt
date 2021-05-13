@@ -389,7 +389,7 @@ c
         endif
       endif
 
-      ltree = 17*nboxes + 2*(nlevels+1) + 1
+      ltree = 17*nboxes + 2*(nlevels+1)
 
       return
       end
@@ -437,7 +437,7 @@ c          number of levels
 c        nboxes - integer
 c          number of boxes
 c        ltree - integer
-c          length of tree = 2*(nlevels+1)+39*nboxes
+c          length of tree = 2*(nlevels+1)+17*nboxes
 c        rintl - real *8 (0:nlevels)
 c          estimate of lp norm for scaling the errors
 c          at various levels. 
@@ -459,9 +459,9 @@ c          iptr(5) - ichild
 c          iptr(6) - ncoll
 c          iptr(7) - coll
 c          iptr(8) - ltree
-c        fvals - double precision (nd,norder**3,nboxes)
+c        fvals - double precision (nd,norder**2,nboxes)
 c          function values at discretization nodes
-c        centers - double precision (3,nboxes)
+c        centers - double precision (2,nboxes)
 c          xyz coordinates of box centers in the oct tree
 c        boxsize - double precision (0:nlevels)
 c          size of box at each of the levels
@@ -597,10 +597,10 @@ c
 
 
       do i=1,nboxes0
-        itree(iptr(6)+i-1) = 0
-        do j=1,9
-           itree(iptr(7)+9*(i-1)+j-1) = -1
-        enddo
+         itree(iptr(6)+i-1) = 0
+         do j=1,9
+            itree(iptr(7)+9*(i-1)+j-1) = -1
+         enddo
       enddo
 
       iper = 0
@@ -645,7 +645,7 @@ c
 
       integer i,j,k,l,ibox,ifunif,i1
       real *8 rscale2,err,bs,bs2
-      data xind/-1,1,-1,1/ 
+      data xind/-1,1,-1,1/
       data yind/-1,-1,1,1/
 
       character *1 transa,transb

@@ -218,7 +218,7 @@ c
         if(iptype.eq.0) then
           do idim=1,nd
             if(abs(fvals(idim,i,1)).gt.rintbs(1)) rintbs(1) = 
-     1          fvals(idim,i,1)
+     1          abs(fvals(idim,i,1))
           enddo
         endif
 

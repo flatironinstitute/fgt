@@ -796,7 +796,7 @@ C
       do i=1,ns
          x = (sources(1,i) - center(1))*dsq
          y = (sources(2,i) - center(2))*dsq
-         z = (sources(3,i) - center(3))*dsq
+         y = (sources(3,i) - center(3))*dsq
 c
 
          facx=dexp(-x*x)
@@ -912,7 +912,7 @@ c
                   ry3 = rz3*hexpy(j2)
                   do j3=0,nlocal
                      local(j3,j2,j1,ind) = local(j3,j2,j1,ind)+
-     1                   dhexpx(j3)*ry1+hexpx(j3)*(ry2+ry3)
+     1                   dhexpx(j2)*ry1+hexpx(j2)*(ry2+ry3)
                   enddo
                enddo
             enddo
@@ -1005,7 +1005,7 @@ c
                   dy3=dz3*hexpy(j2)
                   do j3=0,nlocal
                      local(j3,j2,j1,ind) = local(j3,j2,j1,ind)+
-     1                   dhexpx(j3)*dy1+hexpx(j3)*(dy2+dy3+ytmp)
+     1                   dhexpx(j2)*dy1+hexpx(j2)*(dy2+dy3+ytmp)
                enddo
                enddo
             enddo

@@ -789,8 +789,10 @@ c---------------------------------------------------------------
 c     Temp variables
       integer ilev,ibox,jbox,kbox,dad
       integer i,j,ifirstbox,ilastbox,ii
-      real *8 distest,xdis,ydis
+      real *8 distest,xdis,ydis,bs,xdp1,xdm1,ydp1,ydm1
 
+      bs=boxsize(0)
+      
       do i=1,nboxes
         nlist1(i) = 0
       enddo
@@ -843,6 +845,13 @@ c                       Loop over children of colleague box
                            kbox = itree(iptr(5)+4*(jbox-1)+j-1)
                            xdis = dabs(centers(1,kbox)-centers(1,ibox))
                            ydis = dabs(centers(2,kbox)-centers(2,ibox))
+                           
+                           if (iper .eq. 1) then
+                              xdp1 = bs-xdis
+                              if (xdp1.lt.xdis) xdis=xdp1
+                              ydp1 = bs-ydis
+                              if (ydp1.lt.ydis) ydis=ydp1
+                           endif
 c                       Test to see if child of colleague box
 c                       is in list1
                            if(xdis.lt.distest.and.ydis.lt.distest) then
@@ -960,4 +969,165 @@ c
 c
 c
 c
+      subroutine oldtree2newtree(nlev,levelbox,iparentbox,
+     2    ichildbox,icolbox,irowbox,nboxes,nblevel,
+     3    iboxlev,istartlev,cent0,xsize0,iperiod,
+     4    ltree,nlevels,itree,iptr,centers,boxsize)
+      implicit real *8 (a-h,o-z)
+c
+c     convert an old tree to the new tree
+c
+c     input parameters:
+c     nlev - total number of  levels
+c     levelbox - an array determining the level of each box
+c     iparentbox - the parent of each box
+c     ichildbox - the four children of each box
+c     icolbox - the column of each box
+c     irowbox - the row of each box
+c     nboxes - integer
+c          number of boxes
+c     nblevel - the total number of boxes per level
+c     iboxlev - the array in which the boxes are arranged
+c     istartlev - the pointer to where each level
+c               begins in the iboxlev array
+c     cent0 - center of the root box
+c     xsize0 - size of the root box
+c     iperiod = 0 : free space
+c               1: periodic
+c     ltree - integer
+c          length of tree = 2*(nlevels+1)+17*nboxes
+c
+c     output:
+c     nlevels - integer
+c          number of levels
+c     itree - integer(ltree)
+c          tree info
+c     iptr - integer(8)
+c          iptr(1) - laddr
+c          iptr(2) - ilevel
+c          iptr(3) - iparent
+c          iptr(4) - nchild
+c          iptr(5) - ichild
+c          iptr(6) - ncoll
+c          iptr(7) - coll
+c          iptr(8) - ltree
+c     centers - double precision (2,nboxes)
+c          xy coordinates of box centers in the oct tree
+c     boxsize - double precision (0:nlevels)
+c          size of box at each of the levels
+      integer *4  levelbox(1)
+      integer *4  nlev, nboxes
+      integer *4  icolbox(1), irowbox(1)
+      integer *4  iparentbox(1), ichildbox(4,1)
+      integer *4  nblevel(0:1), iboxlev(1), istartlev(0:1)
+      integer nlevels,ltree
+      integer iptr(8)
+      integer itree(ltree)
+      real *8 cent0(2),xsize0
+      real *8 centers(2,*),boxsize(0:1)
+      integer iboxlevinv(nboxes)
+      integer, allocatable :: icolleagbox(:,:)
+
+      allocate(icolleagbox(9,nboxes))
+      
+      nlevels = nlev
+      
+      iptr(1) = 1
+      iptr(2) = 2*(nlevels+1)+1
+      iptr(3) = iptr(2) + nboxes
+      iptr(4) = iptr(3) + nboxes
+      iptr(5) = iptr(4) + nboxes
+      iptr(6) = iptr(5) + 4*nboxes
+      iptr(7) = iptr(6) + nboxes
+      iptr(8) = iptr(7) + 9*nboxes
+
+
+
+      boxsize(0) = xsize0
+
+      centers(1,1) = cent0(1)
+      centers(2,1) = cent0(2)
+      
+cccc      call prinf('iboxlev=*',iboxlev,nboxes)
+cccc      call prinf('istartlev=*',istartlev,nlev+1)
+      
+      do i=1,nlevels
+         boxsize(i)=boxsize(i-1)/2
+      enddo
+
+      do i=1,nboxes
+         ibox=iboxlev(i)
+         iboxlevinv(ibox)=i
+      enddo
+      
+      do ilev=0,nlevels
+         do i=istartlev(ilev),istartlev(ilev)+nblevel(ilev)-1
+            ibox=iboxlev(i)
+            icol=icolbox(ibox)
+            irow=irowbox(ibox)
+         
+            bs = boxsize(ilev)
+         
+            centers(1,i) = cent0(1)-xsize0/2 + (icol-0.5d0) * bs
+            centers(2,i) = cent0(2)-xsize0/2 + (irow-0.5d0) * bs
+         enddo
+      enddo
+
+cccc      call mkcolls(icolbox,
+cccc     1      irowbox, icolleagbox, nboxes, nlev,
+cccc     2      iparentbox, ichildbox, nblevel,
+cccc     3      iboxlev, istartlev, iperiod)
+
+      do ilev=0,nlevels
+         itree(iptr(1)+2*ilev)=istartlev(ilev)
+         itree(iptr(1)+2*ilev+1)=istartlev(ilev)+nblevel(ilev)-1
+      enddo
+
+      do ilev=0,nlevels
+        do i=istartlev(ilev),istartlev(ilev)+nblevel(ilev)-1
+          ibox=iboxlev(i)
+          itree(iptr(2)+i-1) = levelbox(ibox)
+cccc          print *, ilev, levelbox(ibox)
+          
+          jbox=iparentbox(ibox)
+          if (jbox.gt.0) then
+             itree(iptr(3)+i-1) = iboxlevinv(jbox)
+          else
+             itree(iptr(3)+i-1) = -1
+          endif
+
+          do j=1,4
+             itree(iptr(5)+4*(i-1)+j-1)=-1
+          enddo
+          
+          ichild=0
+          do j=1,4
+             jbox=ichildbox(j,ibox)
+             if (jbox.gt.0) then
+                itree(iptr(5)+4*(i-1)+ichild)=iboxlevinv(jbox)
+                ichild=ichild+1
+             endif 
+          enddo
+          itree(iptr(4)+i-1) = ichild
+
+          do j=1,9
+             itree(iptr(7)+9*(i-1)+j-1)=-1
+          enddo
+          
+          icoll=0
+          do j=1,9
+             jbox=icolleagbox(j,ibox)
+             if (jbox.gt.0) then
+                itree(iptr(7)+9*(i-1)+icoll)=iboxlevinv(jbox)
+                icoll=icoll+1
+             endif
+          enddo
+          itree(iptr(6)+i-1)=icoll
+        enddo
+      enddo
+
+cccc      call prinf('itree=*',itree,ltree)
+      
+      return
+      end subroutine
       

@@ -64,6 +64,8 @@ SOURCES =  test_bfgt2d.f \
   $(SRC)/fgtvolrouts.f \
   $(SRC)/g2dvolrouts.f \
   $(SRC)/common/tree_routs4.f \
+  $(SRC)/common/besselj/toms644.f \
+#  $(SRC)/common/besselj/cbessel.f90 \
 
 ifeq ($(WITH_SECOND),1)
 SOURCES += $(SRC)/second-r8.f
@@ -81,6 +83,9 @@ OBJECTS = $(patsubst %.f,%.o,$(patsubst %.f90,%.o,$(SOURCES)))
 
 %.o : %.f90
 	$(FC) $(FFLAGS) $< -o $@
+
+%.mod : %.f90
+	$(FC) $(FFLAGS) $< 
 
 all: $(OBJECTS)
 	rm -f $(EXEC)

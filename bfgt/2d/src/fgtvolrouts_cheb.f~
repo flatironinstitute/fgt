@@ -21,8 +21,7 @@ c                in a large source box to potential values on Legendre nodes in 
 c                small target box at the fine level. four of them for each level.
 c
 C*********************************************************************C
-      subroutine mk_leg2pw_old(n,npw,nnodes,ws,ts,delta,boxdim,
-     1    tab_leg2pw)
+      subroutine mk_leg2pw(n,npw,nnodes,ws,ts,delta,boxdim,tab_leg2pw)
 C*********************************************************************C
 c     This routine is a correct but not optimized table generator.
 c
@@ -83,101 +82,6 @@ c
             tab_leg2pw(m,j) = ws(j)*zsum*boxdim/2.0d0
          enddo
       enddo
-      return
-      end subroutine
-c
-c
-c
-c
-c
-c
-C*********************************************************************C
-      subroutine mk_leg2pw(n,npw,nnodes,ws,ts,delta,boxdim,tab_leg2pw)
-C*********************************************************************C
-c     Use half-order Bessel J function to construct the table.
-c
-c     tab_leg2pw(n,j) = ws(j)*(D/2) * 
-c            int_{-1}^1 P_n(x) exp(- i ts(j)Dx/(2 \sqrt{delta})) dx
-c      
-c     it is known that
-c      
-c     int_{-1}^1 P_n(x) exp(- i a x) dx = 1/i^m *sqrt(2pi/a) J_{n+1/2)(a),
-c      
-c     where i^2=-1, J_{n+1/2) is the Bessel J function of half integer.
-c
-d      
-c     we use the AMOS 644 to evaluate J_{n+1/2}. James Bremer also has 
-d     a package for the evaluation of J_{nu}, but it requires reading  
-c     tables, evaluates J_{n+1/2} and Y_{n+1/2} at the same time,
-c     and does the evaluate for each n one at a time. AMOS 644 evaluates
-c     J function only, and does the evaluation for a sequence of n at the
-c     same time.
-c      
-c     Here D is the box dimension at current level in the tree hierarchy.
-c
-c     Since a could be large, reaching about 100 for high accuracy,
-c     the quadrature scheme will need to set nnodes very large,
-c     leading to an inefficient scheme.
-c      
-c     That is, 
-c     tab_leg2pw(n,j) is the Fourier transform of P_n at a specific
-c     frequency. These can be expressed in terms of half-order Bessel
-c     functions. A faster scheme would be to compute the top two 
-c     coefficients and then use a downward recurrence to get the rest.
-c     There are also analytic formulae for these Fourier transforms.
-c
-c     INPUT:
-c     n        dimension of coeff array
-c     npw      number of plane waves
-c     nnodes   number of nodes used in numerical quadrature
-c     ws,ts    weights and nodes of plane wave quadrature
-c     delta    Gaussian variance
-c     boxdim   box dimension at current level
-c
-c     OUTPUT:
-c     tab_leg2pw  (n,j) entry is:  ws(j) * int_{-1}^{1}  
-c                 P_n(x) exp(- i ts(j) D x/(2 \sqrt(delta)  dx
-c                 where D is box dimension at current level in
-c                 tree hierarchy.
-c----------------------------------------------------------------------c
-      implicit real *8 (a-h,o-z)
-      complex *16 tab_leg2pw(n,npw),eye,eyem,z
-      real *8 ws(npw),ts(npw)
-      real *8, allocatable :: cyr(:),cyi(:)
-c
-      allocate(cyr(n))
-      allocate(cyi(n))
-c
-      pi = 4*atan(1.0d0)
-      
-      eye = dcmplx(0.0d0,1.0d0)
-      fac = boxdim/(2*dsqrt(delta))
-
-      fnu=0.5d0
-      kode=1
-      do j = npw/2+1,npw
-         dd = ws(j)*boxdim/2.0d0
-         
-         if (abs(ts(j)).lt.1d-12) then
-            tab_leg2pw(1,j)=dd*2
-            do m=2,n
-               tab_leg2pw(m,j)=0
-            enddo
-         else
-            zi=0.0d0
-            zr = ts(j)*fac
-            ddd = sqrt(2*pi/zr)
-            z = cmplx(zr,0.0d0)
-            call zbesj(zr,zi,fnu,kode,n,cyr,cyi,nz,ierr)
-            eyem=1.0d0
-            do m=1,n
-               tab_leg2pw(m,j)=dd*dcmplx(cyr(m),cyi(m))*ddd/eyem
-               tab_leg2pw(m,npw-j+1) = conjg(tab_leg2pw(m,j))
-               eyem=eyem*eye
-            enddo
-         endif
-      enddo
-
       return
       end subroutine
 c

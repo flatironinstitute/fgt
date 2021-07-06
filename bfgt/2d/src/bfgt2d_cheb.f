@@ -1,6 +1,3 @@
-cc Copyright (C) 2020-2021: Leslie Greengard, Shidong Jiang, Manas Rachh
-cc Contact: lgreengard@flatironinstitute.org
-cc 
 cc This program is free software; you can redistribute it and/or modify 
 cc it under the terms of the GNU General Public License as published by 
 cc the Free Software Foundation; either version 2 of the License, or 
@@ -15,8 +12,108 @@ ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c
 c    $Date$
 c    $Revision$
+      subroutine adaptfgtvol_new(ndeg,nlev,levelbox,iparentbox,
+     2           ichildbox,icolbox, irowbox, nboxes, nblevel, 
+     3           iboxlev,istartlev, cent0, xsize0, fright, 
+     4           delta0, iprec, iperiod, itype, iverb, 
+     5           pot, ttotal)
+      implicit real*8 (a-h,o-z)
+c
+c  INPUT:
+c  ndeg: degree of polynomial approximation used on each leaf box
+c  nlev-istartlev: the quad-tree structure, see subroutine mktree4
+c                  for details
+c  fright: the array of function values on the 8-by-8 grid on each
+c          leaf box of the tree
+c  delta0: the parameter in gauss/heat transform
+c  iprec:  indicator of precision
+c  iperiod: indicator of BC.
+c           iperiod=0 => free space BC
+c           iperiod=1 => periodic BC
+c  itype: type of transform used
+c      itype=1 => original FGT, 
+c      G(x,delta)=exp(-|x|^2/delta)
+c
+c      itype=-1 => FHT, with full heat kernel
+c      G(x,delta)=exp(-|x|^2/(4*delta)/sqrt(4*pi*delta))
+c  iverb: print out profiling info or not
+c         iverb = 0: no print out
+c         iverb = 1: minimal print out
+c         iverb = 2: full print out
+c         (in debugging mode, iverb=1 is preferred,
+c          in profiling mode, iverb=2 is preferred,
+c          in real application, iverb=0 is preferred)
+c
+c 
+c  OUTPUT:
+c  pot: the array of transformation evaluated on the 8-by-8 grid
+c       on each leaf box of the tree
+c  ttotal: total time consumed
+c
+c-----------------------------------------------------------------
+c     global vars
+      integer ndeg, nlev, nboxes, iprec, iperiod
+      integer levelbox(nboxes), iparentbox(nboxes)
+      integer ichildbox(4,nboxes)
+      integer icolbox(nboxes), irowbox(nboxes)
+      integer nblevel(0:nlev), iboxlev(nboxes)
+      integer istartlev(0:nlev)
+      real*8 cent0(2), xsize0
+      real*8 fright(ndeg*ndeg,nboxes), delta0
+      real*8 pot(ndeg*ndeg,nboxes), ttotal, timeinfo(10)
+c     local vars
+      real *8, allocatable :: itree(:),centers(:,:),boxsize(:)
+      real *8 iptr(8)
+      character *1 ttype
 
-      subroutine bfgt3d(nd,delta,eps,nboxes,nlevels,ltree,
+      call cpu_time(t1)
+      allocate(centers(2,nboxes),boxsize(0:nlev))
+      ltree=2*(nlev+1)+17*nboxes
+      allocate(itree(ltree))
+      
+      call oldtree2newtree(nlev,levelbox,iparentbox,
+     2    ichildbox,icolbox,irowbox,nboxes,nblevel,
+     3    iboxlev,istartlev,cent0,xsize0,iperiod,
+     4    ltree,nlevels,itree,iptr)
+
+      if(itype .eq. -1) then
+        delta=delta0*4.0d0
+      else
+        delta=delta0
+      endif
+
+      nd=1
+      norder=ndeg
+      npbox=norder*norder
+      ncbox=norder*norder
+      ttype='f'
+      
+      call bfgt2d(nd,delta,eps,iperiod,nboxes,nlevels,ltree,
+     1   itree,iptr,norder,ncbox,ttype,fright,centers,boxsize,npbox,
+     2   pot,timeinfo,tprecomp)      
+
+      if (itype.eq. -1) then
+         dpi = 4*atan(1.0d0)*delta
+         do ibox=1,nboxes
+            if (itree(iptr(4)+ibox-1).le.0) then
+               do j=1,norder*norder
+                  pot(j,ibox)=pot(j,ibox)/dpi
+               enddo
+            endif
+         enddo
+      endif
+
+      call cpu_time(t2)
+      ttotal = t2-t1
+      
+
+      return
+      end
+c      
+c      
+c      
+c      
+      subroutine bfgt2d(nd,delta,eps,iperiod,nboxes,nlevels,ltree,
      1   itree,iptr,norder,ncbox,ttype,fvals,centers,boxsize,npbox,
      2   pot,timeinfo,tprecomp)
 
@@ -77,7 +174,7 @@ c
       character *1 ttype
       real *8 fvals(nd,npbox,nboxes)
       real *8 pot(nd,npbox,nboxes)
-      real *8 centers(3,nboxes)
+      real *8 centers(2,nboxes)
       real *8 boxsize(0:nlevels)
       real *8 timeinfo(6),tprecomp(3)
 c
@@ -95,7 +192,7 @@ c
       integer nlocal0,npw,nadd,ifprint,ier,nlevstart
       real *8 dcutoff
       real *8 omp_get_wtime
-      real *8 time1,time2,pi,done,pmax,bs0,cen0(3),bsize,pweps
+      real *8 time1,time2,pi,done,pmax,bs0,cen0(2),bsize,pweps
 
 c     cutoff length      
       dcutoff = sqrt(delta*log(1.0d0/eps))
@@ -142,16 +239,16 @@ c     allocate memory need by multipole, local expansions at all levels
 c     
 c     irmlexp is pointer for workspace need by various expansions.
 c
-      call g3dmpalloc(nd,itree,iaddr,
+      call g2dmpalloc(nd,itree,iaddr,
      1    nlevels,npwlevel,lmptot,npw)
       if(ifprint .eq. 1) call prinf_long(' lmptot is *',lmptot,1)
       
       call cpu_time(time1)
 C$      time1=omp_get_wtime()
       allocate(rmlexp(lmptot),stat=ier)
-cccc      do i=1,lmptot
-cccc         rmlexp(i)=0
-cccc      enddo
+      do i=1,lmptot
+         rmlexp(i)=0
+      enddo
       call cpu_time(time2)
 C$        time2=omp_get_wtime()
       if( ifprint .eq. 1 ) call prin2('time in allocating rmlexp=*',
@@ -160,7 +257,7 @@ C$        time2=omp_get_wtime()
 c
       call cpu_time(time1)
 C$      time1=omp_get_wtime()
-      call bfgt3dmain(nd,delta,eps,nboxes,nlevels,ltree,
+      call bfgt2dmain(nd,delta,eps,iperiod,nboxes,nlevels,ltree,
      1    itree,iptr,norder,ncbox,ttype,fvals,centers,boxsize,
      2    iaddr,rmlexp,npwlevel,pmax,npw,
      3    npbox,pot,timeinfo)
@@ -175,7 +272,7 @@ c
 c
 c
 c
-      subroutine bfgt3dmain(nd,delta,eps,nboxes,nlevels,ltree,
+      subroutine bfgt2dmain(nd,delta,eps,iperiod,nboxes,nlevels,ltree,
      1    itree,iptr,norder,ncbox,ttype,fvals,centers,boxsize,
      2    iaddr,rmlexp,npwlevel,pmax,npw,
      3    npbox,pot,timeinfo)
@@ -217,7 +314,7 @@ c         ttype - character *1
 c            type of coefs provided, total order ('t') or full order('f')
 c         fvals - double complex (npbox,nboxes)
 c            function values tabulated on the tree
-c         centers - double precision (3,nboxes)
+c         centers - double precision (2,nboxes)
 c           xyz coordintes of boxes in the tree structure
 c         boxsize - double precision (0:nlevels)
 c           size of boxes at each of the levels
@@ -253,7 +350,7 @@ c
       integer itree(ltree),iptr(8),ncbox,npbox
       real *8 fvals(nd,npbox,nboxes)
       real *8 pot(nd,npbox,nboxes)
-      real *8 boxsize(0:nlevels),centers(3,nboxes)
+      real *8 boxsize(0:nlevels),centers(2,nboxes)
       integer iaddr(2,nboxes)
       real *8 rmlexp(*)
       real *8 pmax
@@ -275,13 +372,13 @@ c
       real *8 timelev(0:200)
       real *8 ws(100),ts(100)
       
-      complex *16, allocatable :: wpwshift(:,:,:,:)
+      complex *16, allocatable :: wpwshift(:,:,:)
       complex *16, allocatable :: wpwmsshift(:,:,:)
       
       complex *16, allocatable :: tab_leg2pw(:,:,:),tab_pw2pot(:,:,:)
-      complex *16, allocatable :: ff(:,:,:),ff2(:,:,:)
-      complex *16, allocatable :: gg(:,:,:),gg2(:,:,:)
-      real *8, allocatable :: hh(:,:,:),hh2(:,:,:)
+      complex *16, allocatable :: ff(:,:)
+      complex *16, allocatable :: gg(:,:)
+      real *8, allocatable :: hh(:,:)
 
       real *8, allocatable :: tab_coll(:,:,:,:)
       real *8, allocatable :: tab_stob(:,:,:,:)
@@ -298,22 +395,16 @@ c
      1   vmat(norder,norder),wts(norder))
      
       itype = 2
-      call legeexps(itype,norder,xq,umat,vmat,wts)
-      
-      call cpu_time(ttt1)
+      call chebexps(itype,norder,xq,umat,vmat,wts)
 
       do ilev = 0,nlevels
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0)
-     1        call legval2coefs2_3d(nd,norder,fvals(1,1,ibox),
+     1        call legtrans2d(nd,norder,fvals(1,1,ibox),
      2        fcoefs(1,1,ibox),umat)
         enddo
       enddo
-      
-      call cpu_time(ttt2)
-      print *, 'in fgt main, val to coeffs time=', ttt2-ttt1
-      
 c
 c       initialize potential
 c 
@@ -363,31 +454,23 @@ c
 c
 c       compute list info
 c
-      mnbors = 27
       isep = 1
-      iper = 0
-      
-      call computemnlist1(nlevels,nboxes,itree(iptr(1)),boxsize,
-     1  centers,itree(iptr(3)),itree(iptr(4)),
-     2  itree(iptr(5)),isep,itree(iptr(6)),mnbors,
-     2  itree(iptr(7)),iper,mnlist1)
+      mnlist1 = 13
       
       allocate(list1(mnlist1,nboxes),nlist1(nboxes))
 
 c     modified list1 for direct evaluation
       call compute_modified_list1(nlevels,npwlevel,
-     1  nboxes,itree(iptr(1)),boxsize,
-     1  centers,itree(iptr(3)),itree(iptr(4)),
-     2  itree(iptr(5)),isep,itree(iptr(6)),mnbors,
-     3  itree(iptr(7)),iper,nlist1,mnlist1,list1)
+     1  nboxes,itree,ltree,iptr,
+     2  centers,boxsize,
+     3  iperiod,mnlist1,nlist1,list1)
 
-c     compute the tables converting Legendre polynomial expansion to potential
+c     compute the tables converting Chebyshev polynomial expansion to potential
 c     values, used in direct evaluation
       allocate(tab_coll(norder,norder,-1:1,0:nlevels))
       allocate(tab_stob(norder,norder,4,0:nlevels))
       allocate(tab_btos(norder,norder,4,0:nlevels))
-      allocate(hh(norder,norder,norder))
-      allocate(hh2(norder,norder,norder))
+      allocate(hh(norder,norder))
 
       nnodes=100
       do ilev = 0,min(npwlevel,nlevels)
@@ -420,7 +503,7 @@ c     for boxes at the cutoff level
                if (nchild .eq. 0) then
                   ncoll = itree(iptr(6)+ibox-1)
                   do j=1,ncoll
-                     jbox = itree(iptr(7) + (ibox-1)*27+j-1)
+                     jbox = itree(iptr(7) + (ibox-1)*9+j-1)
                      nchild = itree(iptr(4)+jbox-1)
                      jlev = itree(iptr(2)+jbox-1)
                      if (nchild .gt. 0 .and. jlev.eq.ilev) then
@@ -443,57 +526,56 @@ c     get planewave nodes and weights
 c     compute translation matrices for PW expansions
       nlevstart = max(npwlevel,0)
 
-c     compute the tables converting Legendre polynomial expansion
+c     compute the tables converting Chebyshev polynomial expansion
 c     to planewave expansion
-      nnodes = 16
+      nnodes = 100
       allocate(tab_leg2pw(norder,npw,0:nlevels))
-      allocate(ff(npw,norder,norder))
-      allocate(ff2(npw,npw,norder))
+      allocate(ff(npw,norder))
 
       do ilev=nlevstart,nlevels
-         call mk_leg2pw(norder,npw,nnodes,ws,ts,delta,boxsize(ilev),
+         call mk_cheb2pw(norder,npw,nnodes,ws,ts,delta,boxsize(ilev),
      1       tab_leg2pw(1,1,ilev))
       enddo
 c     compute the tables converting planewave expansions to potential values
       allocate(tab_pw2pot(npw,norder,0:nlevels))
-      allocate(gg(norder,npw,npw/2))
-      allocate(gg2(norder,norder,npw/2))
+      allocate(gg(norder,npw/2))
       
       do ilev=nlevstart,nlevels
          call mk_pw2pot(norder,npw,ts,xq,delta,boxsize(ilev),
      1       tab_pw2pot(1,1,ilev))      
       enddo
       
-      nexp = npw*npw*npw/2
+      nexp = npw*npw/2
       
       nmax = 1
-      allocate(wpwshift(nexp,-nmax:nmax,-nmax:nmax,-nmax:nmax))
+      allocate(wpwshift(nexp,-nmax:nmax,-nmax:nmax))
       xmin  = boxsize(nlevstart)/sqrt(delta)
       call pw_translation_matrices(xmin,npw,ts,nmax,
      1    wpwshift)
 
       nmax = nlevels-max(npwlevel,0)      
-      allocate(wpwmsshift(nexp,8,nmax))
+      allocate(wpwmsshift(nexp,4,nmax))
       xmin2 = boxsize(nlevels)/sqrt(delta)/2
       call merge_split_pw_matrices(xmin2,npw,ts,nmax,wpwmsshift)
 c     xmin is used in shiftpw subroutines to
 c     determine the right translation matrices
 c
+      bs0 = boxsize(0)
       xmin  = boxsize(nlevstart)
       xmin2 = boxsize(nlevels)/2
 c
 c     compute list info
 c
-      call gt3d_computemnlistpw(nlevels,nboxes,itree,ltree,
+      call gt2d_computemnlistpw(nlevels,nboxes,itree,ltree,
      1    iptr,centers,
      2    boxsize,iper,mnlistpw)
       allocate(nlistpw(nboxes),listpw(mnlistpw,nboxes))
 c     listpw contains source boxes in the pw interaction
-      call gt3d_computelistpw(nlevels,npwlevel,nboxes,
+      call gt2d_computelistpw(nlevels,npwlevel,nboxes,
      1    itree,ltree,iptr,centers,
-     2    itree(iptr(4)),itree(iptr(5)),
-     1    boxsize,itree(iptr(1)),
-     2    mnlistpw,nlistpw,listpw)
+     2    boxsize,itree(iptr(1)),
+     3    mnlistpw,nlistpw,listpw)
+      
 c
 c     ... set all multipole and local expansions to zero
 c
@@ -525,8 +607,8 @@ c
      $   call prinf("=== STEP 1 (coefs -> mp) ====*",i,0)
       
       do 1100 ilev = nlevels,nlevstart,-1
-         nb=0
-         dt=0
+cccc         nb=0
+cccc         dt=0
 C
 C$OMP PARALLEL DO DEFAULT (SHARED)
 C$OMP$PRIVATE(ibox,nchild)
@@ -538,19 +620,19 @@ c              do nothing here
                nchild = itree(iptr(4)+ibox-1)
 c              Check if current box is a leaf box            
                if(nchild.eq.0) then
-                  nb=nb+1
-                  call cpu_time(t1)
+cccc                  nb=nb+1
+cccc                  call cpu_time(t1)
 c                 form PW expansion directly
-                  call leg3d_to_pw(nd,norder,fcoefs(1,1,ibox),npw,
-     1                ff,ff2,tab_leg2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
-                  call cpu_time(t2)
-                  dt=dt+t2-t1
+                  call leg2d_to_pw(nd,norder,fcoefs(1,1,ibox),npw,
+     1                ff,tab_leg2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
+cccc                  call cpu_time(t2)
+cccc                  dt=dt+t2-t1
                endif
             endif
          enddo
 C$OMP END PARALLEL DO
  111     format ('ilev=', i1,4x, 'nb=',i6, 4x,'formpw=', f5.2)         
-         write(6,111) ilev,nb,dt
+cccc         write(6,111) ilev,nb,dt
 c     end of ilev do loop
  1100 continue
       
@@ -571,34 +653,22 @@ C$OMP$PRIVATE(ibox,jbox,i,nchild,dx,dy,dz,k)
 C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4)+ibox-1)
-          if (nchild .gt. 0) then
-             call g3dpwzero_vec(nd,rmlexp(iaddr(1,ibox)),npw)
-          endif
           do i=1,nchild
-            jbox = itree(iptr(5)+8*(ibox-1)+i-1)
+            jbox = itree(iptr(5)+4*(ibox-1)+i-1)
 
             dx= (centers(1,ibox) - centers(1,jbox))
             dy= (centers(2,ibox) - centers(2,jbox))
-            dz= (centers(3,ibox) - centers(3,jbox))
-            if (dx.gt.0 .and. dy.gt.0 .and. dz.gt.0) then
+            if (dx.gt.0 .and. dy.gt.0) then
                k=1
-            elseif (dx.gt.0 .and. dy.lt.0 .and. dz.gt.0) then
+            elseif (dx.gt.0 .and. dy.lt.0) then
                k=2
-            elseif (dx.lt.0 .and. dy.gt.0 .and. dz.gt.0) then
+            elseif (dx.lt.0 .and. dy.gt.0) then
                k=3
-            elseif (dx.lt.0 .and. dy.lt.0 .and. dz.gt.0) then
+            elseif (dx.lt.0 .and. dy.lt.0) then
                k=4
-            elseif (dx.gt.0 .and. dy.gt.0 .and. dz.lt.0) then
-               k=5
-            elseif (dx.gt.0 .and. dy.lt.0 .and. dz.lt.0) then
-               k=6
-            elseif (dx.lt.0 .and. dy.gt.0 .and. dz.lt.0) then
-               k=7
-            elseif (dx.lt.0 .and. dy.lt.0 .and. dz.lt.0) then
-               k=8
             endif
 
-            call g3dshiftpw_vec(nd,nexp,rmlexp(iaddr(1,jbox)),
+            call g2dshiftpw_vec(nd,nexp,rmlexp(iaddr(1,jbox)),
      1          rmlexp(iaddr(1,ibox)),wpwmsshift(1,k,klev))
           enddo
         enddo
@@ -624,18 +694,28 @@ C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,jbox,j)
 C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
-           call g3dcopypwexp_vec(nd,nexp,rmlexp(iaddr(1,ibox)),
-     1         rmlexp(iaddr(2,ibox)))
 c          shift PW expansions
            do j=1,nlistpw(ibox)
               jbox=listpw(j,ibox)
               jx= nint((centers(1,ibox) - centers(1,jbox))/xmin)
               jy= nint((centers(2,ibox) - centers(2,jbox))/xmin)
-              jz= nint((centers(3,ibox) - centers(3,jbox))/xmin)
 
-              call g3dshiftpw_vec(nd,nexp,rmlexp(iaddr(1,jbox)),
-     1            rmlexp(iaddr(2,ibox)),wpwshift(1,jx,jy,jz))
+              if (iperiod .eq. 1) then
+                 jxp1=nint((centers(1,ibox) - centers(1,jbox)-bs0)/xmin)
+                 jxm1=nint((centers(1,ibox) - centers(1,jbox)+bs0)/xmin)
+                 jyp1=nint((centers(2,ibox) - centers(2,jbox)-bs0)/xmin)
+                 jym1=nint((centers(2,ibox) - centers(2,jbox)+bs0)/xmin)
+                 if (abs(jx).gt.abs(jxp1)) jx=jxp1
+                 if (abs(jx).gt.abs(jxm1)) jx=jxm1
+                 if (abs(jy).gt.abs(jyp1)) jy=jyp1
+                 if (abs(jy).gt.abs(jym1)) jy=jym1
+              endif
+              
+              call g2dshiftpw_vec(nd,nexp,rmlexp(iaddr(1,jbox)),
+     1            rmlexp(iaddr(2,ibox)),wpwshift(1,jx,jy))
            enddo
+           call g2dcopypwexp_vec(nd,nexp,rmlexp(iaddr(1,ibox)),
+     1         rmlexp(iaddr(2,ibox)))
         enddo
 C$OMP END PARALLEL DO        
  1300 continue
@@ -662,28 +742,19 @@ C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4)+ibox-1)
           do i=1,nchild
-             jbox = itree(iptr(5)+8*(ibox-1)+i-1)
+             jbox = itree(iptr(5)+4*(ibox-1)+i-1)
              dx= centers(1,jbox) - centers(1,ibox)
              dy= centers(2,jbox) - centers(2,ibox)
-             dz= centers(3,jbox) - centers(3,ibox)
-             if (dx.gt.0 .and. dy.gt.0 .and. dz.gt.0) then
+             if (dx.gt.0 .and. dy.gt.0) then
                 k=1
-             elseif (dx.gt.0 .and. dy.lt.0 .and. dz.gt.0) then
+             elseif (dx.gt.0 .and. dy.lt.0) then
                 k=2
-             elseif (dx.lt.0 .and. dy.gt.0 .and. dz.gt.0) then
+             elseif (dx.lt.0 .and. dy.gt.0) then
                 k=3
-             elseif (dx.lt.0 .and. dy.lt.0 .and. dz.gt.0) then
+             elseif (dx.lt.0 .and. dy.lt.0) then
                 k=4
-             elseif (dx.gt.0 .and. dy.gt.0 .and. dz.lt.0) then
-                k=5
-             elseif (dx.gt.0 .and. dy.lt.0 .and. dz.lt.0) then
-                k=6
-             elseif (dx.lt.0 .and. dy.gt.0 .and. dz.lt.0) then
-                k=7
-             elseif (dx.lt.0 .and. dy.lt.0 .and. dz.lt.0) then
-                k=8
              endif
-             call g3dshiftpw_loc_vec(nd,nexp,rmlexp(iaddr(2,ibox)),
+             call g2dshiftpw_vec(nd,nexp,rmlexp(iaddr(2,ibox)),
      1           rmlexp(iaddr(2,jbox)),wpwmsshift(1,k,nlevels-ilev))
           enddo
         enddo
@@ -706,27 +777,27 @@ C$    time1=omp_get_wtime()
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,nchild)
 C$OMP$SCHEDULE(DYNAMIC)
-         call cpu_time(t1)
-         nb=0
-         dt=0
+cccc         call cpu_time(t1)
+cccc         nb=0
+cccc         dt=0
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
            if (ilev .eq. npwlevel .and. iflocal(ibox).eq.0) then
 c            do nothing here
            else    
              nchild = itree(iptr(4)+ibox-1)
              if(nchild.eq.0) then
-                nb=nb+1
+cccc                nb=nb+1
                 call cpu_time(t1)
-                call g3d_pw2pot(nd,norder,npw,rmlexp(iaddr(2,ibox)),
-     1              gg,gg2,tab_pw2pot(1,1,ilev),pot(1,1,ibox))
-                call cpu_time(t2)
-                dt=dt+t2-t1
+                call g2d_pw2pot(nd,norder,npw,rmlexp(iaddr(2,ibox)),
+     1              gg,tab_pw2pot(1,1,ilev),pot(1,1,ibox))
+cccc                call cpu_time(t2)
+cccc                dt=dt+t2-t1
              endif
            endif
 ccc    end of ibox loop        
         enddo
  222    format ('ilev=', i1,4x, 'nb=',i6, 4x,'pweval=', f5.2)         
-        write(6,222) ilev,nb,dt
+cccc        write(6,222) ilev,nb,dt
 C$OMP END PARALLEL DO        
  1500 continue
 
@@ -764,36 +835,63 @@ c                 colleague
                      else
                      ix = (centers(1,jbox)-centers(1,ibox))/bs
                      iy = (centers(2,jbox)-centers(2,ibox))/bs
-                     iz = (centers(3,jbox)-centers(3,ibox))/bs
+                     if (iperiod .eq. 1) then
+                        ixp1=ix-2**jlev
+                        ixm1=ix+2**jlev
+                        iyp1=iy-2**jlev
+                        iym1=iy+2**jlev
+                        if (abs(ix).gt.abs(ixp1)) ix=ixp1
+                        if (abs(ix).gt.abs(ixm1)) ix=ixm1
+                        if (abs(iy).gt.abs(iyp1)) iy=iyp1
+                        if (abs(iy).gt.abs(iym1)) iy=iym1
+                     endif
 
-                     call leg3d_to_potloc(nd,norder,fcoefs(1,1,ibox),
-     1                   hh,hh2,pot(1,1,jbox),
+                     call leg2d_to_potloc(nd,norder,fcoefs(1,1,ibox),
+     1                   hh,pot(1,1,jbox),
      2                   tab_coll(1,1,ix,jlev),
-     3                   tab_coll(1,1,iy,jlev),
-     4                   tab_coll(1,1,iz,jlev))
+     3                   tab_coll(1,1,iy,jlev))
                      endif
 c                 big source box to small target box                     
                   elseif (ilev .eq. jlev-1) then
-                     ix = (centers(1,jbox)-centers(1,ibox))/bs+2.55d0
-                     iy = (centers(2,jbox)-centers(2,ibox))/bs+2.55d0
-                     iz = (centers(3,jbox)-centers(3,ibox))/bs+2.55d0
-
-                     call leg3d_to_potloc(nd,norder,fcoefs(1,1,ibox),
-     1                   hh,hh2,pot(1,1,jbox),
+                     dx = (centers(1,jbox)-centers(1,ibox))/bs
+                     dy = (centers(2,jbox)-centers(2,ibox))/bs
+                     if (iperiod .eq. 1) then
+                        dxp1=dx-bs0/bs
+                        dxm1=dx+bs0/bs
+                        dyp1=dy-bs0/bs
+                        dym1=dy+bs0/bs
+                        if (abs(dx).gt.abs(dxp1)) dx=dxp1
+                        if (abs(dx).gt.abs(dxm1)) dx=dxm1
+                        if (abs(dy).gt.abs(dyp1)) dy=dyp1
+                        if (abs(dy).gt.abs(dym1)) dy=dym1
+                     endif
+                     ix=dx+2.55do
+                     iy=dy+2.55d0
+                     call leg2d_to_potloc(nd,norder,fcoefs(1,1,ibox),
+     1                   hh,pot(1,1,jbox),
      2                   tab_btos(1,1,ix,jlev),
-     3                   tab_btos(1,1,iy,jlev),
-     4                   tab_btos(1,1,iz,jlev))
+     3                   tab_btos(1,1,iy,jlev))
 c                 small source box to big target box 
                   elseif (ilev .eq. jlev+1) then
-                     ix = (centers(1,jbox)-centers(1,ibox))/bs*2+2.55d0
-                     iy = (centers(2,jbox)-centers(2,ibox))/bs*2+2.55d0
-                     iz = (centers(3,jbox)-centers(3,ibox))/bs*2+2.55d0
+                     dx = (centers(1,jbox)-centers(1,ibox))/bs
+                     dy = (centers(2,jbox)-centers(2,ibox))/bs
+                     if (iperiod .eq. 1) then
+                        dxp1=dx-bs0/bs
+                        dxm1=dx+bs0/bs
+                        dyp1=dy-bs0/bs
+                        dym1=dy+bs0/bs
+                        if (abs(dx).gt.abs(dxp1)) dx=dxp1
+                        if (abs(dx).gt.abs(dxm1)) dx=dxm1
+                        if (abs(dy).gt.abs(dyp1)) dy=dyp1
+                        if (abs(dy).gt.abs(dym1)) dy=dym1
+                     endif
+                     ix=dx*2+2.55d0
+                     iy=dy*2+2.55d0
 cccc                     print *, ilev, jlev, ix,iy,iz                     
-                     call leg3d_to_potloc(nd,norder,fcoefs(1,1,ibox),
-     1                   hh,hh2,pot(1,1,jbox),
+                     call leg2d_to_potloc(nd,norder,fcoefs(1,1,ibox),
+     1                   hh,pot(1,1,jbox),
      2                   tab_stob(1,1,ix,jlev),
-     3                   tab_stob(1,1,iy,jlev),
-     4                   tab_stob(1,1,iz,jlev))
+     3                   tab_stob(1,1,iy,jlev))
                   endif
                enddo
             endif
@@ -820,7 +918,7 @@ c
 c
 c
 c------------------------------------------------------------------    
-      subroutine g3dmpalloc(nd,laddr,iaddr,
+      subroutine g2dmpalloc(nd,laddr,iaddr,
      1    nlevels,npwlevel,lmptot,npw)
 c     This subroutine determines the size of the array
 c     to be allocated for multipole/local expansions
@@ -876,7 +974,7 @@ c
 
       do i = nlevstart,nlevels
 
-         nn = (npw*npw*npw/2)*2*nd
+         nn = (npw*npw/2)*2*nd
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,itmp)
          do ibox = laddr(1,i),laddr(2,i)
@@ -891,7 +989,7 @@ C$OMP END PARALLEL DO
 c
       do i = nlevstart,nlevels
 
-         nn = (npw*npw*npw/2)*2*nd
+         nn = (npw*npw/2)*2*nd
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,itmp)
          do ibox = laddr(1,i),laddr(2,i)

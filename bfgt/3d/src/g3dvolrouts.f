@@ -573,6 +573,46 @@ c
 C
 c
 C
+      subroutine g3dshiftpw_loc_vec(nd,nexp,pwexp1,
+     1              pwexp2,wshift)
+C
+C     This subroutine converts the PW expansion (pwexp1) about
+C     the center (CENT1) into an PW expansion (pwexp2) about 
+C     (CENT2) using precomputed translation matrix wshift.
+C
+C     INPUT
+C
+c     nd      = vector length (for vector input)
+C     delta   = Gaussian variance
+C     nn      = number of terms in PW expansion
+C     pwexp1  = original expansion 
+C     wshift  = precomputed PW exp translation matrix 
+C
+C     OUTPUT:
+C
+C     pwexp2 = shifted expansion 
+C
+C     Note: there is no incrementation here!
+C
+      implicit none
+      integer nd,j,ind,nexp
+      complex *16 pwexp1(nexp,nd)
+      complex *16 pwexp2(nexp,nd)
+      complex *16 wshift(nexp)
+
+C
+      do ind=1,nd
+         do j=1,nexp
+            pwexp2(j,ind) = pwexp1(j,ind)*wshift(j)
+         enddo
+      enddo
+c
+      return
+      end
+c
+C
+c
+C
       subroutine g3dcopypwexp_vec(nd,nexp,pwexp1,
      1              pwexp2)
 C
@@ -597,7 +637,7 @@ C
 C
       do ind=1,nd
          do j=1,nexp
-            pwexp2(j,ind) = pwexp2(j,ind)+pwexp1(j,ind)
+            pwexp2(j,ind) = pwexp1(j,ind)
          enddo
       enddo
 c

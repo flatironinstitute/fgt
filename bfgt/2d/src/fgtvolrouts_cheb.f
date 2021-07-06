@@ -2,37 +2,36 @@ c     This file contains a set of subroutines that build various 1D tables
 c     used in the box FGT in all dimensions.
 c
 c
-c     mk_leg2pw: builds the table converting Legendre expansion coefficients
+c     mk_cheb2pw: builds the table converting Chebyshev expansion coefficients
 c                to planewave expansion coefficients
 c
 c     mk_pw2pot: builds the table converting planewave expansion coefficients
-c                to potential values on Legendre nodes
+c                to potential values on Chebyshev nodes
 c
-c     mk_loctab_coll: builds the table converting Legendre expansion coefficients
-c                in the source box to potential values on Legendre nodes in the
+c     mk_loctab_coll: builds the table converting Chebyshev expansion coefficients
+c                in the source box to potential values on Chebyshev nodes in the
 c                target box at the same level, three of them for each level.
 c
-c     mk_loctab_stob: builds the table converting Legendre expansion coefficients
-c                in a small source box to potential values on Legendre nodes in a
+c     mk_loctab_stob: builds the table converting Chebyshev expansion coefficients
+c                in a small source box to potential values on Chebyshev nodes in a
 c                large target box at the coarse level. four of them for each level.
 c
-c     mk_loctab_btos: builds the table converting Legendre expansion coefficients
-c                in a large source box to potential values on Legendre nodes in a
+c     mk_loctab_btos: builds the table converting Chebyshev expansion coefficients
+c                in a large source box to potential values on Chebyshev nodes in a
 c                small target box at the fine level. four of them for each level.
 c
 C*********************************************************************C
-      subroutine mk_leg2pw_old(n,npw,nnodes,ws,ts,delta,boxdim,
-     1    tab_leg2pw)
+      subroutine mk_cheb2pw(n,npw,nnodes,ws,ts,delta,boxdim,tab_cheb2pw)
 C*********************************************************************C
 c     This routine is a correct but not optimized table generator.
 c
-c     tab_leg2pw(n,j) = ws(j)*(D/2) * 
+c     tab_cheb2pw(n,j) = ws(j)*(D/2) * 
 c              int_{-1}^1 P_n(x) exp(- i ts(j)Dx/(2 \sqrt{delta})) dx
 c              where D is the box dimension at current level in
 c              tree hierarchy.
 c
 c     That is, 
-c     tab_leg2pw(n,j) is the Fourier transform of P_n at a specific
+c     tab_cheb2pw(n,j) is the Fourier transform of P_n at a specific
 c     frequency. These can be expressed in terms of half-order Bessel
 c     functions. A faster scheme would be to compute the top two 
 c     coefficients and then use a downward recurrence to get the rest.
@@ -47,30 +46,30 @@ c     delta    Gaussian variance
 c     boxdim   box dimension at current level
 c
 c     OUTPUT:
-c     tab_leg2pw  (n,j) entry is:  ws(j) * int_{-1}^{1}  
+c     tab_cheb2pw  (n,j) entry is:  ws(j) * int_{-1}^{1}  
 c                 P_n(x) exp(- i ts(j) D x/(2 \sqrt(delta)  dx
 c                 where D is box dimension at current level in
 c                 tree hierarchy.
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 u,v
-      real *8, allocatable :: legev(:,:)
-      complex *16 tab_leg2pw(n,npw),zsum,eye
+      real *8, allocatable :: chebv(:,:)
+      complex *16 tab_cheb2pw(n,npw),zsum,eye
       real *8 ws(npw),ts(npw)
       real *8, allocatable :: whts(:), xnodes(:)
 c
-      allocate(legev(n,nnodes))
+      allocate(chebv(n,nnodes))
       allocate(whts(nnodes))
       allocate(xnodes(nnodes))
 c
       eye = dcmplx(0.0d0,1.0d0)
       itype = 1
-      call legeexps(itype,nnodes,xnodes,u,v,whts)
+      call chebexps(itype,nnodes,xnodes,u,v,whts)
 c
       do i = 1,nnodes
-         call legepols(xnodes(i),n-1,legev(1,i))
+         call chebpols(xnodes(i),n-1,chebv(1,i))
       enddo
-ccc      call prin2(' legev is *',legev,n*nnodes)
+ccc      call prin2(' chebv is *',chebv,n*nnodes)
 c
       fac = boxdim/(2*dsqrt(delta))
       do m = 1,n
@@ -78,106 +77,11 @@ c
             zsum = 0.0d0
             do i = 1,nnodes
                zsum = zsum +
-     1         legev(m,i)*cdexp(-eye*ts(j)*fac*xnodes(i))*whts(i)
+     1         chebv(m,i)*cdexp(-eye*ts(j)*fac*xnodes(i))*whts(i)
             enddo
-            tab_leg2pw(m,j) = ws(j)*zsum*boxdim/2.0d0
+            tab_cheb2pw(m,j) = ws(j)*zsum*boxdim/2.0d0
          enddo
       enddo
-      return
-      end subroutine
-c
-c
-c
-c
-c
-c
-C*********************************************************************C
-      subroutine mk_leg2pw(n,npw,nnodes,ws,ts,delta,boxdim,tab_leg2pw)
-C*********************************************************************C
-c     Use half-order Bessel J function to construct the table.
-c
-c     tab_leg2pw(n,j) = ws(j)*(D/2) * 
-c            int_{-1}^1 P_n(x) exp(- i ts(j)Dx/(2 \sqrt{delta})) dx
-c      
-c     it is known that
-c      
-c     int_{-1}^1 P_n(x) exp(- i a x) dx = 1/i^m *sqrt(2pi/a) J_{n+1/2)(a),
-c      
-c     where i^2=-1, J_{n+1/2) is the Bessel J function of half integer.
-c
-d      
-c     we use the AMOS 644 to evaluate J_{n+1/2}. James Bremer also has 
-d     a package for the evaluation of J_{nu}, but it requires reading  
-c     tables, evaluates J_{n+1/2} and Y_{n+1/2} at the same time,
-c     and does the evaluate for each n one at a time. AMOS 644 evaluates
-c     J function only, and does the evaluation for a sequence of n at the
-c     same time.
-c      
-c     Here D is the box dimension at current level in the tree hierarchy.
-c
-c     Since a could be large, reaching about 100 for high accuracy,
-c     the quadrature scheme will need to set nnodes very large,
-c     leading to an inefficient scheme.
-c      
-c     That is, 
-c     tab_leg2pw(n,j) is the Fourier transform of P_n at a specific
-c     frequency. These can be expressed in terms of half-order Bessel
-c     functions. A faster scheme would be to compute the top two 
-c     coefficients and then use a downward recurrence to get the rest.
-c     There are also analytic formulae for these Fourier transforms.
-c
-c     INPUT:
-c     n        dimension of coeff array
-c     npw      number of plane waves
-c     nnodes   number of nodes used in numerical quadrature
-c     ws,ts    weights and nodes of plane wave quadrature
-c     delta    Gaussian variance
-c     boxdim   box dimension at current level
-c
-c     OUTPUT:
-c     tab_leg2pw  (n,j) entry is:  ws(j) * int_{-1}^{1}  
-c                 P_n(x) exp(- i ts(j) D x/(2 \sqrt(delta)  dx
-c                 where D is box dimension at current level in
-c                 tree hierarchy.
-c----------------------------------------------------------------------c
-      implicit real *8 (a-h,o-z)
-      complex *16 tab_leg2pw(n,npw),eye,eyem,z
-      real *8 ws(npw),ts(npw)
-      real *8, allocatable :: cyr(:),cyi(:)
-c
-      allocate(cyr(n))
-      allocate(cyi(n))
-c
-      pi = 4*atan(1.0d0)
-      
-      eye = dcmplx(0.0d0,1.0d0)
-      fac = boxdim/(2*dsqrt(delta))
-
-      fnu=0.5d0
-      kode=1
-      do j = npw/2+1,npw
-         dd = ws(j)*boxdim/2.0d0
-         
-         if (abs(ts(j)).lt.1d-12) then
-            tab_leg2pw(1,j)=dd*2
-            do m=2,n
-               tab_leg2pw(m,j)=0
-            enddo
-         else
-            zi=0.0d0
-            zr = ts(j)*fac
-            ddd = sqrt(2*pi/zr)
-            z = cmplx(zr,0.0d0)
-            call zbesj(zr,zi,fnu,kode,n,cyr,cyi,nz,ierr)
-            eyem=1.0d0
-            do m=1,n
-               tab_leg2pw(m,j)=dd*dcmplx(cyr(m),cyi(m))*ddd/eyem
-               tab_leg2pw(m,npw-j+1) = conjg(tab_leg2pw(m,j))
-               eyem=eyem*eye
-            enddo
-         endif
-      enddo
-
       return
       end subroutine
 c
@@ -197,10 +101,10 @@ c              where D is the box dimension at current level in
 c              tree hierarchy.
 c
 c     INPUT:
-c     norder   number of Legendre nodes
+c     norder   number of Chebyshev nodes
 c     npw      number of plane waves
 c     ts       nodes of plane wave quadrature
-c     xs       Legendre nodes
+c     xs       Chebyshev nodes
 c     delta    Gaussian variance
 c     boxdim   box dimension at current level
 c
@@ -267,33 +171,33 @@ c     tab_colleague
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 u,v, rsum,xi,xip1,xim1
-      real *8, allocatable :: legev(:,:)
+      real *8, allocatable :: chebv(:,:)
       real *8 tab_colleague(n,n,-1:1)
       real *8, allocatable :: whts(:), xnodes(:)
       real *8, allocatable :: xnodest(:)
 c
-      allocate(legev(n,nnodes))
+      allocate(chebv(n,nnodes))
       allocate(whts(nnodes))
       allocate(xnodes(nnodes))
       allocate(xnodest(n))
 c
       itype = 1
-      call legeexps(itype,n,xnodest,u,v,whts)
+      call chebexps(itype,n,xnodest,u,v,whts)
       do i=1,n
          xnodest(i) = boxdim*xnodest(i)/2.0d0
       enddo
-ccc      call prin2(' Legendre nodes are *',xnodest,n)
-      call legeexps(itype,nnodes,xnodes,u,v,whts)
-ccc      call prin2(' Legendre nodes are *',xnodes,nnodes)
+ccc      call prin2(' Chebyshev nodes are *',xnodest,n)
+      call chebexps(itype,nnodes,xnodes,u,v,whts)
+ccc      call prin2(' Chebyshev nodes are *',xnodes,nnodes)
 c
       do i = 1,nnodes
-         call legepols(xnodes(i),n-1,legev(1,i))
+         call chebpols(xnodes(i),n-1,chebv(1,i))
       enddo
       do i=1,nnodes
          xnodes(i) = boxdim*xnodes(i)/2.0d0
          whts(i) = whts(i)*boxdim/2.0d0
       enddo
-ccc      call prin2(' legev is *',legev,n*nnodes)
+ccc      call prin2(' chebv is *',chebv,n*nnodes)
 c
       do m = 1,n
          do j = 1,n
@@ -306,15 +210,15 @@ c
             do i = 1,nnodes
                dx = xi - xnodes(i)
                rsum = rsum +
-     1             legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1             chebv(m,i)*exp(-dx*dx/delta)*whts(i)
                
                dx = xim1 - xnodes(i)
                rsumm1 = rsumm1 +
-     1             legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1             chebv(m,i)*exp(-dx*dx/delta)*whts(i)
                
                dx = xip1 - xnodes(i)
                rsump1 = rsump1 +
-     1             legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1             chebv(m,i)*exp(-dx*dx/delta)*whts(i)
             enddo
             tab_colleague(m,j,-1) = rsumm1
             tab_colleague(m,j,0)  = rsum
@@ -367,12 +271,12 @@ c     tab_stob
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 u,v, rsum,xi,xi1,xi2,xi3,xi4
-      real *8, allocatable :: legev(:,:)
+      real *8, allocatable :: chebv(:,:)
       real *8 tab_stob(n,n,4)
       real *8, allocatable :: whts(:), xnodes(:)
       real *8, allocatable :: xnodest(:)
 c
-      allocate(legev(n,nnodes))
+      allocate(chebv(n,nnodes))
       allocate(whts(nnodes))
       allocate(xnodes(nnodes))
       allocate(xnodest(n))
@@ -380,24 +284,24 @@ c
 c     target grid points
 c
       itype = 1
-      call legeexps(itype,n,xnodest,u,v,whts)
+      call chebexps(itype,n,xnodest,u,v,whts)
       do i=1,n
          xnodest(i) = boxdim*xnodest(i)/2.0d0
       enddo
-ccc      call prin2(' Legendre nodes are *',xnodest,n)
-      call legeexps(itype,nnodes,xnodes,u,v,whts)
-ccc      call prin2(' Legendre nodes are *',xnodes,nnodes)
+ccc      call prin2(' Chebyshev nodes are *',xnodest,n)
+      call chebexps(itype,nnodes,xnodes,u,v,whts)
+ccc      call prin2(' Chebyshev nodes are *',xnodes,nnodes)
 c
 c     fine grid points for numerical integration on source
 c
       do i = 1,nnodes
-         call legepols(xnodes(i),n-1,legev(1,i))
+         call chebpols(xnodes(i),n-1,chebv(1,i))
       enddo
       do i=1,nnodes
          xnodes(i) = boxdim*xnodes(i)/4.0d0
          whts(i) = whts(i)*boxdim/4.0d0
       enddo
-ccc      call prin2(' legev is *',legev,n*nnodes)
+ccc      call prin2(' chebv is *',chebv,n*nnodes)
 c
       do m = 1,n
          do j = 1,n
@@ -415,19 +319,19 @@ c
             do i = 1,nnodes
                dx = xi1 - xnodes(i)
                rsum1 = rsum1 +
-     1             legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1             chebv(m,i)*exp(-dx*dx/delta)*whts(i)
                
                dx = xi2 - xnodes(i)
                rsum2 = rsum2 +
-     1             legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1             chebv(m,i)*exp(-dx*dx/delta)*whts(i)
 
                dx = xi3 - xnodes(i)
                rsum3 = rsum3 +
-     1             legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1             chebv(m,i)*exp(-dx*dx/delta)*whts(i)
                
                dx = xi4 - xnodes(i)
                rsum4 = rsum4 +
-     1             legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1             chebv(m,i)*exp(-dx*dx/delta)*whts(i)
             enddo
             
             tab_stob(m,j,1) = rsum1
@@ -484,12 +388,12 @@ c     tab_stob
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 u,v, rsum,xi,xi1,xi2,xi3,xi4
-      real *8, allocatable :: legev(:,:)
+      real *8, allocatable :: chebv(:,:)
       real *8 tab_btos(n,n,4)
       real *8, allocatable :: whts(:), xnodes(:)
       real *8, allocatable :: xnodest(:)
 c
-      allocate(legev(n,nnodes))
+      allocate(chebv(n,nnodes))
       allocate(whts(nnodes))
       allocate(xnodes(nnodes))
       allocate(xnodest(n))
@@ -497,24 +401,24 @@ c
 c     target grid points
 c
       itype = 1
-      call legeexps(itype,n,xnodest,u,v,whts)
+      call chebexps(itype,n,xnodest,u,v,whts)
       do i=1,n
          xnodest(i) = boxdim*xnodest(i)/2.0d0
       enddo
-ccc      call prin2(' Legendre nodes are *',xnodest,n)
-      call legeexps(itype,nnodes,xnodes,u,v,whts)
-ccc      call prin2(' Legendre nodes are *',xnodes,nnodes)
+ccc      call prin2(' Chebyshev nodes are *',xnodest,n)
+      call chebexps(itype,nnodes,xnodes,u,v,whts)
+ccc      call prin2(' Chebyshev nodes are *',xnodes,nnodes)
 c
 c     fine grid points for numerical integration on source
 c
       do i = 1,nnodes
-         call legepols(xnodes(i),n-1,legev(1,i))
+         call chebpols(xnodes(i),n-1,chebv(1,i))
       enddo
       do i=1,nnodes
          xnodes(i) = boxdim*xnodes(i)
          whts(i) = whts(i)*boxdim
       enddo
-ccc      call prin2(' legev is *',legev,n*nnodes)
+ccc      call prin2(' chebv is *',chebv,n*nnodes)
 c
       do m = 1,n
          do j = 1,n
@@ -530,16 +434,16 @@ c
             do i = 1,nnodes
                dx = xi1 - xnodes(i)
                rsum1 = rsum1 +
-     1         legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1         chebv(m,i)*exp(-dx*dx/delta)*whts(i)
                dx = xi2 - xnodes(i)
                rsum2 = rsum2 +
-     1         legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1         chebv(m,i)*exp(-dx*dx/delta)*whts(i)
                dx = xi3 - xnodes(i)
                rsum3 = rsum3 +
-     1         legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1         chebv(m,i)*exp(-dx*dx/delta)*whts(i)
                dx = xi4 - xnodes(i)
                rsum4 = rsum4 +
-     1         legev(m,i)*exp(-dx*dx/delta)*whts(i)
+     1         chebv(m,i)*exp(-dx*dx/delta)*whts(i)
             enddo
             tab_btos(m,j,1) = rsum1
             tab_btos(m,j,2) = rsum2

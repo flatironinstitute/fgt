@@ -298,8 +298,10 @@ c
 c
 c       compute coefs
 c
-      allocate(fcoefs(ncbox,nd,nboxes),xq(norder),umat(norder,norder),
-     1   vmat(norder,norder),wts(norder))
+      allocate(fcoefs(npbox,nd,nboxes))
+      
+      allocate(xq(norder),wts(norder))
+      allocate(umat(norder,norder),vmat(norder,norder))
      
       itype = 2
       call legeexps(itype,norder,xq,umat,vmat,wts)
@@ -309,9 +311,18 @@ c
       do ilev = 0,nlevels
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
-          if(nchild.eq.0)
-     1        call legval2coefs2_3d(nd,norder,fvals(1,1,ibox),
-     2        fcoefs(1,1,ibox),umat)
+          if(nchild.eq.0) then
+cccc            call prin2('fvals=*',fvals(1,1,ibox),nd*npbox)
+             do ind=1,nd
+                do i=1,npbox
+                   fcoefs(i,ind,ibox)=fvals(ind,i,ibox)
+                   if (abs(fvals(ind,i,ibox)).lt.1d-16) 
+     1                 fcoefs(i,ind,ibox)=0
+                enddo
+             enddo
+cccc             call legval2coefs2_3d(nd,norder,fvals(1,1,ibox),
+cccc     1           fcoefs(1,1,ibox),umat)
+          endif
         enddo
       enddo
       
@@ -568,6 +579,7 @@ c              Check if current box is a leaf box
                   call cpu_time(t1)
 c                 form PW expansion directly
                   call leg3d_to_pw(nd,norder,fcoefs(1,1,ibox),npw,
+cccc                  call leg3dval_to_pw(nd,norder,fvals(1,1,ibox),npw,
      1                ff,ff2,tab_leg2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
                   call cpu_time(t2)
                   dt=dt+t2-t1
@@ -793,6 +805,7 @@ c                 colleague
                      iz = (centers(3,jbox)-centers(3,ibox))/bs
 
                      call leg3d_to_potloc(nd,norder,fcoefs(1,1,ibox),
+cccc                     call leg3dval_to_potloc(nd,norder,fvals(1,1,ibox),
      1                   hh,hh2,pot(1,1,jbox),
      2                   tab_coll(1,1,ix,jlev),
      3                   tab_coll(1,1,iy,jlev),
@@ -805,6 +818,7 @@ c                 big source box to small target box
                      iz = (centers(3,jbox)-centers(3,ibox))/bs+2.55d0
 
                      call leg3d_to_potloc(nd,norder,fcoefs(1,1,ibox),
+cccc                     call leg3dval_to_potloc(nd,norder,fvals(1,1,ibox),
      1                   hh,hh2,pot(1,1,jbox),
      2                   tab_btos(1,1,ix,jlev),
      3                   tab_btos(1,1,iy,jlev),
@@ -816,6 +830,7 @@ c                 small source box to big target box
                      iz = (centers(3,jbox)-centers(3,ibox))/bs*2+2.55d0
 cccc                     print *, ilev, jlev, ix,iy,iz                     
                      call leg3d_to_potloc(nd,norder,fcoefs(1,1,ibox),
+cccc                     call leg3dval_to_potloc(nd,norder,fvals(1,1,ibox),
      1                   hh,hh2,pot(1,1,jbox),
      2                   tab_stob(1,1,ix,jlev),
      3                   tab_stob(1,1,iy,jlev),

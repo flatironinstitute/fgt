@@ -1,6 +1,6 @@
       implicit real *8 (a-h,o-z)
       real *8 dpars(1000)
-      integer iptr(9)
+      integer iptr(8)
       integer, allocatable :: itree(:)
       real *8, allocatable :: fvals(:,:,:),centers(:,:),boxsize(:)
       real *8, allocatable :: xref(:,:)
@@ -26,7 +26,7 @@
 c
 c      initialize function parameters
 c
-      delta = 1d-4*4
+      delta = 1d-3
       boxlen = 1.0d0
       
       rsig = 5.0d-5
@@ -88,7 +88,7 @@ cccc      npols = norder*(norder+1)*(norder+2)/6
       allocate(pot(nd,npbox,nboxes))
 
       do i=1,nboxes
-        do j=1,npbox
+         do j=1,npbox
            do ind=1,nd
               pot(ind,j,i) = 0
            enddo

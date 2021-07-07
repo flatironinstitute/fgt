@@ -17,6 +17,7 @@ endif
 ifeq ($(HOST),linux-gfortran)
 FC = gfortran
 FFLAGS = -fPIC -O3 -march=native -funroll-loops -ftree-vectorize -ffast-math -c -w
+#FFLAGS = -fPIC -O3 -g -funroll-loops -ftree-vectorize -ffast-math -c -w
 FLINK = gfortran -w -o $(EXEC)
 FEND = -lblas -llapack
 #FEND = -lopenblas -L/usr/local/opt/openblas/lib 
@@ -63,8 +64,9 @@ SOURCES =  test_bfgt3d.f \
   $(SRC)/common/tree_vol_coeffs2.f \
   $(SRC)/bfgt3d.f \
   $(SRC)/fgtterms.f \
-  $(SRC)/fgtvolrouts.f \
   $(SRC)/g3dvolrouts.f \
+  $(SRC)/fgtvolrouts_vals.f \
+#  $(SRC)/fgtvolrouts.f \
 
 ifeq ($(WITH_SECOND),1)
 SOURCES += $(SRC)/second-r8.f

@@ -117,6 +117,88 @@ c
 c
 c
 C*********************************************************************C
+      subroutine leg3dval_to_pw(nd,n,fvals,npw,ff,ff2,tab_leg2pw,pwexp)
+C*********************************************************************C
+c     This routine computes the plane wave expansion from
+c     Legendre series coefficients (implicitly about the box center).
+c
+c     INPUT:
+c     nd       vector length (for multiple RHS)
+c     n        dimension of coeff array
+c     fvals    function values at Legendre tensor product grid
+c
+c     npw      number of plane waves
+c                 NOTE 3D convention is pwexp(npw,npw,npw/2)
+c     ff       complex workspace (npw,n,n)
+c     ff2      complex workspace (npw,npw,n)
+c     tab_leg2pw  precomputed table of 1D conversion factors
+c                 (n,j) entry is: ws(j)*(D/2)* 
+c                 int_{-1}^1 P_n(x)exp(- i ts(j)Dx/(2 \sqrt{delta}))dx
+c                 where D is box dimension at current level in
+c                 tree hierarchy.
+c     OUTPUT:
+c     pwexp    plane wave expansion
+c----------------------------------------------------------------------c
+      implicit real *8 (a-h,o-z)
+      real *8 fvals(nd,n,n,n)
+      complex *16 ff(n,n,npw/2),tab_leg2pw(n,npw)
+      complex *16 ff2(n,npw,npw/2)
+      complex *16 pwexp(npw,npw,npw/2,nd),cd
+c
+      do ind = 1,nd
+         do k3 = 1,npw/2
+         do m2 = 1,n
+         do m1 = 1,n
+            cd = 0.0d0
+            do m3 = 1,n
+               cd = cd+tab_leg2pw(m3,k3)*fvals(ind,m1,m2,m3)
+            enddo
+            ff(m1,m2,k3) = cd
+         enddo
+         enddo
+         enddo
+c
+         do k3 = 1,npw/2
+         do k2 = 1,npw
+         do m1 = 1,n
+            cd = 0.0d0
+            do m2 = 1,n
+               cd = cd+tab_leg2pw(m2,k2)*ff(m1,m2,k3)
+            enddo
+            ff2(m1,k2,k3) = cd
+         enddo
+         enddo
+         enddo
+c
+         do k3 = 1,npw/2
+         do k2 = 1,npw
+         do k1 = 1,npw
+            cd = 0.0d0
+            do m1 = 1,n
+               cd = cd+tab_leg2pw(m1,k1)*ff2(m1,k2,k3)
+            enddo
+            pwexp(k1,k2,k3,ind) = cd
+         enddo
+         enddo
+         enddo
+c
+      enddo
+      
+      return
+      end subroutine
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+C*********************************************************************C
       subroutine leg3d_to_pw(nd,n,coeff,npw,ff,ff2,tab_leg2pw,pwexp)
 C*********************************************************************C
 c     This routine computes the plane wave expansion from
@@ -266,6 +348,124 @@ c
 c
 c
 c
+C*********************************************************************C
+      subroutine leg3dval_to_potloc(nd,n,fvals,ff,ff2,pot,
+     1    tabx,taby,tabz)
+C*********************************************************************C
+c     This routine computes the volume Gauss transform over a 
+c     single box source distribution given as a Legendre series.
+c     The target points have a fixed location w.r.t. source box
+c     and the integrals of Gaussians times Legendre polynomials at 
+c     those points is assumed to have been precomputed and stored 
+c     in arrays (tabx, taby,tabz). 
+c     Thus, the specific geometric relation of the source and target
+c     boxes are IMPLICITLY contained in these arrays.
+c     There are many such relations in 3D, but only a few one-dimensional
+c     tables are needed corresponding to the range of possible shifts
+c     of the box center in any single dimension.
+c
+c
+c     Case 1: same level
+c          _____ _____ ____  
+c         |     |     |    | 
+c         |     |     |    | 
+c         |_____|_____|____| 
+c         |     |     |    | 
+c         |     |  T  |    |    target points in T
+c         |_____|_____|____|    source box has offset in x and y.  
+c         |     |     |    |    Because of separation of variables,
+c         |     |     |    |    we can use 1D tables for desired 
+c         |_____|_____|____|    offsets in x, y, or z in range (-1,0,1). 
+c
+c     Case 2: different levels
+c          _____ _____ ____  
+c         |     |     |    | 
+c         |     |     |    | 
+c         |_____|_____|____| 
+c         |     |A |  |    | 
+c         |     |--|--| B  |   for target points in small box A, of 
+c         |_____|__|__|____|   dimension D, adjacent large boxes can be   
+c         |     |     |    |   offset by one of -3D/2,-D/2,D/2,3D/2
+c         |     |     |    |   in either x, y, or z.
+c         |_____|_____|____|   
+c                              For target points in large box B, of
+c                              dimension D, adjacent small boxes can be
+c                              offset by one of -3D/4,-D/4,D/4,3D/4
+c                              in either x, y, or z.
+c
+c     INPUT:
+c     nd          vector length (for multiple RHS)
+c     n           dimension of coeff array
+c     fvals       functions values at Legendre tensor product grid
+c                 
+c     ff          workspace
+c     ff2          workspace
+c     tabx    precomputed table of 1D integrals
+c                 int_{Source box} P_n(x) exp( (\xi_j -x)^2/delta)
+c                 for targets at current level in tree hierarchy with
+c                 desired offset in x.
+c     taby    precomputed table of 1D integrals
+c                 int_{Source box} P_n(x) exp( (\xi_j -x)^2/delta)
+c                 for targets at current level in tree hierarchy with
+c                 desired offset in y.
+c     tabz    precomputed table of 1D integrals
+c
+c     OUTPUT:
+c     pot         output on tensor product grid
+c----------------------------------------------------------------------c
+      implicit real *8 (a-h,o-z)
+      real *8 fvals(nd,n,n,n),pot(nd,n,n,n)
+      real *8 ff(n,n,n),ff2(n,n,n),tabx(n,n),taby(n,n),tabz(n,n)
+c
+      do ind = 1,nd
+c        transform in x
+         do j3=1,n
+            do j2=1,n
+               do k1=1,n
+                  cd=0
+                  do j1=1,n
+                     cd=cd+tabx(j1,k1)*fvals(ind,j1,j2,j3)
+                  enddo
+                  ff(k1,j2,j3)=cd
+               enddo
+            enddo
+         enddo
+
+c        transform in y
+         do j3=1,n
+            do k2=1,n            
+               do k1=1,n
+                  cd=0
+                  do j2=1,n
+                     cd=cd+taby(j2,k2)*ff(k1,j2,j3)
+                  enddo
+                  ff2(k1,k2,j3)=cd
+               enddo
+            enddo
+         enddo
+
+c        transfrom in z
+         do k3=1,n
+            do k2=1,n
+               do k1=1,n
+                  cd=0
+                  do j3=1,n
+                     cd=cd+tabz(j3,k3)*ff2(k1,k2,j3)
+                  enddo
+                  pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+cd
+               enddo
+            enddo
+         enddo
+c     end of the ind loop
+      enddo
+
+      return
+      end subroutine
+c
+c
+C
+c
+C
 C*********************************************************************C
       subroutine leg3d_to_potloc(nd,n,coeff,ff,ff2,pot,tabx,taby,tabz)
 C*********************************************************************C

@@ -530,7 +530,7 @@ c     compute the tables converting Chebyshev polynomial expansion
 c     to planewave expansion
       nnodes = 100
       allocate(tab_leg2pw(norder,npw,0:nlevels))
-      allocate(ff(npw,norder))
+      allocate(ff(norder,npw/2))
 
       do ilev=nlevstart,nlevels
          call mk_cheb2pw(norder,npw,nnodes,ws,ts,delta,boxsize(ilev),
@@ -865,7 +865,7 @@ c                 big source box to small target box
                         if (abs(dy).gt.abs(dyp1)) dy=dyp1
                         if (abs(dy).gt.abs(dym1)) dy=dym1
                      endif
-                     ix=dx+2.55do
+                     ix=dx+2.55d0
                      iy=dy+2.55d0
                      call leg2d_to_potloc(nd,norder,fcoefs(1,1,ibox),
      1                   hh,pot(1,1,jbox),

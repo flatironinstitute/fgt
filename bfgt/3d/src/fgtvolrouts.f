@@ -1028,6 +1028,7 @@ cccc      print *, 'dmax=',dmax
 c
       if (lambda.le.0.125d0) then
          print *, 'enter small lambda zone in btos table'
+cccc         print *, 'lambda=', lambda
 c        btos table 1, the scaled target interval is on [-2,-1], the scaled
 c        source interval is on [-1,1]. 
          do j=1,n
@@ -1179,19 +1180,21 @@ c
       
       fint(1) = sqrtpih*(erfb - erfa)
       fint(2) = -d1/2 + targ*fint(1)
+      
       fint(3) = -d2 - targ*d1
      1    +(lambda2-2.0d0/3+2*targ**2)*fint(1)
       fint(3) = 0.75d0*fint(3)
       
-      fint(4) = -d1 + 2*targ*fint(3)
+      fint(4) = -d1 + 2*targ*(4.0d0*fint(3)/3-fint(1)/3)
      1    -(0.4d0-4*lambda2)*fint(2)
-      fint(4) = 5*fint(4)/8
+      fint(4) = 5.0d0*fint(4)/8
       
       do k=5,m
          n=k-3
-         fint(k)=targ*(fint(k-1)-fint(k-3)) + (n-1)*fint(k-4)/(2*n-1) 
-     1       + (2*n+1)*(lambda2/2 + 1.0d0/(2*n+3)/(2*n-1))*fint(k-2) 
-         fint(k) = (2*n+3)*fint(k)/(n+2)
+         fint(k)=targ*(fint(k-1)-fint(k-3))
+     1       + (2*n+1)*(lambda2/2 + 1.0d0/((2*n+3)*(2*n-1)))*fint(k-2) 
+     2       + (n-1.0d0)*fint(k-4)/(2*n-1) 
+         fint(k) = (2*n+3.0d0)*fint(k)/(n+2)
       enddo
 
 c     finally, multiply lambda back and also the proper weight adjustment

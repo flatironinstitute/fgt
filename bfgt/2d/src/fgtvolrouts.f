@@ -103,14 +103,14 @@ c     it is known that
 c      
 c     int_{-1}^1 P_n(x) exp(- i a x) dx = 1/i^m *sqrt(2pi/a) J_{n+1/2)(a),
 c      
-c     where i^2=-1, J_{n+1/2) is the Bessel J function of half integer.
+c     where i^2=-1, J_{n+1/2) is the Bessel J function of half integer order.
 c
-d      
-c     we use the AMOS 644 to evaluate J_{n+1/2}. James Bremer also has 
-d     a package for the evaluation of J_{nu}, but it requires reading  
+c      
+c     we use the package TOMS 644 to evaluate J_{n+1/2}. James Bremer also has 
+c     a package for the evaluation of J_{nu}, but it requires reading  
 c     tables, evaluates J_{n+1/2} and Y_{n+1/2} at the same time,
-c     and does the evaluate for each n one at a time. AMOS 644 evaluates
-c     J function only, and does the evaluation for a sequence of n at the
+c     and does the evaluate for each n one at a time. TOMS 644 evaluates
+c     J functions only, and does the evaluation for a sequence of n at the
 c     same time.
 c      
 c     Here D is the box dimension at current level in the tree hierarchy.
@@ -243,7 +243,7 @@ c
 c
 c
 C*********************************************************************C
-      subroutine mk_loctab_coll(n,nnodes,delta,boxdim,tab_colleague)
+      subroutine mk_loctab_coll_old(n,nnodes,delta,boxdim,tab_colleague)
 C*********************************************************************C
 c     This routine is a correct but not optimized table generator.
 c
@@ -327,7 +327,7 @@ c
 c
 c
 C*********************************************************************C
-      subroutine mk_loctab_stob(n,nnodes,delta,boxdim,tab_stob)
+      subroutine mk_loctab_stob_old(n,nnodes,delta,boxdim,tab_stob)
 C*********************************************************************C
 c     This routine is a correct but not optimized table generator.
 c
@@ -444,7 +444,7 @@ c
 c
 c
 C*********************************************************************C
-      subroutine mk_loctab_btos(n,nnodes,delta,boxdim,tab_btos)
+      subroutine mk_loctab_btos_old(n,nnodes,delta,boxdim,tab_btos)
 C*********************************************************************C
 c     This routine is a correct but not optimized table generator.
 c
@@ -551,4 +551,662 @@ c
       end subroutine
 c
 c
+c
+c
+C*********************************************************************C
+      subroutine mk_loctab_coll(n,nnodes,delta,boxdim,tab_colleague)
+C*********************************************************************C
+c     This routine is an optimized table generator.
+c
+c     tab_colleague(n,j,k) = 
+c              int_{-D/2}^{D/2} P_n(x*2/D) exp( -(\xi_j -x)^2/delta)
+c              where D is the box dimension at current level in
+c              tree hierarchy and \xi_j is either on 
+c              [-D/2,D/2]   -> tab_colleague(n,n,0)
+c              [-3D/2,-D/2] -> tab_colleague(n,n,-1)
+c              [D/2,3D/2]   -> tab_colleague(n,n,1)
+c              
+c
+c     INPUT:
+c     n        dimension of coeff array
+c     nnodes   number of nodes used in numerical quadrature
+c     delta    Gaussian variance
+c     boxdim   box dimension at current level
+c
+c     OUTPUT:
+c     tab_colleague 
+c----------------------------------------------------------------------c
+      implicit real *8 (a-h,o-z)
+      real *8 xi,xip1,xim1
+      real *8 tab_colleague(n,n,-1:1)
+      real *8 xnodest(100),fint(100),lambda
+      real *8, allocatable :: legev(:,:)
+      real *8, allocatable :: whts(:), xnodes(:)
+      real *8, allocatable :: wexp(:,:)
+c
+      itype = 0
+      call legeexps(itype,n,xnodest,u,v,whts)
 
+      sigma = 4*delta/boxdim**2
+      lambda = sqrt(sigma)
+      eps=2d-16
+      dmax=sqrt(log(1/eps)*sigma)
+cccc      print *, 'dmax=',dmax
+c      
+      if (lambda.le.0.125d0) then
+         print *, 'enter small lambda zone in coll table'
+         
+c
+c     colleague table -1, the scaled target interval is on [-3,-1], the scaled
+c     source interval is on [-1,1]. 
+         do j=1,n
+            xim1 = xnodest(j) - 2
+            dx = 1-xnodest(j)
+            if (dx.gt.dmax) then
+               do m=1,n
+                  tab_colleague(m,j,-1)  = 0
+               enddo
+            else
+               call mk_loctab_recurrence(n,xim1,lambda,dmax,boxdim,fint)
+               do m=1,n
+                  tab_colleague(m,j,-1)  = fint(m)
+               enddo
+            endif
+         enddo
+
+c     colleague table 0, the scaled target interval is on [-1,1], the scaled source
+c     interval is on [-1, 1].
+c      
+c     by symmetry, only needs to construct the table for half of the target points.
+c      
+         do j=1,n/2
+            xi = xnodest(j)
+            call mk_loctab_recurrence(n,xi,lambda,dmax,boxdim,fint)
+            do m=1,n
+               tab_colleague(m,j,0)  = fint(m)
+            enddo
+         enddo         
+      else
+         nquad = 50
+         allocate(legev(n,nquad))
+         allocate(whts(nquad))
+         allocate(xnodes(nquad))
+         allocate(wexp(nquad,n))
+c        quadrature nodes and weights on the source interval
+         itype=1
+         call legeexps(itype,nquad,xnodes,u,v,whts)
+
+         do i=1,nquad
+            whts(i) = whts(i)*boxdim/2
+         enddo
+      
+         do i = 1,nquad
+            call legepols(xnodes(i),n-1,legev(1,i))
+         enddo
+c         
+c        colleague table -1, the scaled target interval is on [-3,-1].
+         do j=1,n
+            xim1 = xnodest(j) - 2.0d0
+            do i=1,nquad
+               dx = xnodes(i) -xim1
+               if (dx.lt.dmax) then
+                  wexp(i,j)=exp(-dx*dx/sigma)*whts(i)
+               else
+                  wexp(i,j)=0
+               endif
+            enddo
+         enddo
+
+         do j = 1,n
+            dx = 1-xnodest(j)
+            if (dx.gt.dmax) then
+               do m=1,n
+                  tab_colleague(m,j,-1) = 0
+               enddo
+            else
+               do m = 1,n
+                  rsum1 = 0.0d0
+                  do i = 1,nquad
+                     rsum1 = rsum1 + legev(m,i)*wexp(i,j)
+                  enddo
+                  tab_colleague(m,j,-1) = rsum1
+               enddo
+            endif
+         enddo
+c        colleague table 0, the scaled target interval is on [-1,1], 
+c        the scaled source interval is on [-1, 1].
+c        By symmetry, only needs to construct the table for half of the target points.
+         do j=1,n/2
+            xi = xnodest(j)
+            do i=1,nquad
+               dx = xnodes(i) - xi
+               if (abs(dx).lt.dmax) then
+                  wexp(i,j)=exp(-dx*dx/sigma)*whts(i)
+               else
+                  wexp(i,j)=0
+               endif
+            enddo
+         enddo
+
+         do j = 1,n/2
+            do m = 1,n
+               rsum1 = 0.0d0
+               do i = 1,nquad
+                  rsum1 = rsum1 + legev(m,i)*wexp(i,j)
+               enddo
+               tab_colleague(m,j,0)  = rsum1
+            enddo
+         enddo
+      endif
+      
+c     obtain the other half of table 0 by symmetry
+      do j=1,n/2
+         do m=1,n,2
+            tab_colleague(m,n-j+1,0)  = tab_colleague(m,j,0) 
+         enddo
+         do m=2,n,2
+            tab_colleague(m,n-j+1,0)  = -tab_colleague(m,j,0) 
+         enddo
+      enddo
+      
+c     use symmetry to construct the table +1 for targets on the right side
+      do j=1,n
+         do m=1,n,2
+            tab_colleague(m,j,1) = tab_colleague(m,n-j+1,-1)
+         enddo
+         do m=2,n,2
+            tab_colleague(m,j,1) = -tab_colleague(m,n-j+1,-1)
+         enddo
+      enddo
+      
+      return
+      end subroutine
+c
+c
+c
+c
+C*********************************************************************C
+      subroutine mk_loctab_stob(n,nnodes,delta,boxdim,tab_stob)
+C*********************************************************************C
+c     This routine is an optimized table generator.
+c
+c     tab_colleague(n,j,k) = 
+c              int_{source box} P_n(x) exp( -(\xi_j -x)^2/delta)
+c              where boxdim is the box dimension of TARGET BOX 
+c              at current level in tree hierarchy and 
+c              \xi_j is either on 
+c              [-5D/4,-D/4]     -> tab_stob(n,n,1)
+c              [-3D/4, D/4]     -> tab_stob(n,n,2)
+c              [ -D/4,3D/4]     -> tab_stob(n,n,3)
+c              [  D/4,5D/4]     -> tab_stob(n,n,4)
+c              
+c     Here we assume that the source box is centered at the origin.        
+c              
+c              
+c     Small source interval to big target interval
+c      
+c              
+c      _____ _____ ____  
+c     |     |     |    | 
+c     |     |     |    | 
+c     |_____|_____|____| 
+c     |     |  |A |    | For target points in large box B, of
+c     |     |--|--| B  | dimension D, adjacent small source box centers 
+c     |_____|__|__|____| can be offset by one of -3D/4,-D/4,D/4,3D/4
+c     |     |     |    | in either x, y, or z.
+c     |     |     |    |  
+c     |_____|_____|____|   
+c                          
+c
+c     INPUT:
+c     n        dimension of coeff array
+c     nnodes   number of nodes used in numerical quadrature
+c     delta    Gaussian variance
+c     boxdim   target box dimension at current level
+c
+c     OUTPUT:
+c     tab_stob 
+c----------------------------------------------------------------------c
+      implicit real *8 (a-h,o-z)
+      real *8 xi,xi1,xi2,xi3,xi4
+      real *8 tab_stob(n,n,4)
+      real *8 xnodest(100),fint(100),lambda
+      real *8, allocatable :: legev(:,:)
+      real *8, allocatable :: whts(:), xnodes(:)
+      real *8, allocatable :: wexp(:,:)
+c
+      itype = 0
+      call legeexps(itype,n,xnodest,u,v,whts)
+c     big target interval, enlarged by a factor of 2
+      do i=1,n
+         xnodest(i) = xnodest(i)*2
+      enddo
+      
+      sigma = 16*delta/boxdim**2
+      lambda = sqrt(sigma)
+      eps=2d-16
+      dmax=sqrt(log(1/eps)*sigma)
+cccc      print *, 'dmax=',dmax
+c
+      if (lambda.le.0.125d0) then
+         print *, 'enter small lambda zone in stob table'
+         
+c        stob table 1, the scaled target interval is on [-5,-1], the scaled
+c        source interval is on [-1,1]. 
+         do j=1,n
+            xi1 = xnodest(j) - 3.0d0
+            dx = 2-xnodest(j)
+            if (dx.gt.dmax) then
+               do m=1,n
+                  tab_stob(m,j,1) = 0
+               enddo
+            else
+               call mk_loctab_recurrence(n,xi1,lambda,dmax,
+     1             boxdim/2,fint)
+               do m=1,n
+                  tab_stob(m,j,1)  = fint(m)
+               enddo
+            endif
+         enddo
+
+c        stob table 2, the scaled target interval is on [-3,1], the scaled source
+c        interval is on [-1, 1].
+c      
+c        split the target into two parts. 1. for targets on [-3,-1], check whether 
+c        the target is far away from the source interval
+         do j=1,n/2
+            xi2 = xnodest(j) - 1.0d0
+            dx = -xnodest(j)
+            if (dx.gt.dmax) then
+               do m=1,n
+                  tab_stob(m,j,2) = 0
+               enddo
+            else
+               call mk_loctab_recurrence(n,xi2,lambda,dmax,
+     1             boxdim/2,fint)
+               do m=1,n
+                  tab_stob(m,j,2)  = fint(m)
+               enddo
+            endif
+         enddo
+c        for targets on [-1,1], no need to check
+         do j=n/2+1,n
+            xi2 = xnodest(j) - 1.0d0       
+            call mk_loctab_recurrence(n,xi2,lambda,dmax,boxdim/2,fint)
+            do m=1,n
+               tab_stob(m,j,2)  = fint(m)
+            enddo
+         enddo
+      else
+         nquad = 50
+         allocate(legev(n,nquad))
+         allocate(whts(nquad))
+         allocate(xnodes(nquad))
+         allocate(wexp(nquad,n))
+c        obtain quadrature nodes and weights on the source interval
+         itype=1
+         call legeexps(itype,nquad,xnodes,u,v,whts)
+
+         do i=1,nquad
+            whts(i) = whts(i)*boxdim/4
+         enddo
+      
+         do i = 1,nquad
+            call legepols(xnodes(i),n-1,legev(1,i))
+         enddo
+c        stob table 1, the scaled target interval is on [-5,-1]
+         do j=1,n
+            xi1 = xnodest(j) - 3.0d0
+            do i=1,nquad
+               dx = xnodes(i) - xi1
+               if (dx.lt.dmax) then
+                  wexp(i,j)=exp(-dx*dx/sigma)*whts(i)
+               else
+                  wexp(i,j)=0
+               endif
+            enddo
+         enddo
+
+         do j = 1,n
+            dx = 2-xnodest(j)
+            if (dx.gt.dmax) then
+               do m=1,n
+                  tab_stob(m,j,1) = 0
+               enddo
+            else
+               do m = 1,n
+                  rsum1 = 0.0d0
+                  do i = 1,nquad
+                     rsum1 = rsum1 + legev(m,i)*wexp(i,j)
+                  enddo
+                  tab_stob(m,j,1) = rsum1
+               enddo
+            endif
+         enddo
+c        stob table 2, the scaled target interval is on [-3,1]
+c        for targets on [-3,-1], check whether the target is far away from
+c        the source interval
+         do j=1,n/2
+            xi2 = xnodest(j) - 1.0d0
+            do i=1,nquad
+               dx = xnodes(i) - xi2
+               if (dx.lt.dmax) then
+                  wexp(i,j)=exp(-dx*dx/sigma)*whts(i)
+               else
+                  wexp(i,j)=0
+               endif
+            enddo
+         enddo
+
+         do j = 1,n/2
+            dx=-xnodest(j)
+            if (dx.gt.dmax) then
+               do m=1,n
+                  tab_stob(m,j,2) = 0
+               enddo
+            else
+               do m = 1,n
+                  rsum2 = 0.0d0
+                  do i = 1,nquad
+                     rsum2 = rsum2 + legev(m,i)*wexp(i,j)
+                  enddo
+                  tab_stob(m,j,2) = rsum2
+               enddo
+            endif
+         enddo
+c        for targets on [-1,1], no need to check
+         do j=n/2+1,n
+            xi2 = xnodest(j) - 1.0d0
+            do i=1,nquad
+               dx = xnodes(i) - xi2
+               if (abs(dx).lt.dmax) then
+                  wexp(i,j)=exp(-dx*dx/sigma)*whts(i)
+               else
+                  wexp(i,j)=0
+               endif
+            enddo
+         enddo
+
+         do j = n/2+1,n
+            do m = 1,n
+               rsum1 = 0.0d0
+               do i = 1,nquad
+                  rsum1 = rsum1 + legev(m,i)*wexp(i,j)
+               enddo
+               tab_stob(m,j,2) = rsum1
+            enddo
+         enddo
+      endif
+
+c     use symmetry to construct the tables 3 and 4
+      do j=1,n
+         do m=1,n,2
+            tab_stob(m,j,3) = tab_stob(m,n-j+1,2)
+         enddo
+         do m=2,n,2
+            tab_stob(m,j,3) = -tab_stob(m,n-j+1,2)
+         enddo
+      enddo
+      
+      do j=1,n
+         do m=1,n,2
+            tab_stob(m,j,4) = tab_stob(m,n-j+1,1)
+         enddo
+         do m=2,n,2
+            tab_stob(m,j,4) = -tab_stob(m,n-j+1,1)
+         enddo
+      enddo
+
+      return
+      end subroutine
+c
+c
+c
+c
+C*********************************************************************C
+      subroutine mk_loctab_btos(n,nnodes,delta,boxdim,tab_btos)
+C*********************************************************************C
+c     This routine is a correct but not optimized table generator.
+c
+c     tab_colleague(n,j,k) = 
+c              int_{source box} P_n(x) exp( -(\xi_j -x)^2/delta)
+c              where boxdim is the box dimension of TARGET BOX 
+c              at current level in tree hierarchy and 
+c              \xi_j is either on 
+c              [-2D,-D]    -> tab_btos(n,n,1)
+c              [ -D, 0]    -> tab_btos(n,n,2)
+c              [  0, D]    -> tab_btos(n,n,3)
+c              [  D,2D]    -> tab_btos(n,n,4)
+c              
+c     Here we assume that the source box is centered at the origin.        
+c              
+c     Big source interval to small target interval
+c      
+c      _____ _____ ____  
+c     |     |     |    | 
+c     |  A  |     |    | 
+c     |_____|_____|____| 
+c     |     |B |  |    | For target points in small target box B, of
+c     |     |--|--|    | dimension D, adjacent large source box A centers 
+c     |_____|__|__|____| can be offset by one of -3D/2,-D/2,D/2,3D/2
+c     |     |     |    | in either x, y, or z.
+c     |     |     |    |  
+c     |_____|_____|____|   
+c                          
+c
+c     INPUT:
+c     n        dimension of coeff array
+c     nnodes   number of nodes used in numerical quadrature
+c     delta    Gaussian variance
+c     boxdim   target box dimension at current level
+c
+c     OUTPUT:
+c     tab_btos
+c----------------------------------------------------------------------c
+      implicit real *8 (a-h,o-z)
+      real *8 xi,xi1,xi2,xi3,xi4
+      real *8 tab_btos(n,n,4)
+      real *8 xnodest(100),fint(100),lambda
+      real *8, allocatable :: legev(:,:)
+      real *8, allocatable :: whts(:), xnodes(:)
+      real *8, allocatable :: wexp(:,:)
+c
+      itype = 0
+      call legeexps(itype,n,xnodest,u,v,ws)
+c     small target interval, reduced by a factor of 2
+      do i=1,n
+         xnodest(i) = xnodest(i)/2
+      enddo
+
+      sigma = delta/boxdim**2
+      lambda = sqrt(sigma)
+cccc      print *, 'lambda=', lambda
+      
+      eps=2d-16
+      dmax=sqrt(log(1/eps)*sigma)
+cccc      print *, 'dmax=',dmax
+c
+      if (lambda.le.0.125d0) then
+         print *, 'enter small lambda zone in btos table'
+cccc         print *, 'lambda=', lambda
+c        btos table 1, the scaled target interval is on [-2,-1], the scaled
+c        source interval is on [-1,1]. 
+         do j=1,n
+            dx=0.5d0-xnodest(j)
+            if (dx.gt.dmax) then
+               do m=1,n
+                  tab_btos(m,j,1) = 0
+               enddo
+            else
+               xi1 = xnodest(j) - 1.5d0
+               call mk_loctab_recurrence(n,xi1,lambda,dmax,
+     1             boxdim*2,fint)
+               do m=1,n
+                  tab_btos(m,j,1)  = fint(m)
+               enddo
+            endif
+         enddo
+c        btos table 2, the scaled target interval is on [-1,0], the scaled source
+c        interval is on [-1, 1]. 
+         do j=1,n
+            xi2 = xnodest(j) - 0.5d0         
+            call mk_loctab_recurrence(n,xi2,lambda,dmax,boxdim*2,fint)
+            do m=1,n
+               tab_btos(m,j,2)  = fint(m)
+            enddo
+         enddo
+      else
+         nquad = 50
+         allocate(legev(n,nquad))
+         allocate(whts(nquad))
+         allocate(xnodes(nquad))
+         allocate(wexp(nquad,n))
+c        quadrature nodes and weights on the source interval
+         itype=1
+         call legeexps(itype,nquad,xnodes,u,v,whts)
+         do i=1,nquad
+            whts(i) = whts(i)*boxdim
+         enddo
+         
+         do i = 1,nquad
+            call legepols(xnodes(i),n-1,legev(1,i))
+         enddo
+c        btos table 1, the scaled target interval is on [-2,-1].         
+         do j=1,n
+            xi1 = xnodest(j) - 1.5d0
+            do i=1,nquad
+               dx = xnodes(i) - xi1
+               if (dx.lt.dmax) then
+                  wexp(i,j)=exp(-dx*dx/sigma)*whts(i)
+               else
+                  wexp(i,j)=0
+               endif
+            enddo
+         enddo
+         do j = 1,n
+            dx=0.5d0-xnodest(j)
+            if (dx.gt.dmax) then
+               do m=1,n
+                  tab_btos(m,j,1) = 0
+               enddo
+            else
+               do m = 1,n
+                  rsum1 = 0.0d0
+                  do i = 1,nquad
+                     rsum1 = rsum1 + legev(m,i)*wexp(i,j)
+                  enddo
+                  tab_btos(m,j,1) = rsum1
+               enddo
+            endif
+         enddo
+c        btos table 2, the scaled target interval is on [-1,0]         
+         do j=1,n
+            xi2 = xnodest(j) - 0.5d0
+            do i=1,nquad
+               dx = xnodes(i) - xi2
+               if (abs(dx).lt.dmax) then
+                  wexp(i,j)=exp(-dx*dx/sigma)*whts(i)
+               else
+                  wexp(i,j)=0
+               endif
+            enddo
+         enddo
+
+         do j = 1,n
+            do m = 1,n
+               rsum1 = 0.0d0
+               do i = 1,nquad
+                  rsum1 = rsum1 + legev(m,i)*wexp(i,j)
+               enddo
+               tab_btos(m,j,2) = rsum1
+            enddo
+         enddo
+      endif
+
+c     use symmetry to construct tables 3 and 4
+      do j=1,n
+         do m=1,n,2
+            tab_btos(m,j,3) = tab_btos(m,n-j+1,2)
+         enddo
+         do m=2,n,2
+            tab_btos(m,j,3) = -tab_btos(m,n-j+1,2)
+         enddo
+      enddo
+      
+      do j=1,n
+         do m=1,n,2
+            tab_btos(m,j,4) = tab_btos(m,n-j+1,1)
+         enddo
+         do m=2,n,2
+            tab_btos(m,j,4) = -tab_btos(m,n-j+1,1)
+         enddo
+      enddo
+
+      return
+      end subroutine
+c
+c
+c
+c
+      subroutine mk_loctab_recurrence(m,targ,lambda,dmax,boxdim,fint)
+      implicit real *8 (a-h,o-z)
+cccc      sqrtpih=sqrt(4.0d0*atan(1.0d0))/2
+      data sqrtpih/0.886226925452757940959713778283913d0/
+c     calculate the values of the integral
+c
+c     \frac{1}{\lambda}\int_{-1}^1 P_n(x) e^{-(targ-x)^2/\lambda^2}dx
+c
+c     for n=0,1,...,m-1.
+c      
+c     Algorithm: use the five term recurrence formula
+c     
+c     Assumption: lambda<=1/8
+c
+      real *8 fint(m),lambda,lambda2
+      
+      lambda2=lambda*lambda
+      
+      a = (-1-targ)/lambda
+      b = (1-targ)/lambda
+
+      erfa = erf(a)
+      erfb = erf(b)
+
+      expa = exp(-a*a)
+      expb = exp(-b*b)
+
+      d1 = lambda*(expb - expa)
+      d2 = lambda*(expb + expa)
+      
+      fint(1) = sqrtpih*(erfb - erfa)
+      fint(2) = -d1/2 + targ*fint(1)
+      
+      fint(3) = -d2 - targ*d1
+     1    +(lambda2-2.0d0/3+2*targ**2)*fint(1)
+      fint(3) = 0.75d0*fint(3)
+      
+      fint(4) = -d1 + 2*targ*(4.0d0*fint(3)/3-fint(1)/3)
+     1    -(0.4d0-4*lambda2)*fint(2)
+      fint(4) = 5.0d0*fint(4)/8
+      
+      do k=5,m
+         n=k-3
+         fint(k)=targ*(fint(k-1)-fint(k-3))
+     1       + (2*n+1)*(lambda2/2 + 1.0d0/((2*n+3)*(2*n-1)))*fint(k-2) 
+     2       + (n-1.0d0)*fint(k-4)/(2*n-1) 
+         fint(k) = (2*n+3.0d0)*fint(k)/(n+2)
+      enddo
+
+c     finally, multiply lambda back and also the proper weight adjustment
+c     for the source box
+      ww = boxdim*lambda/2
+      do k=1,m
+         fint(k)=fint(k)*ww
+      enddo
+
+      return
+      end
+c
+c
+c
+      

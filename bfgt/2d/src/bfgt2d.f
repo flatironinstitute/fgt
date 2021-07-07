@@ -302,6 +302,7 @@ c
       itype = 2
       call legeexps(itype,norder,xq,umat,vmat,wts)
 
+      call cpu_time(ttt1)
       do ilev = 0,nlevels
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
@@ -310,6 +311,8 @@ c
      2        fcoefs(1,1,ibox),umat)
         enddo
       enddo
+      call cpu_time(ttt2)
+      call prin2('val to coeffs time=*', ttt2-ttt1,1)
 c
 c       initialize potential
 c 
@@ -438,7 +441,7 @@ c     to planewave expansion
       nnodes = 100
       allocate(tab_leg2pw(norder,npw,0:nlevels))
       allocate(tab_leg2pw2(norder,npw,0:nlevels))
-      allocate(ff(npw,norder))
+      allocate(ff(norder,npw/2))
 
       do ilev=nlevstart,nlevels
 cccc         call mk_leg2pw_old(norder,npw,nnodes,ws,ts,delta,boxsize(ilev),

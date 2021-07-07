@@ -53,6 +53,7 @@ UTILS_DIR = ../src/common
 
 SOURCES =  test_bfgt2d.f \
   $(SRC)/common/prini_new.f \
+  $(SRC)/common/toms644.f \
   $(SRC)/common/legeexps.f \
   $(SRC)/common/legetens.f \
   $(SRC)/common/hkrand.f \
@@ -64,8 +65,6 @@ SOURCES =  test_bfgt2d.f \
   $(SRC)/fgtvolrouts.f \
   $(SRC)/g2dvolrouts.f \
   $(SRC)/common/tree_routs4.f \
-  $(SRC)/common/besselj/toms644.f \
-#  $(SRC)/common/besselj/cbessel.f90 \
 
 ifeq ($(WITH_SECOND),1)
 SOURCES += $(SRC)/second-r8.f

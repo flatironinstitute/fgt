@@ -286,6 +286,10 @@ c
       real *8, allocatable :: tab_coll(:,:,:,:)
       real *8, allocatable :: tab_stob(:,:,:,:)
       real *8, allocatable :: tab_btos(:,:,:,:)
+      
+      real *8, allocatable :: tab_coll2(:,:,:,:)
+      real *8, allocatable :: tab_stob2(:,:,:,:)
+      real *8, allocatable :: tab_btos2(:,:,:,:)
 
       ifprint = 1
 
@@ -386,23 +390,45 @@ c     values, used in direct evaluation
       allocate(tab_coll(norder,norder,-1:1,0:nlevels))
       allocate(tab_stob(norder,norder,4,0:nlevels))
       allocate(tab_btos(norder,norder,4,0:nlevels))
+      
+cccc      allocate(tab_coll2(norder,norder,-1:1,0:nlevels))
+cccc      allocate(tab_stob2(norder,norder,4,0:nlevels))
+cccc      allocate(tab_btos2(norder,norder,4,0:nlevels))
+
       allocate(hh(norder,norder,norder))
       allocate(hh2(norder,norder,norder))
 
-      nnodes=100
+      nnodes=2000
       do ilev = 0,min(npwlevel,nlevels)
          call mk_loctab_coll(norder,nnodes,delta,boxsize(ilev),
      1       tab_coll(1,1,-1,ilev))
+cccc         call mk_loctab_coll_old(norder,nnodes,delta,boxsize(ilev),
+cccc     1       tab_coll(1,1,-1,ilev))
+cccc         call derr(tab_coll(1,1,-1,ilev),tab_coll2(1,1,-1,ilev),
+cccc     1       norder*norder*3,rerr1)
+cccc         print *, 'rerr1=', rerr1
       enddo
 
       do ilev = 0,min(npwlevel,nlevels)
          call mk_loctab_stob(norder,nnodes,delta,boxsize(ilev),
      1       tab_stob(1,1,1,ilev))
+cccc         call mk_loctab_stob_old(norder,nnodes,delta,boxsize(ilev),
+cccc     1       tab_stob(1,1,1,ilev))
+cccc         call derr(tab_stob(1,1,1,ilev),tab_stob2(1,1,1,ilev),
+cccc     1       norder*norder*4,rerr2)
+cccc         print *, 'rerr2=', rerr2
       enddo
 
       do ilev = 0,min(npwlevel,nlevels)
          call mk_loctab_btos(norder,nnodes,delta,boxsize(ilev),
      1       tab_btos(1,1,1,ilev))
+cccc         call mk_loctab_btos_old(norder,nnodes,delta,boxsize(ilev),
+cccc     1       tab_btos(1,1,1,ilev))
+cccccccc         call prin2('correct btos=*',tab_btos2(1,1,2,ilev),norder)
+cccccccc         call prin2(' btos=*',tab_btos(1,1,2,ilev),norder)
+cccc         call derr(tab_btos(1,1,1,ilev),tab_btos2(1,1,1,ilev),
+cccc     1       norder*norder*4,rerr3)
+cccc         print *, 'rerr3=', rerr3
       enddo
 
 c
@@ -447,8 +473,8 @@ c     compute the tables converting Legendre polynomial expansion
 c     to planewave expansion
       nnodes = 16
       allocate(tab_leg2pw(norder,npw,0:nlevels))
-      allocate(ff(npw,norder,norder))
-      allocate(ff2(npw,npw,norder))
+      allocate(ff(norder,norder,npw/2))
+      allocate(ff2(norder,npw,npw/2))
 
       do ilev=nlevstart,nlevels
          call mk_leg2pw(norder,npw,nnodes,ws,ts,delta,boxsize(ilev),

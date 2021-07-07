@@ -99,25 +99,25 @@ c     pwexp    plane wave expansion
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 coeff(n,n,nd)
-      complex *16 ff(npw,n),tab_leg2pw(n,npw)
+      complex *16 ff(n,npw/2),tab_leg2pw(n,npw)
       complex *16 pwexp(npw,npw/2,nd),cd
 c
       do ind = 1,nd
-         do m2 = 1,n
-            do k1 = 1,npw
+         do m1 = 1,n
+            do k2 = 1,npw/2
                cd = 0.0d0
-               do m1 = 1,n
-                  cd = cd+tab_leg2pw(m1,k1)*coeff(m1,m2,ind)
+               do m2 = 1,n
+                  cd = cd+tab_leg2pw(m2,k2)*coeff(m1,m2,ind)
                enddo
-               ff(k1,m2) = cd
+               ff(m1,k2) = cd
             enddo
          enddo
 c
          do k2 = 1,npw/2
             do k1 = 1,npw
                cd = 0.0d0
-               do m2 = 1,n
-                  cd = cd+tab_leg2pw(m2,k2)*ff(k1,m2)
+               do m1 = 1,n
+                  cd = cd+tab_leg2pw(m1,k1)*ff(m1,k2)
                enddo
                pwexp(k1,k2,ind) = cd
             enddo

@@ -141,43 +141,43 @@ c     pwexp    plane wave expansion
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 coeff(n,n,n,nd)
-      complex *16 ff(npw,n,n),tab_leg2pw(n,npw)
-      complex *16 ff2(npw,npw,n)
+      complex *16 ff(n,n,npw/2),tab_leg2pw(n,npw)
+      complex *16 ff2(n,npw,npw/2)
       complex *16 pwexp(npw,npw,npw/2,nd),cd
 c
       do ind = 1,nd
-         do m3 = 1,n
+         do k3 = 1,npw/2
          do m2 = 1,n
-            do k1 = 1,npw
-               cd = 0.0d0
-               do m1 = 1,n
-                  cd = cd+tab_leg2pw(m1,k1)*coeff(m1,m2,m3,ind)
-               enddo
-               ff(k1,m2,m3) = cd
+         do m1 = 1,n
+            cd = 0.0d0
+            do m3 = 1,n
+               cd = cd+tab_leg2pw(m3,k3)*coeff(m1,m2,m3,ind)
             enddo
+            ff(m1,m2,k3) = cd
+         enddo
          enddo
          enddo
 c
-         do m3 = 1,n
+         do k3 = 1,npw/2
          do k2 = 1,npw
-            do k1 = 1,npw
-               cd = 0.0d0
-               do m2 = 1,n
-                  cd = cd+tab_leg2pw(m2,k2)*ff(k1,m2,m3)
-               enddo
-               ff2(k1,k2,m3) = cd
+         do m1 = 1,n
+            cd = 0.0d0
+            do m2 = 1,n
+               cd = cd+tab_leg2pw(m2,k2)*ff(m1,m2,k3)
             enddo
+            ff2(m1,k2,k3) = cd
+         enddo
          enddo
          enddo
 c
          do k3 = 1,npw/2
          do k2 = 1,npw
          do k1 = 1,npw
-               cd = 0.0d0
-               do m3 = 1,n
-                  cd = cd+tab_leg2pw(m3,k3)*ff2(k1,k2,m3)
-               enddo
-               pwexp(k1,k2,k3,ind) = cd
+            cd = 0.0d0
+            do m1 = 1,n
+               cd = cd+tab_leg2pw(m1,k1)*ff2(m1,k2,k3)
+            enddo
+            pwexp(k1,k2,k3,ind) = cd
          enddo
          enddo
          enddo

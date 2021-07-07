@@ -26,7 +26,7 @@
 c
 c      initialize function parameters
 c
-      delta = 2d-3
+      delta = 1d-4*4
       boxlen = 1.0d0
       
       rsig = 5.0d-5
@@ -227,6 +227,38 @@ c-----------------------
 
       return
       end
+c
+c
+c
+c
+      subroutine derr(vec1,vec2,n,erra)
+      implicit real *8 (a-h,o-z)
+      real *8 vec1(*),vec2(*)
+
+      ra = 0
+      erra = 0
+      do i=1,n
+         ra = ra + vec1(i)**2
+         erra = erra + (vec1(i)-vec2(i))**2
+      enddo
+
+      if (sqrt(ra)/n .lt. 1d-10) then
+         call prin2('vector norm =*', sqrt(ra)/n,1)
+         call prin2('switch to absolute error*',a,0)
+         erra = sqrt(erra)/n
+      else
+         erra = sqrt(erra/ra)
+      endif
+ccc      
+cccc      print *, sqrt(ra)/n
+      
+      return
+      end
+c----------------------------------
+
+
+
+
 
 
 

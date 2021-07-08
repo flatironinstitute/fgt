@@ -287,6 +287,10 @@ c
       real *8, allocatable :: tab_stob(:,:,:,:)
       real *8, allocatable :: tab_btos(:,:,:,:)
       
+      integer, allocatable :: ind_coll(:,:,:,:)
+      integer, allocatable :: ind_stob(:,:,:,:)
+      integer, allocatable :: ind_btos(:,:,:,:)
+
       real *8, allocatable :: tab_coll2(:,:,:,:)
       real *8, allocatable :: tab_stob2(:,:,:,:)
       real *8, allocatable :: tab_btos2(:,:,:,:)
@@ -402,6 +406,10 @@ c     values, used in direct evaluation
       allocate(tab_stob(norder,norder,4,0:nlevels))
       allocate(tab_btos(norder,norder,4,0:nlevels))
       
+      allocate(ind_coll(2,norder+1,-1:1,0:nlevels))
+      allocate(ind_stob(2,norder+1,4,0:nlevels))
+      allocate(ind_btos(2,norder+1,4,0:nlevels))
+      
 cccc      allocate(tab_coll2(norder,norder,-1:1,0:nlevels))
 cccc      allocate(tab_stob2(norder,norder,4,0:nlevels))
 cccc      allocate(tab_btos2(norder,norder,4,0:nlevels))
@@ -411,8 +419,10 @@ cccc      allocate(tab_btos2(norder,norder,4,0:nlevels))
 
       nnodes=2000
       do ilev = 0,min(npwlevel,nlevels)
-         call mk_loctab_coll(norder,nnodes,delta,boxsize(ilev),
-     1       tab_coll(1,1,-1,ilev))
+cccc         call mk_loctab_coll(norder,nnodes,delta,boxsize(ilev),
+cccc     1       tab_coll(1,1,-1,ilev))
+         call mk_loctab_coll(eps,norder,nnodes,delta,boxsize(ilev),
+     1       tab_coll(1,1,-1,ilev),ind_coll(1,1,-1,ilev))
 cccc         call mk_loctab_coll_old(norder,nnodes,delta,boxsize(ilev),
 cccc     1       tab_coll(1,1,-1,ilev))
 cccc         call derr(tab_coll(1,1,-1,ilev),tab_coll2(1,1,-1,ilev),
@@ -421,8 +431,11 @@ cccc         print *, 'rerr1=', rerr1
       enddo
 
       do ilev = 0,min(npwlevel,nlevels)
-         call mk_loctab_stob(norder,nnodes,delta,boxsize(ilev),
-     1       tab_stob(1,1,1,ilev))
+         call mk_loctab_stob(eps,norder,nnodes,delta,boxsize(ilev),
+     1       tab_stob(1,1,1,ilev),ind_stob(1,1,1,ilev))
+cccc         call prinf('ind_stob=*',ind_stob(1,1,1,ilev),2*norder*4)
+cccc         call mk_loctab_stob(norder,nnodes,delta,boxsize(ilev),
+cccc     1       tab_stob(1,1,1,ilev))
 cccc         call mk_loctab_stob_old(norder,nnodes,delta,boxsize(ilev),
 cccc     1       tab_stob(1,1,1,ilev))
 cccc         call derr(tab_stob(1,1,1,ilev),tab_stob2(1,1,1,ilev),
@@ -431,8 +444,10 @@ cccc         print *, 'rerr2=', rerr2
       enddo
 
       do ilev = 0,min(npwlevel,nlevels)
-         call mk_loctab_btos(norder,nnodes,delta,boxsize(ilev),
-     1       tab_btos(1,1,1,ilev))
+         call mk_loctab_btos(eps,norder,nnodes,delta,boxsize(ilev),
+     1       tab_btos(1,1,1,ilev),ind_btos(1,1,1,ilev))
+cccc         call mk_loctab_btos(norder,nnodes,delta,boxsize(ilev),
+cccc     1       tab_btos(1,1,1,ilev))
 cccc         call mk_loctab_btos_old(norder,nnodes,delta,boxsize(ilev),
 cccc     1       tab_btos(1,1,1,ilev))
 cccccccc         call prin2('correct btos=*',tab_btos2(1,1,2,ilev),norder)
@@ -804,12 +819,15 @@ c                 colleague
                      iy = (centers(2,jbox)-centers(2,ibox))/bs
                      iz = (centers(3,jbox)-centers(3,ibox))/bs
 
-                     call leg3d_to_potloc(nd,norder,fcoefs(1,1,ibox),
+                     call leg3d_to_potloc2(nd,norder,fcoefs(1,1,ibox),
 cccc                     call leg3dval_to_potloc(nd,norder,fvals(1,1,ibox),
      1                   hh,hh2,pot(1,1,jbox),
      2                   tab_coll(1,1,ix,jlev),
      3                   tab_coll(1,1,iy,jlev),
-     4                   tab_coll(1,1,iz,jlev))
+     4                   tab_coll(1,1,iz,jlev),
+     2                   ind_coll(1,1,ix,jlev),
+     3                   ind_coll(1,1,iy,jlev),
+     4                   ind_coll(1,1,iz,jlev))
                      endif
 c                 big source box to small target box                     
                   elseif (ilev .eq. jlev-1) then
@@ -817,24 +835,30 @@ c                 big source box to small target box
                      iy = (centers(2,jbox)-centers(2,ibox))/bs+2.55d0
                      iz = (centers(3,jbox)-centers(3,ibox))/bs+2.55d0
 
-                     call leg3d_to_potloc(nd,norder,fcoefs(1,1,ibox),
+                     call leg3d_to_potloc2(nd,norder,fcoefs(1,1,ibox),
 cccc                     call leg3dval_to_potloc(nd,norder,fvals(1,1,ibox),
      1                   hh,hh2,pot(1,1,jbox),
      2                   tab_btos(1,1,ix,jlev),
      3                   tab_btos(1,1,iy,jlev),
-     4                   tab_btos(1,1,iz,jlev))
+     4                   tab_btos(1,1,iz,jlev),
+     2                   ind_btos(1,1,ix,jlev),
+     3                   ind_btos(1,1,iy,jlev),
+     4                   ind_btos(1,1,iz,jlev))
 c                 small source box to big target box 
                   elseif (ilev .eq. jlev+1) then
                      ix = (centers(1,jbox)-centers(1,ibox))/bs*2+2.55d0
                      iy = (centers(2,jbox)-centers(2,ibox))/bs*2+2.55d0
                      iz = (centers(3,jbox)-centers(3,ibox))/bs*2+2.55d0
 cccc                     print *, ilev, jlev, ix,iy,iz                     
-                     call leg3d_to_potloc(nd,norder,fcoefs(1,1,ibox),
+                     call leg3d_to_potloc2(nd,norder,fcoefs(1,1,ibox),
 cccc                     call leg3dval_to_potloc(nd,norder,fvals(1,1,ibox),
      1                   hh,hh2,pot(1,1,jbox),
      2                   tab_stob(1,1,ix,jlev),
      3                   tab_stob(1,1,iy,jlev),
-     4                   tab_stob(1,1,iz,jlev))
+     4                   tab_stob(1,1,iz,jlev),
+     2                   ind_stob(1,1,ix,jlev),
+     3                   ind_stob(1,1,iy,jlev),
+     4                   ind_stob(1,1,iz,jlev))
                   endif
                enddo
             endif

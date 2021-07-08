@@ -2717,8 +2717,12 @@ C
       ns8=ns
       npw8=npw
       iflag = -1
+
+cccc      call cpu_time(t1)
       call finufft3d1many(nd,ns8,xj,yj,zj,cj,iflag,eps,npw8,npw8,npw8,
      1       fk,null,ier)
+cccc      call cpu_time(t2)
+cccc      print *, 'nufft1 time=', t2-t1
 cccc  print *, 'ier=', ier
       do ind=1,nd
          j=0
@@ -3025,8 +3029,11 @@ C
       nt8=nt
       npw8=npw
       iflag = 1
+cccc      call cpu_time(t1)
       call finufft3d2many(nd,nt8,xj,yj,zj,cj,iflag,eps,npw8,npw8,npw8,
      1    fk,null,ier)
+cccc      call cpu_time(t2)
+cccc      print *, 'nufft2 time=', t2-t1
       
       do ind=1,nd
          do j=1,nt

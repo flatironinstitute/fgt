@@ -26,7 +26,7 @@
 c
 c      initialize function parameters
 c
-      delta = 1d-3
+      delta = 1d-6
       boxlen = 1.0d0
       
       rsig = 5.0d-5
@@ -38,14 +38,14 @@ cc      rsig = 0.005d0
       dpars(3) = 0.55d0
 
       dpars(4) = rsig
-      dpars(5) = 1.0d0
+      dpars(5) = 1.0d0/rsig
       
       dpars(6) = 0.7d0
       dpars(7) = 0.4d0
       dpars(8) = 0.3d0
 
       dpars(9) = rsig*2
-      dpars(10) = -0.5d0
+      dpars(10) = -0.5d0/rsig
 
       norder = 16
       iptype = 0
@@ -53,7 +53,7 @@ cc      rsig = 0.005d0
 
       npbox = norder*norder*norder
 
-      eps = 1.0d-6
+      eps = 1.0d-9
       call cpu_time(t1)
 C$      t1 = omp_get_wtime()
 

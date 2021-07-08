@@ -65,7 +65,7 @@ SOURCES =  test_bfgt3d.f \
   $(SRC)/bfgt3d.f \
   $(SRC)/fgtterms.f \
   $(SRC)/g3dvolrouts.f \
-  $(SRC)/fgtvolrouts_vals.f \
+  $(SRC)/fgtvolrouts_vals2.f \
 #  $(SRC)/fgtvolrouts.f \
 
 ifeq ($(WITH_SECOND),1)

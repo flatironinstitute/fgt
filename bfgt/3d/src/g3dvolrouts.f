@@ -531,7 +531,8 @@ c     OUTPUT:
 c     pot         output on tensor product grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
-      real *8 coeff(n,n,n,nd),pot(nd,n,n,n)
+      real *8 coeff(n,n,n,nd)
+      real *8 pot(nd,n,n,n)
       real *8 ff(n,n,n),ff2(n,n,n),tabx(n,n),taby(n,n),tabz(n,n)
 c
       do ind = 1,nd
@@ -561,7 +562,7 @@ c        transform in y
             enddo
          enddo
 
-c        transfrom in z
+c        transform in z
          do k3=1,n
             do k2=1,n
                do k1=1,n
@@ -576,6 +577,345 @@ c        transfrom in z
 c     end of the ind loop
       enddo
 
+      return
+      end subroutine
+c
+c
+C
+c
+C
+C*********************************************************************C
+      subroutine leg3d_to_potloc2(nd,n,coeff,ff,ff2,pot,
+     1    tabx,taby,tabz,indx,indy,indz)
+C*********************************************************************C
+c     This routine computes the volume Gauss transform over a 
+c     single box source distribution given as a Legendre series.
+c     The target points have a fixed location w.r.t. source box
+c     and the integrals of Gaussians times Legendre polynomials at 
+c     those points is assumed to have been precomputed and stored 
+c     in arrays (tabx, taby,tabz). 
+c     Thus, the specific geometric relation of the source and target
+c     boxes are IMPLICITLY contained in these arrays.
+c     There are many such relations in 3D, but only a few one-dimensional
+c     tables are needed corresponding to the range of possible shifts
+c     of the box center in any single dimension.
+c
+c
+c     Case 1: same level
+c          _____ _____ ____  
+c         |     |     |    | 
+c         |     |     |    | 
+c         |_____|_____|____| 
+c         |     |     |    | 
+c         |     |  T  |    |    target points in T
+c         |_____|_____|____|    source box has offset in x and y.  
+c         |     |     |    |    Because of separation of variables,
+c         |     |     |    |    we can use 1D tables for desired 
+c         |_____|_____|____|    offsets in x, y, or z in range (-1,0,1). 
+c
+c     Case 2: different levels
+c          _____ _____ ____  
+c         |     |     |    | 
+c         |     |     |    | 
+c         |_____|_____|____| 
+c         |     |A |  |    | 
+c         |     |--|--| B  |   for target points in small box A, of 
+c         |_____|__|__|____|   dimension D, adjacent large boxes can be   
+c         |     |     |    |   offset by one of -3D/2,-D/2,D/2,3D/2
+c         |     |     |    |   in either x, y, or z.
+c         |_____|_____|____|   
+c                              For target points in large box B, of
+c                              dimension D, adjacent small boxes can be
+c                              offset by one of -3D/4,-D/4,D/4,3D/4
+c                              in either x, y, or z.
+c
+c     INPUT:
+c     nd          vector length (for multiple RHS)
+c     n           dimension of coeff array
+c     coeff       Legendre coefficients
+c                 f = sum coeff(n,m,k) P_n(x) P_m(y) P_k(z)
+c     ff          workspace
+c     ff2          workspace
+c     tabx    precomputed table of 1D integrals
+c                 int_{Source box} P_n(x) exp( (\xi_j -x)^2/delta)
+c                 for targets at current level in tree hierarchy with
+c                 desired offset in x.
+c     taby    precomputed table of 1D integrals
+c                 int_{Source box} P_n(x) exp( (\xi_j -x)^2/delta)
+c                 for targets at current level in tree hierarchy with
+c                 desired offset in y.
+c     tabz    precomputed table of 1D integrals
+c
+c     OUTPUT:
+c     pot         output on tensor product grid
+c----------------------------------------------------------------------c
+      implicit real *8 (a-h,o-z)
+      real *8 coeff(n,n,n,nd)
+      real *8 pot(nd,n,n,n)
+      real *8 ff(n,n,n),ff2(n,n,n),tabx(n,n),taby(n,n),tabz(n,n)
+      integer indx(2,n+1),indy(2,n+1),indz(2,n+1)
+c
+      nx = indx(2,n+1)-indx(1,n+1)+1
+      ny = indy(2,n+1)-indy(1,n+1)+1
+      nz = indz(2,n+1)-indz(1,n+1)+1
+
+      if (nx.eq.0 .or. ny.eq.0 .or. nz.eq.0) return
+      
+      if (nx.le.ny .and. ny.le.nz) then
+      do ind = 1,nd
+c        transform in x
+         do j3=1,n
+            do j2=1,n
+               do k1=indx(1,n+1),indx(2,n+1)
+                  cd=0
+                  do j1=indx(1,k1),indx(2,k1)
+                     cd=cd+tabx(j1,k1)*coeff(j1,j2,j3,ind)
+                  enddo
+                  ff(k1,j2,j3)=cd
+               enddo
+            enddo
+         enddo
+
+c        transform in y
+         do j3=1,n
+            do k2=indy(1,n+1),indy(2,n+1)
+               do k1=indx(1,n+1),indx(2,n+1)
+                  cd=0
+                  do j2=indy(1,k2),indy(2,k2)
+                     cd=cd+taby(j2,k2)*ff(k1,j2,j3)
+                  enddo
+                  ff2(k1,k2,j3)=cd
+               enddo
+            enddo
+         enddo
+
+c        transform in z
+         do k3=indz(1,n+1),indz(2,n+1)
+            do k2=indy(1,n+1),indy(2,n+1)
+               do k1=indx(1,n+1),indx(2,n+1)
+                  cd=0
+                  do j3=indz(1,k3),indz(2,k3)
+                     cd=cd+tabz(j3,k3)*ff2(k1,k2,j3)
+                  enddo
+                  pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+cd
+               enddo
+            enddo
+         enddo
+c     end of the ind loop
+      enddo
+      elseif (nx .le. nz .and. nz.lt.ny) then
+      do ind = 1,nd
+c        transform in x
+         do j3=1,n
+            do j2=1,n
+               do k1=indx(1,n+1),indx(2,n+1)
+                  cd=0
+                  do j1=indx(1,k1),indx(2,k1)
+                     cd=cd+tabx(j1,k1)*coeff(j1,j2,j3,ind)
+                  enddo
+                  ff(k1,j2,j3)=cd
+               enddo
+            enddo
+         enddo
+
+c        transform in z
+         do k3=indz(1,n+1),indz(2,n+1)
+            do j2=1,n
+               do k1=indx(1,n+1),indx(2,n+1)
+                  cd=0
+                  do j3=indz(1,k3),indz(2,k3)
+                     cd=cd+tabz(j3,k3)*ff(k1,j2,j3)
+                  enddo
+                  ff2(k1,j2,k3)=cd
+               enddo
+            enddo
+         enddo
+
+c        transform in y
+         do k3=indz(1,n+1),indz(2,n+1)
+            do k2=indy(1,n+1),indy(2,n+1)
+               do k1=indx(1,n+1),indx(2,n+1)
+                  cd=0
+                  do j2=indy(1,k2),indy(2,k2)
+                     cd=cd+taby(j2,k2)*ff2(k1,j2,k3)
+                  enddo
+                  pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+cd
+               enddo
+            enddo
+         enddo
+c     end of the ind loop
+      enddo
+      elseif (ny .lt. nx .and. nx.le.nz) then
+      do ind = 1,nd
+c        transform in y
+         do j3=1,n
+            do k2=indy(1,n+1),indy(2,n+1)
+               do j1=1,n
+                  cd=0
+                  do j2=indy(1,k2),indy(2,k2)
+                     cd=cd+taby(j2,k2)*coeff(j1,j2,j3,ind)
+                  enddo
+                  ff(j1,k2,j3)=cd
+               enddo
+            enddo
+         enddo
+
+c        transform in x
+         do j3=1,n
+            do k2=indy(1,n+1),indy(2,n+1)
+               do k1=indx(1,n+1),indx(2,n+1)
+                  cd=0
+                  do j1=indx(1,k1),indx(2,k1)
+                     cd=cd+tabx(j1,k1)*ff(j1,k2,j3)
+                  enddo
+                  ff2(k1,k2,j3)=cd
+               enddo
+            enddo
+         enddo
+
+c        transform in z
+         do k3=indz(1,n+1),indz(2,n+1)
+            do k2=indy(1,n+1),indy(2,n+1)
+               do k1=indx(1,n+1),indx(2,n+1)
+                  cd=0
+                  do j3=indz(1,k3),indz(2,k3)
+                     cd=cd+tabz(j3,k3)*ff2(k1,k2,j3)
+                  enddo
+                  pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+cd
+               enddo
+            enddo
+         enddo
+c     end of the ind loop
+      enddo
+      elseif (ny .le. nz .and. nz.lt.nx) then
+      do ind = 1,nd
+c        transform in y
+         do j3=1,n
+            do k2=indy(1,n+1),indy(2,n+1)
+               do j1=1,n
+                  cd=0
+                  do j2=indy(1,k2),indy(2,k2)
+                     cd=cd+taby(j2,k2)*coeff(j1,j2,j3,ind)
+                  enddo
+                  ff(j1,k2,j3)=cd
+               enddo
+            enddo
+         enddo
+
+c        transform in z
+         do k3=indz(1,n+1),indz(2,n+1)
+            do k2=indy(1,n+1),indy(2,n+1)
+               do j1=1,n
+                  cd=0
+                  do j3=indz(1,k3),indz(2,k3)
+                     cd=cd+tabz(j3,k3)*ff(j1,k2,j3)
+                  enddo
+                  ff2(j1,k2,k3)=cd
+               enddo
+            enddo
+         enddo
+
+c        transform in x
+         do k3=indz(1,n+1),indz(2,n+1)
+            do k2=indy(1,n+1),indy(2,n+1)
+               do k1=indx(1,n+1),indx(2,n+1)
+                  cd=0
+                  do j1=indx(1,k1),indx(2,k1)
+                     cd=cd+tabx(j1,k1)*ff2(j1,k2,k3)
+                  enddo
+                  pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+cd
+               enddo
+            enddo
+         enddo
+c     end of the ind loop
+      enddo      
+      elseif (nz .lt. nx .and. nx.le.ny) then
+      do ind = 1,nd
+c        transform in z
+         do k3=indz(1,n+1),indz(2,n+1)
+            do j2=1,n
+               do j1=1,n
+                  cd=0
+                  do j3=indz(1,k3),indz(2,k3)
+                     cd=cd+tabz(j3,k3)*coeff(j1,j2,j3,ind)
+                  enddo
+                  ff(j1,j2,k3)=cd
+               enddo
+            enddo
+         enddo
+
+c        transform in x
+         do k3=indz(1,n+1),indz(2,n+1)
+            do j2=1,n
+               do k1=indx(1,n+1),indx(2,n+1)
+                  cd=0
+                  do j1=indx(1,k1),indx(2,k1)
+                     cd=cd+tabx(j1,k1)*ff(j1,j2,k3)
+                  enddo
+                  ff2(k1,j2,k3)=cd
+               enddo
+            enddo
+         enddo
+
+c        transform in y
+         do k3=indz(1,n+1),indz(2,n+1)
+            do k2=indy(1,n+1),indy(2,n+1)
+               do k1=indx(1,n+1),indx(2,n+1)
+                  cd=0
+                  do j2=indy(1,k2),indy(2,k2)
+                     cd=cd+taby(j2,k2)*ff2(k1,j2,k3)
+                  enddo
+                  pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+cd
+               enddo
+            enddo
+         enddo
+c     end of the ind loop
+      enddo
+      elseif (nz .lt. ny .and. ny.lt.nx) then
+      do ind = 1,nd
+c        transform in z
+         do k3=indz(1,n+1),indz(2,n+1)
+            do j2=1,n
+               do j1=1,n
+                  cd=0
+                  do j3=indz(1,k3),indz(2,k3)
+                     cd=cd+tabz(j3,k3)*coeff(j1,j2,j3,ind)
+                  enddo
+                  ff(j1,j2,k3)=cd
+               enddo
+            enddo
+         enddo
+
+c        transform in y
+         do k3=indz(1,n+1),indz(2,n+1)
+            do k2=indy(1,n+1),indy(2,n+1)
+               do j1=1,n
+                  cd=0
+                  do j2=indy(1,k2),indy(2,k2)
+                     cd=cd+taby(j2,k2)*ff(j1,j2,k3)
+                  enddo
+                  ff2(j1,k2,k3)=cd
+               enddo
+            enddo
+         enddo
+
+c        transform in x
+         do k3=indz(1,n+1),indz(2,n+1)
+            do k2=indy(1,n+1),indy(2,n+1)
+               do k1=indx(1,n+1),indx(2,n+1)
+                  cd=0
+                  do j1=indx(1,k1),indx(2,k1)
+                     cd=cd+tabx(j1,k1)*ff2(j1,k2,k3)
+                  enddo
+                  pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+cd
+               enddo
+            enddo
+         enddo
+c     end of the ind loop
+      enddo      
+      endif
+
+      
       return
       end subroutine
 c

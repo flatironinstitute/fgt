@@ -1,6 +1,6 @@
       implicit real *8 (a-h,o-z)
       real *8 dpars(1000)
-      integer iptr(9)
+      integer iptr(8)
       integer, allocatable :: itree(:)
       real *8, allocatable :: fvals(:,:,:),centers(:,:),boxsize(:)
       real *8, allocatable :: xref(:,:)
@@ -26,10 +26,10 @@
 c
 c      initialize function parameters
 c
-      delta = 2d-3
+      delta = 1.0d-4
       boxlen = 1.0d0
       
-      rsig = 1.0d0/30.0d0
+      rsig = 4.0d-5
 cc      rsig = 0.005d0
 
       nd = 1
@@ -38,20 +38,22 @@ cc      rsig = 0.005d0
       dpars(3) = 0.55d0
 
       dpars(4) = rsig
+      dpars(5) = 1.0d0
       
-      dpars(5) = 0.312d0
-      dpars(6) = 0.5d0
+      dpars(6) = 0.7d0
       dpars(7) = 0.4d0
+      dpars(8) = 0.3d0
 
-      dpars(8) = rsig*2
+      dpars(9) = rsig*2
+      dpars(10) = -1.5d0
 
       norder = 16
-      iptype = 0
+      iptype = 1
       eta = 2
 
       npbox = norder*norder*norder
 
-      eps = 1.0d-6
+      eps = 1.0d-7
       call cpu_time(t1)
 C$      t1 = omp_get_wtime()
 
@@ -86,7 +88,7 @@ cccc      npols = norder*(norder+1)*(norder+2)/6
       allocate(pot(nd,npbox,nboxes))
 
       do i=1,nboxes
-        do j=1,npbox
+         do j=1,npbox
            do ind=1,nd
               pot(ind,j,i) = 0
            enddo
@@ -147,7 +149,6 @@ C$     t2 = omp_get_wtime()
       call prin2('relative l2 error=*',erra,1)
 cccc      call prin2('ra=*',ra,1)
 
-      stop
       end
 c
 c
@@ -164,15 +165,19 @@ c
       complex *16 zpars
       real *8 dpars(*),f(nd),xyz(3)
 
-
-      do i=1,nd
-        idp = (i-1)*4 
-        rr = (xyz(1)+0.5d0 - dpars(idp+1))**2 + 
-     1       (xyz(2)+0.5d0 - dpars(idp+2))**2 + 
-     1       (xyz(3)+0.5d0 - dpars(idp+3))**2
-
-        sigma = (dpars(idp+4)**2)*2
-        f(i) = exp(-rr/sigma)
+      ng=2
+      
+      do ind=1,nd
+         f(ind)=0
+         do i=1,ng
+            idp = (i-1)*5
+            rr = (xyz(1)+0.5d0 - dpars(idp+1))**2 + 
+     1          (xyz(2)+0.5d0 - dpars(idp+2))**2 + 
+     1          (xyz(3)+0.5d0 - dpars(idp+3))**2
+            
+            sigma = dpars(idp+4)
+            f(ind) = f(ind)+dpars(idp+5)*exp(-rr/sigma)
+         enddo
       enddo
 
       return
@@ -198,25 +203,61 @@ c-----------------------
         pot(ind)=0.0d0
       enddo
 c-----------------------
+      ng=2
+      
       do ind=1,nd
-         idp = (ind-1)*4
-         sigma = (dpars(idp+4)**2)*2
-         dc = sigma
-         d = delta
+         do i=1,ng
+            idp = (i-1)*5
+            sigma = dpars(idp+4)
+            dc = sigma
+            d = delta
          
-         do k=1,3
-            c=dpars(idp+k)
-            x=targ(k)+0.5d0
-            gf(k)=sqrt(pi)/2.0d0*dexp(-(x-c)**2/(dc+d))
-     1          *(-erf((-dc-d+x*dc+d*c)/d/dc/dsqrt((dc+d)/d/dc))
-     2          +erf((x*dc+d*c)/d/dc/dsqrt((dc+d)/d/dc)))
-     3          /dsqrt(((dc+d)/d/dc))
+            do k=1,3
+               c=dpars(idp+k)
+               x=targ(k)+0.5d0
+               gf(k)=sqrt(pi)/2.0d0*dexp(-(x-c)**2/(dc+d))
+     1             *(-erf((-dc-d+x*dc+d*c)/d/dc/dsqrt((dc+d)/d/dc))
+     2             +erf((x*dc+d*c)/d/dc/dsqrt((dc+d)/d/dc)))
+     3             /dsqrt(((dc+d)/d/dc))
+            enddo
+            pot(ind)=pot(ind)+dpars(idp+5)*gf(1)*gf(2)*gf(3)
          enddo
-         pot(ind)=gf(1)*gf(2)*gf(3)
       enddo
 
       return
       end
+c
+c
+c
+c
+      subroutine derr(vec1,vec2,n,erra)
+      implicit real *8 (a-h,o-z)
+      real *8 vec1(*),vec2(*)
+
+      ra = 0
+      erra = 0
+      do i=1,n
+         ra = ra + vec1(i)**2
+         erra = erra + (vec1(i)-vec2(i))**2
+      enddo
+
+      if (sqrt(ra)/n .lt. 1d-10) then
+         call prin2('vector norm =*', sqrt(ra)/n,1)
+         call prin2('switch to absolute error*',a,0)
+         erra = sqrt(erra)/n
+      else
+         erra = sqrt(erra/ra)
+      endif
+ccc      
+cccc      print *, sqrt(ra)/n
+      
+      return
+      end
+c----------------------------------
+
+
+
+
 
 
 

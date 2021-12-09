@@ -77,6 +77,7 @@ c
 c
 C*********************************************************************C
       subroutine leg2d_to_pw(nd,n,coeff,npw,ff,tab_leg2pw,pwexp)
+cccc      subroutine leg2d_to_pw(nd,n,coeff,npw,tab_leg2pw,pwexp)
 C*********************************************************************C
 c     This routine computes the plane wave expansion from
 c     Legendre series coefficients (implicitly about the box center).
@@ -99,25 +100,25 @@ c     pwexp    plane wave expansion
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 coeff(n,n,nd)
-      complex *16 ff(npw,n),tab_leg2pw(n,npw)
+      complex *16 ff(n,npw/2),tab_leg2pw(n,npw)
       complex *16 pwexp(npw,npw/2,nd),cd
 c
       do ind = 1,nd
-         do m2 = 1,n
-            do k1 = 1,npw
+         do m1 = 1,n
+            do k2 = 1,npw/2
                cd = 0.0d0
-               do m1 = 1,n
-                  cd = cd+tab_leg2pw(m1,k1)*coeff(m1,m2,ind)
+               do m2 = 1,n
+                  cd = cd+tab_leg2pw(m2,k2)*coeff(m1,m2,ind)
                enddo
-               ff(k1,m2) = cd
+               ff(m1,k2) = cd
             enddo
          enddo
 c
          do k2 = 1,npw/2
             do k1 = 1,npw
                cd = 0.0d0
-               do m2 = 1,n
-                  cd = cd+tab_leg2pw(m2,k2)*ff(k1,m2)
+               do m1 = 1,n
+                  cd = cd+tab_leg2pw(m1,k1)*ff(m1,k2)
                enddo
                pwexp(k1,k2,ind) = cd
             enddo
@@ -452,6 +453,45 @@ c
 C
 c
 C
+      subroutine g2dshiftpw_loc_vec(nd,nexp,pwexp1,
+     1              pwexp2,wshift)
+C
+C     This subroutine converts the PW expansion (pwexp1) about
+C     the center (CENT1) into an PW expansion (pwexp2) about 
+C     (CENT2) using precomputed translation matrix wshift.
+C
+C     INPUT
+C
+c     nd      = vector length (for vector input)
+C     delta   = Gaussian variance
+C     nn      = number of terms in PW expansion
+C     pwexp1  = original expansion 
+C     wshift  = precomputed PW exp translation matrix 
+C
+C     OUTPUT:
+C
+C     pwexp2 = shifted expansion 
+C
+      implicit none
+      integer nd,j,ind,nexp
+      complex *16 pwexp1(nexp,nd)
+      complex *16 pwexp2(nexp,nd)
+      complex *16 wshift(nexp)
+
+C
+      do ind=1,nd
+         do j=1,nexp
+            pwexp2(j,ind) = 
+     1          pwexp1(j,ind)*wshift(j)
+         enddo
+      enddo
+c
+      return
+      end
+c
+C
+c
+C
       subroutine g2dcopypwexp_vec(nd,nexp,pwexp1,
      1              pwexp2)
 C
@@ -476,7 +516,7 @@ C
 C
       do ind=1,nd
          do j=1,nexp
-            pwexp2(j,ind) = pwexp2(j,ind)+pwexp1(j,ind)
+            pwexp2(j,ind) = pwexp1(j,ind)
          enddo
       enddo
 c
@@ -503,10 +543,10 @@ c
 c     pwexp  :   coeffs for the expansion set to zero.
 C---------------------------------------------------------------------
       integer n,npw,nd,ii
-      complex *16 pwexp(npw*npw/2,nd)
+      complex *16 pwexp(npw*((npw+1)/2),nd)
 c
       do ii=1,nd
-         do n=1,npw*npw/2
+         do n=1,npw*((npw+1)/2)
             pwexp(n,ii)=0.0d0
          enddo
       enddo

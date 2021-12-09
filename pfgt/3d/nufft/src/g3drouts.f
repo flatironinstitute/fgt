@@ -796,7 +796,7 @@ C
       do i=1,ns
          x = (sources(1,i) - center(1))*dsq
          y = (sources(2,i) - center(2))*dsq
-         y = (sources(3,i) - center(3))*dsq
+         z = (sources(3,i) - center(3))*dsq
 c
 
          facx=dexp(-x*x)
@@ -912,7 +912,7 @@ c
                   ry3 = rz3*hexpy(j2)
                   do j3=0,nlocal
                      local(j3,j2,j1,ind) = local(j3,j2,j1,ind)+
-     1                   dhexpx(j2)*ry1+hexpx(j2)*(ry2+ry3)
+     1                   dhexpx(j3)*ry1+hexpx(j3)*(ry2+ry3)
                   enddo
                enddo
             enddo
@@ -1005,7 +1005,7 @@ c
                   dy3=dz3*hexpy(j2)
                   do j3=0,nlocal
                      local(j3,j2,j1,ind) = local(j3,j2,j1,ind)+
-     1                   dhexpx(j2)*dy1+hexpx(j2)*(dy2+dy3+ytmp)
+     1                   dhexpx(j3)*dy1+hexpx(j3)*(dy2+dy3+ytmp)
                enddo
                enddo
             enddo
@@ -2284,7 +2284,7 @@ C
       complex *16 ww1(100)
       complex *16 ww2(100)
       complex *16 ww3(100)
-
+      
       complex *16 c1,c2,c3
 C
       eye = dcmplx(0,1)
@@ -2321,7 +2321,8 @@ C
             ww2(npw-j1+1) = dconjg(ww2(j1))
             ww3(npw-j1+1) = dconjg(ww3(j1))
          enddo
-c
+
+c     
          do ind = 1,nd
             c3=0
             do j3=1,npw/2
@@ -2717,8 +2718,12 @@ C
       ns8=ns
       npw8=npw
       iflag = -1
+
+cccc      call cpu_time(t1)
       call finufft3d1many(nd,ns8,xj,yj,zj,cj,iflag,eps,npw8,npw8,npw8,
      1       fk,null,ier)
+cccc      call cpu_time(t2)
+cccc      print *, 'nufft1 time=', t2-t1
 cccc  print *, 'ier=', ier
       do ind=1,nd
          j=0
@@ -3025,8 +3030,11 @@ C
       nt8=nt
       npw8=npw
       iflag = 1
+cccc      call cpu_time(t1)
       call finufft3d2many(nd,nt8,xj,yj,zj,cj,iflag,eps,npw8,npw8,npw8,
      1    fk,null,ier)
+cccc      call cpu_time(t2)
+cccc      print *, 'nufft2 time=', t2-t1
       
       do ind=1,nd
          do j=1,nt

@@ -56,8 +56,8 @@ c
 c      
 c     n = 1,2,3 bad cases
 c      
-      n = -2
-      delta = bb*bb/(1.5*1.5)*2.0d0**n
+      n = -7
+      delta = bb*bb/1.5*2.0d0**n
 
       
       call prin2(' delta = *',delta,1)
@@ -119,7 +119,7 @@ cccc      ntt = min(1000,ntarg)
       allocate(potex(nts),gradex(2,nts),hessex(3,nts))
       allocate(pottargex(ntt),gradtargex(2,ntt),hesstargex(3,ntt))
 
-      eps = 0.5d-10
+      eps = 1d-6
 c
       call dzero(potex,nts)
       call dzero(pottargex,ntt)

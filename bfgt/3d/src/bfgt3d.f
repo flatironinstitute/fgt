@@ -149,9 +149,9 @@ c
       call cpu_time(time1)
 C$      time1=omp_get_wtime()
       allocate(rmlexp(lmptot),stat=ier)
-      do i=1,lmptot
-         rmlexp(i)=0
-      enddo
+cccc      do i=1,lmptot
+cccc         rmlexp(i)=0
+cccc      enddo
       call cpu_time(time2)
 C$        time2=omp_get_wtime()
       if( ifprint .eq. 1 ) call prin2('time in allocating rmlexp=*',
@@ -286,6 +286,14 @@ c
       real *8, allocatable :: tab_coll(:,:,:,:)
       real *8, allocatable :: tab_stob(:,:,:,:)
       real *8, allocatable :: tab_btos(:,:,:,:)
+      
+      integer, allocatable :: ind_coll(:,:,:,:)
+      integer, allocatable :: ind_stob(:,:,:,:)
+      integer, allocatable :: ind_btos(:,:,:,:)
+
+      real *8, allocatable :: tab_coll2(:,:,:,:)
+      real *8, allocatable :: tab_stob2(:,:,:,:)
+      real *8, allocatable :: tab_btos2(:,:,:,:)
 
       ifprint = 1
 
@@ -294,20 +302,37 @@ c
 c
 c       compute coefs
 c
-      allocate(fcoefs(ncbox,nd,nboxes),xq(norder),umat(norder,norder),
-     1   vmat(norder,norder),wts(norder))
+      allocate(fcoefs(npbox,nd,nboxes))
+      
+      allocate(xq(norder),wts(norder))
+      allocate(umat(norder,norder),vmat(norder,norder))
      
       itype = 2
       call legeexps(itype,norder,xq,umat,vmat,wts)
+      
+      call cpu_time(ttt1)
 
       do ilev = 0,nlevels
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
-          if(nchild.eq.0)
-     1        call legval2coefs2_3d(nd,norder,fvals(1,1,ibox),
-     2        fcoefs(1,1,ibox),umat)
+          if(nchild.eq.0) then
+cccc            call prin2('fvals=*',fvals(1,1,ibox),nd*npbox)
+             do ind=1,nd
+                do i=1,npbox
+                   fcoefs(i,ind,ibox)=fvals(ind,i,ibox)
+                   if (abs(fvals(ind,i,ibox)).lt.1d-16) 
+     1                 fcoefs(i,ind,ibox)=0
+                enddo
+             enddo
+cccc             call legval2coefs2_3d(nd,norder,fvals(1,1,ibox),
+cccc     1           fcoefs(1,1,ibox),umat)
+          endif
         enddo
       enddo
+      
+      call cpu_time(ttt2)
+      print *, 'in fgt main, val to coeffs time=', ttt2-ttt1
+      
 c
 c       initialize potential
 c 
@@ -380,23 +405,56 @@ c     values, used in direct evaluation
       allocate(tab_coll(norder,norder,-1:1,0:nlevels))
       allocate(tab_stob(norder,norder,4,0:nlevels))
       allocate(tab_btos(norder,norder,4,0:nlevels))
+      
+      allocate(ind_coll(2,norder+1,-1:1,0:nlevels))
+      allocate(ind_stob(2,norder+1,4,0:nlevels))
+      allocate(ind_btos(2,norder+1,4,0:nlevels))
+      
+cccc      allocate(tab_coll2(norder,norder,-1:1,0:nlevels))
+cccc      allocate(tab_stob2(norder,norder,4,0:nlevels))
+cccc      allocate(tab_btos2(norder,norder,4,0:nlevels))
+
       allocate(hh(norder,norder,norder))
       allocate(hh2(norder,norder,norder))
 
-      nnodes=100
+      nnodes=2000
       do ilev = 0,min(npwlevel,nlevels)
-         call mk_loctab_coll(norder,nnodes,delta,boxsize(ilev),
-     1       tab_coll(1,1,-1,ilev))
+cccc         call mk_loctab_coll(norder,nnodes,delta,boxsize(ilev),
+cccc     1       tab_coll(1,1,-1,ilev))
+         call mk_loctab_coll(eps,norder,nnodes,delta,boxsize(ilev),
+     1       tab_coll(1,1,-1,ilev),ind_coll(1,1,-1,ilev))
+cccc         call mk_loctab_coll_old(norder,nnodes,delta,boxsize(ilev),
+cccc     1       tab_coll(1,1,-1,ilev))
+cccc         call derr(tab_coll(1,1,-1,ilev),tab_coll2(1,1,-1,ilev),
+cccc     1       norder*norder*3,rerr1)
+cccc         print *, 'rerr1=', rerr1
       enddo
 
       do ilev = 0,min(npwlevel,nlevels)
-         call mk_loctab_stob(norder,nnodes,delta,boxsize(ilev),
-     1       tab_stob(1,1,1,ilev))
+         call mk_loctab_stob(eps,norder,nnodes,delta,boxsize(ilev),
+     1       tab_stob(1,1,1,ilev),ind_stob(1,1,1,ilev))
+cccc         call prinf('ind_stob=*',ind_stob(1,1,1,ilev),2*norder*4)
+cccc         call mk_loctab_stob(norder,nnodes,delta,boxsize(ilev),
+cccc     1       tab_stob(1,1,1,ilev))
+cccc         call mk_loctab_stob_old(norder,nnodes,delta,boxsize(ilev),
+cccc     1       tab_stob(1,1,1,ilev))
+cccc         call derr(tab_stob(1,1,1,ilev),tab_stob2(1,1,1,ilev),
+cccc     1       norder*norder*4,rerr2)
+cccc         print *, 'rerr2=', rerr2
       enddo
 
       do ilev = 0,min(npwlevel,nlevels)
-         call mk_loctab_btos(norder,nnodes,delta,boxsize(ilev),
-     1       tab_btos(1,1,1,ilev))
+         call mk_loctab_btos(eps,norder,nnodes,delta,boxsize(ilev),
+     1       tab_btos(1,1,1,ilev),ind_btos(1,1,1,ilev))
+cccc         call mk_loctab_btos(norder,nnodes,delta,boxsize(ilev),
+cccc     1       tab_btos(1,1,1,ilev))
+cccc         call mk_loctab_btos_old(norder,nnodes,delta,boxsize(ilev),
+cccc     1       tab_btos(1,1,1,ilev))
+cccccccc         call prin2('correct btos=*',tab_btos2(1,1,2,ilev),norder)
+cccccccc         call prin2(' btos=*',tab_btos(1,1,2,ilev),norder)
+cccc         call derr(tab_btos(1,1,1,ilev),tab_btos2(1,1,1,ilev),
+cccc     1       norder*norder*4,rerr3)
+cccc         print *, 'rerr3=', rerr3
       enddo
 
 c
@@ -439,10 +497,10 @@ c     compute translation matrices for PW expansions
 
 c     compute the tables converting Legendre polynomial expansion
 c     to planewave expansion
-      nnodes = 100
+      nnodes = 16
       allocate(tab_leg2pw(norder,npw,0:nlevels))
-      allocate(ff(npw,norder,norder))
-      allocate(ff2(npw,npw,norder))
+      allocate(ff(norder,norder,npw/2))
+      allocate(ff2(norder,npw,npw/2))
 
       do ilev=nlevstart,nlevels
          call mk_leg2pw(norder,npw,nnodes,ws,ts,delta,boxsize(ilev),
@@ -488,7 +546,6 @@ c     listpw contains source boxes in the pw interaction
      2    itree(iptr(4)),itree(iptr(5)),
      1    boxsize,itree(iptr(1)),
      2    mnlistpw,nlistpw,listpw)
-      
 c
 c     ... set all multipole and local expansions to zero
 c
@@ -537,7 +594,8 @@ c              Check if current box is a leaf box
                   call cpu_time(t1)
 c                 form PW expansion directly
                   call leg3d_to_pw(nd,norder,fcoefs(1,1,ibox),npw,
-     1                ff,ff2,tab_leg2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
+cccc                  call leg3dval_to_pw(nd,norder,fvals(1,1,ibox),npw,
+     1               ff,ff2,tab_leg2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
                   call cpu_time(t2)
                   dt=dt+t2-t1
                endif
@@ -566,6 +624,9 @@ C$OMP$PRIVATE(ibox,jbox,i,nchild,dx,dy,dz,k)
 C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4)+ibox-1)
+          if (nchild .gt. 0) then
+             call g3dpwzero_vec(nd,rmlexp(iaddr(1,ibox)),npw)
+          endif
           do i=1,nchild
             jbox = itree(iptr(5)+8*(ibox-1)+i-1)
 
@@ -589,9 +650,8 @@ C$OMP$SCHEDULE(DYNAMIC)
             elseif (dx.lt.0 .and. dy.lt.0 .and. dz.lt.0) then
                k=8
             endif
-
             call g3dshiftpw_vec(nd,nexp,rmlexp(iaddr(1,jbox)),
-     1          rmlexp(iaddr(1,ibox)),wpwmsshift(1,k,klev))
+     1             rmlexp(iaddr(1,ibox)),wpwmsshift(1,k,klev))
           enddo
         enddo
 C$OMP END PARALLEL DO    
@@ -616,6 +676,8 @@ C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,jbox,j)
 C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
+           call g3dcopypwexp_vec(nd,nexp,rmlexp(iaddr(1,ibox)),
+     1         rmlexp(iaddr(2,ibox)))
 c          shift PW expansions
            do j=1,nlistpw(ibox)
               jbox=listpw(j,ibox)
@@ -626,8 +688,6 @@ c          shift PW expansions
               call g3dshiftpw_vec(nd,nexp,rmlexp(iaddr(1,jbox)),
      1            rmlexp(iaddr(2,ibox)),wpwshift(1,jx,jy,jz))
            enddo
-           call g3dcopypwexp_vec(nd,nexp,rmlexp(iaddr(1,ibox)),
-     1         rmlexp(iaddr(2,ibox)))
         enddo
 C$OMP END PARALLEL DO        
  1300 continue
@@ -675,7 +735,7 @@ C$OMP$SCHEDULE(DYNAMIC)
              elseif (dx.lt.0 .and. dy.lt.0 .and. dz.lt.0) then
                 k=8
              endif
-             call g3dshiftpw_vec(nd,nexp,rmlexp(iaddr(2,ibox)),
+             call g3dshiftpw_loc_vec(nd,nexp,rmlexp(iaddr(2,ibox)),
      1           rmlexp(iaddr(2,jbox)),wpwmsshift(1,k,nlevels-ilev))
           enddo
         enddo
@@ -710,7 +770,7 @@ c            do nothing here
                 nb=nb+1
                 call cpu_time(t1)
                 call g3d_pw2pot(nd,norder,npw,rmlexp(iaddr(2,ibox)),
-     1              gg,gg2,tab_pw2pot(1,1,ilev),pot(1,1,ibox))
+     1             gg,gg2,tab_pw2pot(1,1,ilev),pot(1,1,ibox))
                 call cpu_time(t2)
                 dt=dt+t2-t1
              endif
@@ -753,16 +813,22 @@ cccc              jbox is the target box
 c                 colleague                  
                   if (ilev .eq. jlev) then
                      if (iflocal(ibox).eq. 1 .and. jbox.eq.ibox) then
+c     in this case, self interaction is already taken care of
+c     by the plane wave expansion.
                      else
                      ix = (centers(1,jbox)-centers(1,ibox))/bs
                      iy = (centers(2,jbox)-centers(2,ibox))/bs
                      iz = (centers(3,jbox)-centers(3,ibox))/bs
 
-                     call leg3d_to_potloc(nd,norder,fcoefs(1,1,ibox),
+                     call leg3d_to_potloc2(nd,norder,fcoefs(1,1,ibox),
+cccc                     call leg3dval_to_potloc(nd,norder,fvals(1,1,ibox),
      1                   hh,hh2,pot(1,1,jbox),
      2                   tab_coll(1,1,ix,jlev),
      3                   tab_coll(1,1,iy,jlev),
-     4                   tab_coll(1,1,iz,jlev))
+     4                   tab_coll(1,1,iz,jlev),
+     2                   ind_coll(1,1,ix,jlev),
+     3                   ind_coll(1,1,iy,jlev),
+     4                   ind_coll(1,1,iz,jlev))
                      endif
 c                 big source box to small target box                     
                   elseif (ilev .eq. jlev-1) then
@@ -770,22 +836,30 @@ c                 big source box to small target box
                      iy = (centers(2,jbox)-centers(2,ibox))/bs+2.55d0
                      iz = (centers(3,jbox)-centers(3,ibox))/bs+2.55d0
 
-                     call leg3d_to_potloc(nd,norder,fcoefs(1,1,ibox),
+                     call leg3d_to_potloc2(nd,norder,fcoefs(1,1,ibox),
+cccc                     call leg3dval_to_potloc(nd,norder,fvals(1,1,ibox),
      1                   hh,hh2,pot(1,1,jbox),
      2                   tab_btos(1,1,ix,jlev),
      3                   tab_btos(1,1,iy,jlev),
-     4                   tab_btos(1,1,iz,jlev))
+     4                   tab_btos(1,1,iz,jlev),
+     2                   ind_btos(1,1,ix,jlev),
+     3                   ind_btos(1,1,iy,jlev),
+     4                   ind_btos(1,1,iz,jlev))
 c                 small source box to big target box 
                   elseif (ilev .eq. jlev+1) then
                      ix = (centers(1,jbox)-centers(1,ibox))/bs*2+2.55d0
                      iy = (centers(2,jbox)-centers(2,ibox))/bs*2+2.55d0
                      iz = (centers(3,jbox)-centers(3,ibox))/bs*2+2.55d0
 cccc                     print *, ilev, jlev, ix,iy,iz                     
-                     call leg3d_to_potloc(nd,norder,fcoefs(1,1,ibox),
+                     call leg3d_to_potloc2(nd,norder,fcoefs(1,1,ibox),
+cccc                     call leg3dval_to_potloc(nd,norder,fvals(1,1,ibox),
      1                   hh,hh2,pot(1,1,jbox),
      2                   tab_stob(1,1,ix,jlev),
      3                   tab_stob(1,1,iy,jlev),
-     4                   tab_stob(1,1,iz,jlev))
+     4                   tab_stob(1,1,iz,jlev),
+     2                   ind_stob(1,1,ix,jlev),
+     3                   ind_stob(1,1,iy,jlev),
+     4                   ind_stob(1,1,iz,jlev))
                   endif
                enddo
             endif

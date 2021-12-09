@@ -218,7 +218,7 @@ c
         if(iptype.eq.0) then
           do idim=1,nd
             if(abs(fvals(idim,i,1)).gt.rintbs(1)) rintbs(1) = 
-     1          fvals(idim,i,1)
+     1          abs(fvals(idim,i,1))
           enddo
         endif
 
@@ -648,7 +648,7 @@ c
       integer irefine
 
       integer i,j,k,l,ibox,ifunif,i1
-      real *8 rscale2,err,bs,bs2
+      real *8 rscale2,rerr,bs,bs2
       data xind/-1,1,-1,1,-1,1,-1,1/ 
       data yind/-1,-1,1,1,-1,-1,1,1/ 
       data zind/-1,-1,-1,-1,1,1,1,1/ 
@@ -711,12 +711,12 @@ C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,err)
      1      fcoefs(1,1,i),umat)
 
         call fun_err(nd,npols,fcoefs(1,1,i),rmask,
-     1     iptype,rscale2,err)
+     1     iptype,rscale2,rerr)
      
-        err = err/rsum
+        rerr = rerr/rsum
 
         
-        if(err.gt.eps*rsc) then
+        if(rerr.gt.eps*rsc) then
           irefinebox(i) = 1
         endif
       enddo
@@ -822,7 +822,7 @@ c
 c
 c
 c
-      subroutine fun_err(nd,n,fcoefs,rmask,iptype,rscale,err)
+      subroutine fun_err(nd,n,fcoefs,rmask,iptype,rscale,rerr)
 c       this subroutine estimates the error based on the expansion
 c       coefficients in a given basis
 c       
@@ -844,12 +844,12 @@ c        rscale: double precision
 c          scaling factor
 c
 c       output
-c         err: double precision
+c         rerr: double precision
 c           max scaled error in the functions
 c
         implicit none
         integer n,i,iptype,idim,nd
-        real *8 rscale,err
+        real *8 rscale,rerr
         real *8 fcoefs(nd,n),rmask(n)
         real *8, allocatable :: errtmp(:),ftmp(:,:)
         real *8 alpha, beta
@@ -859,7 +859,6 @@ c
         alpha = 1.0d0
         beta = 0.0d0
    
-        err = 0
         do idim=1,nd
           errtmp(idim) = 0
         enddo
@@ -897,12 +896,12 @@ c
           enddo
         endif
 
-        err = 0
+        rerr = 0
         do idim=1,nd
-          if(errtmp(idim).gt.err) err = errtmp(idim)
+          if(errtmp(idim).gt.rerr) rerr = errtmp(idim)
         enddo
 
-        err = err*rscale
+        rerr = rerr*rscale
 
         return
         end

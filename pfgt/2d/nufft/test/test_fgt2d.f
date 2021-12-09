@@ -58,8 +58,8 @@ c
       
 c      
 c      
-      n = 0
-      delta = bb*bb/(1.5*1.5)*2.0d0**n
+      n = -7
+      delta = bb*bb/1.5*2.0d0**n
 
       
       call prin2(' delta = *',delta,1)
@@ -127,7 +127,7 @@ cccc      ntt = min(1000,ntarg)
       allocate(pottargex(nd,ntt),gradtargex(nd,2,ntt))
       allocate(hesstargex(nd,3,ntt))
 
-      eps = 0.5d-10
+      eps = 1.0d-6
 c
       call dzero(potex,nts*nd)
       call dzero(gradex,2*nts*nd)

@@ -107,6 +107,7 @@ c     find the cutoff level
          endif
       enddo
 c
+      if (boxsize(nlevels) .ge. dcutoff) npwlevel=nlevels+1
       if (boxsize(0) .le. dcutoff) npwlevel=0
       call prinf(' npwlevel =*',npwlevel,1)
 cccc      call prin2(' boxsize(npwlevel)=*',boxsize(npwlevel),1)
@@ -142,17 +143,21 @@ c
       call g2dmpalloc(nd,itree,iaddr,
      1    nlevels,npwlevel,lmptot,npw)
       if(ifprint .eq. 1) call prinf_long(' lmptot is *',lmptot,1)
-      
       call cpu_time(time1)
 C$      time1=omp_get_wtime()
       allocate(rmlexp(lmptot),stat=ier)
-      do i=1,lmptot
-         rmlexp(i)=0
-      enddo
       call cpu_time(time2)
 C$        time2=omp_get_wtime()
       if( ifprint .eq. 1 ) call prin2('time in allocating rmlexp=*',
      1   time2-time1,1)
+      
+cccc      do i=1,lmptot
+cccc         rmlexp(i)=0
+cccc      enddo
+cccc      call cpu_time(time2)
+ccccC$        time2=omp_get_wtime()
+cccc      if( ifprint .eq. 1 ) call prin2('time in allocating rmlexp=*',
+cccc     1   time2-time1,1)
       
 c
       call cpu_time(time1)
@@ -276,6 +281,7 @@ c
       complex *16, allocatable :: wpwmsshift(:,:,:)
       
       complex *16, allocatable :: tab_leg2pw(:,:,:),tab_pw2pot(:,:,:)
+      complex *16, allocatable :: tab_leg2pw2(:,:,:)
       complex *16, allocatable :: ff(:,:)
       complex *16, allocatable :: gg(:,:)
       real *8, allocatable :: hh(:,:)
@@ -297,6 +303,7 @@ c
       itype = 2
       call legeexps(itype,norder,xq,umat,vmat,wts)
 
+      call cpu_time(ttt1)
       do ilev = 0,nlevels
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
@@ -305,6 +312,8 @@ c
      2        fcoefs(1,1,ibox),umat)
         enddo
       enddo
+      call cpu_time(ttt2)
+      call prin2('val to coeffs time=*', ttt2-ttt1,1)
 c
 c       initialize potential
 c 
@@ -372,8 +381,9 @@ c     values, used in direct evaluation
       allocate(tab_stob(norder,norder,4,0:nlevels))
       allocate(tab_btos(norder,norder,4,0:nlevels))
       allocate(hh(norder,norder))
+      call cpu_time(t1)
 
-      nnodes=100
+      nnodes=50
       do ilev = 0,min(npwlevel,nlevels)
          call mk_loctab_coll(norder,nnodes,delta,boxsize(ilev),
      1       tab_coll(1,1,-1,ilev))
@@ -431,12 +441,20 @@ c     compute the tables converting Legendre polynomial expansion
 c     to planewave expansion
       nnodes = 100
       allocate(tab_leg2pw(norder,npw,0:nlevels))
-      allocate(ff(npw,norder))
+      allocate(tab_leg2pw2(norder,npw,0:nlevels))
+      allocate(ff(norder,npw/2))
 
       do ilev=nlevstart,nlevels
+cccc         call mk_leg2pw_old(norder,npw,nnodes,ws,ts,delta,boxsize(ilev),
+cccc     1       tab_leg2pw2(1,1,ilev))
          call mk_leg2pw(norder,npw,nnodes,ws,ts,delta,boxsize(ilev),
      1       tab_leg2pw(1,1,ilev))
+cccc         call prin2('leg2pw2=*',tab_leg2pw2(1,1,ilev),norder*npw*2)
+cccc         call derr(tab_leg2pw(1,1,ilev),tab_leg2pw2(1,1,ilev),
+cccc     1       norder*npw*2,rerr1)
+cccc         print *, rerr1
       enddo
+cccc      pause
 c     compute the tables converting planewave expansions to potential values
       allocate(tab_pw2pot(npw,norder,0:nlevels))
       allocate(gg(norder,npw/2))
@@ -463,6 +481,9 @@ c     determine the right translation matrices
 c
       xmin  = boxsize(nlevstart)
       xmin2 = boxsize(nlevels)/2
+      call cpu_time(t2)
+      call prin2('precomputation in fgt =*', t2-t1,1)
+      
 c
 c     compute list info
 c
@@ -495,8 +516,6 @@ c
       call prinf('laddr=*',itree(iptr(1)),2*(nlevels+1))
 
       
-      call cpu_time(time1)
-C$        time1=omp_get_wtime()
 
 c
 c
@@ -506,6 +525,8 @@ c
       if(ifprint.ge.1) 
      $   call prinf("=== STEP 1 (coefs -> mp) ====*",i,0)
       
+      call cpu_time(time1)
+C$        time1=omp_get_wtime()
       do 1100 ilev = nlevels,nlevstart,-1
 cccc         nb=0
 cccc         dt=0
@@ -514,9 +535,10 @@ C$OMP PARALLEL DO DEFAULT (SHARED)
 C$OMP$PRIVATE(ibox,nchild)
 C$OMP$SCHEDULE(DYNAMIC)
          do ibox=itree(2*ilev+1),itree(2*ilev+2)
-            if (ilev .eq. npwlevel .and. iflocal(ibox).eq.0) then
+cccc            if (ilev .eq. npwlevel .and. iflocal(ibox).eq.0) then
 c              do nothing here
-            else    
+cccc            else    
+            if (ilev .ne. npwlevel .or. iflocal(ibox).eq.1) then
                nchild = itree(iptr(4)+ibox-1)
 c              Check if current box is a leaf box            
                if(nchild.eq.0) then
@@ -525,13 +547,14 @@ cccc                  call cpu_time(t1)
 c                 form PW expansion directly
                   call leg2d_to_pw(nd,norder,fcoefs(1,1,ibox),npw,
      1                ff,tab_leg2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
+cccc     1                tab_leg2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
 cccc                  call cpu_time(t2)
 cccc                  dt=dt+t2-t1
                endif
             endif
          enddo
 C$OMP END PARALLEL DO
- 111     format ('ilev=', i1,4x, 'nb=',i6, 4x,'formpw=', f5.2)         
+ccc 111     format ('ilev=', i1,4x, 'nb=',i6, 4x,'formpw=', f5.2)         
 cccc         write(6,111) ilev,nb,dt
 c     end of ilev do loop
  1100 continue
@@ -552,25 +575,28 @@ C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,jbox,i,nchild,dx,dy,dz,k)
 C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
-          nchild = itree(iptr(4)+ibox-1)
-          do i=1,nchild
-            jbox = itree(iptr(5)+4*(ibox-1)+i-1)
+           nchild = itree(iptr(4)+ibox-1)
+           if (nchild .gt. 0) then
+              call g2dpwzero_vec(nd,rmlexp(iaddr(1,ibox)),npw)
+           endif
+           do i=1,nchild
+              jbox = itree(iptr(5)+4*(ibox-1)+i-1)
 
-            dx= (centers(1,ibox) - centers(1,jbox))
-            dy= (centers(2,ibox) - centers(2,jbox))
-            if (dx.gt.0 .and. dy.gt.0) then
-               k=1
-            elseif (dx.gt.0 .and. dy.lt.0) then
-               k=2
-            elseif (dx.lt.0 .and. dy.gt.0) then
-               k=3
-            elseif (dx.lt.0 .and. dy.lt.0) then
-               k=4
-            endif
+              dx= (centers(1,ibox) - centers(1,jbox))
+              dy= (centers(2,ibox) - centers(2,jbox))
+              if (dx.gt.0 .and. dy.gt.0) then
+                 k=1
+              elseif (dx.gt.0 .and. dy.lt.0) then
+                 k=2
+              elseif (dx.lt.0 .and. dy.gt.0) then
+                 k=3
+              elseif (dx.lt.0 .and. dy.lt.0) then
+                 k=4
+              endif
 
-            call g2dshiftpw_vec(nd,nexp,rmlexp(iaddr(1,jbox)),
-     1          rmlexp(iaddr(1,ibox)),wpwmsshift(1,k,klev))
-          enddo
+              call g2dshiftpw_vec(nd,nexp,rmlexp(iaddr(1,jbox)),
+     1            rmlexp(iaddr(1,ibox)),wpwmsshift(1,k,klev))
+           enddo
         enddo
 C$OMP END PARALLEL DO    
  1200 continue
@@ -593,7 +619,9 @@ C$    time1=omp_get_wtime()
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,jbox,j)
 C$OMP$SCHEDULE(DYNAMIC)
-        do ibox = itree(2*ilev+1),itree(2*ilev+2)
+         do ibox = itree(2*ilev+1),itree(2*ilev+2)
+           call g2dcopypwexp_vec(nd,nexp,rmlexp(iaddr(1,ibox)),
+     1         rmlexp(iaddr(2,ibox)))
 c          shift PW expansions
            do j=1,nlistpw(ibox)
               jbox=listpw(j,ibox)
@@ -603,8 +631,6 @@ c          shift PW expansions
               call g2dshiftpw_vec(nd,nexp,rmlexp(iaddr(1,jbox)),
      1            rmlexp(iaddr(2,ibox)),wpwshift(1,jx,jy))
            enddo
-           call g2dcopypwexp_vec(nd,nexp,rmlexp(iaddr(1,ibox)),
-     1         rmlexp(iaddr(2,ibox)))
         enddo
 C$OMP END PARALLEL DO        
  1300 continue
@@ -629,7 +655,8 @@ C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,jbox,i,nchild,dx,dy,dz,k)
 C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
-          nchild = itree(iptr(4)+ibox-1)
+           nchild = itree(iptr(4)+ibox-1)
+           if (nchild.gt.0) then
           do i=1,nchild
              jbox = itree(iptr(5)+4*(ibox-1)+i-1)
              dx= centers(1,jbox) - centers(1,ibox)
@@ -643,9 +670,10 @@ C$OMP$SCHEDULE(DYNAMIC)
              elseif (dx.lt.0 .and. dy.lt.0) then
                 k=4
              endif
-             call g2dshiftpw_vec(nd,nexp,rmlexp(iaddr(2,ibox)),
+             call g2dshiftpw_loc_vec(nd,nexp,rmlexp(iaddr(2,ibox)),
      1           rmlexp(iaddr(2,jbox)),wpwmsshift(1,k,nlevels-ilev))
           enddo
+          endif
         enddo
 C$OMP END PARALLEL DO        
  1400 continue

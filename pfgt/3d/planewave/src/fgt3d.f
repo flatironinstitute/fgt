@@ -162,7 +162,7 @@ c     it determines the speed of the algorithm when delta goes to zero.
 c     ndiv is the maximum number of points per box at or below the cutoff level
 c     it's determined by numerical experiments on finding the crossover point
 c     between direct evaluation and the fast scheme.
-      ndiv = 100
+      ndiv = 400
 c
       ifunif = 0
       iper = 0
@@ -436,9 +436,10 @@ C$      time1=omp_get_wtime()
      $   hesstargsort)
       call cpu_time(time2)
 C$        time2=omp_get_wtime()
-      if( ifprint .eq. 1 ) call prin2('time in fgt main=*',
-     1   time2-time1,1)
-
+      if( ifprint .eq. 1 ) then
+         call prin2('time in fgt main=*',time2-time1,1)
+         call prin2('points per sec=*',ns/(time2-time1),1)
+      endif
 
 c
 c     resort the output arrays in input order

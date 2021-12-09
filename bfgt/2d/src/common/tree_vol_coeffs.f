@@ -216,7 +216,7 @@ c
         if(iptype.eq.0) then
           do idim=1,nd
             if(abs(fvals(idim,i,1)).gt.rintbs(1)) rintbs(1) = 
-     1          fvals(idim,i,1)
+     1          abs(fvals(idim,i,1))
           enddo
         endif
 
@@ -260,7 +260,7 @@ c
 
         rsc = rsc*rint
 
-        print *, ilev, rint,rsc
+cccc        print *, ilev, rint,rsc
 
         call vol_tree_find_box_refine(nd,iptype,eta,eps,zk,norder,npbox,
      1       fvals,npols,umat,boxsize(ilev),nbmax,ifirstbox,
@@ -283,7 +283,7 @@ c
 c         if current memory is not sufficient reallocate
 c
         if(nbtot.gt.nbmax) then
-          print *, "Reallocating"
+cccc          print *, "Reallocating"
           allocate(centers2(2,nbmax),ilevel2(nbmax),iparent2(nbmax))
           allocate(nchild2(nbmax),ichild2(4,nbmax))
           allocate(fvals2(nd,npbox,nbmax),rintbs2(nbmax))
@@ -341,7 +341,7 @@ c
 
         nbtot = 8*nboxes
         if(nbtot.gt.nbmax) then
-          print *, "Reallocating"
+cccc          print *, "Reallocating"
           allocate(centers2(2,nbmax),ilevel2(nbmax),iparent2(nbmax))
           allocate(nchild2(nbmax),ichild2(4,nbmax))
           allocate(fvals2(nd,npbox,nbmax),rintbs2(nbmax))

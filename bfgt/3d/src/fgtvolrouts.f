@@ -101,7 +101,7 @@ c            int_{-1}^1 P_n(x) exp(- i ts(j)Dx/(2 \sqrt{delta})) dx
 c      
 c     it is known that
 c      
-c     int_{-1}^1 P_n(x) exp(- i a x) dx = 1/i^m *sqrt(2pi/a) J_{n+1/2)(a),
+c     int_{-1}^1 P_n(x) exp(- i a x) dx = 1/i^n *sqrt(2pi/a) J_{n+1/2)(a),
 c      
 c     where i^2=-1, J_{n+1/2) is the Bessel J function of half integer order.
 c

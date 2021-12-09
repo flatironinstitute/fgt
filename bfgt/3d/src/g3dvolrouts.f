@@ -302,6 +302,7 @@ c----------------------------------------------------------------------c
       complex *16 ff(n,npw,npw/2)
       complex *16 ff2(n,n,npw/2)
       complex *16 pwexp(npw,npw,npw/2,nd),cd
+cccc      real *8 fvals(nd,n,n,n),fcoefs(nd,n,n,n),xs(n),ws(n),u(n,n),v(n,n)
 c
       do ind = 1,nd
          do m3 = 1,npw/2
@@ -335,6 +336,7 @@ c
                   do m3 = 1,npw/2
                      cd = cd+tab_pw2pot(m3,k3)*ff2(k1,k2,m3)
                   enddo
+cccc                  fvals(ind,k1,k2,k3)=dreal(cd)*2
                   pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+dreal(cd)*2
                enddo
             enddo
@@ -342,6 +344,45 @@ c
 c
       enddo
 
+c     test whether the solution is accurate if we use polynomials
+c     of total degree <= n-1
+c     conclusion is yes if we do it in both this routine and leg3d_potloc
+c     that is, part of the solution may contain high frequency mode
+c     but the whole solution is accurate to the desired precision
+      
+cccc      itype=2
+cccc      call legeexps(itype,n,xs,u,v,ws)
+cccc
+cccc      call legval2coefs_3d(nd,n,fvals,fcoefs,u)
+cccc      do ind=1,nd
+cccc         kkk=0
+cccc      do j3=1,n
+cccc         do j2=1,n
+cccc            do j1=1,n
+cccc               if (j1+j2+j3.gt.n+2) then
+cccc                  fcoefs(ind,j1,j2,j3)=0
+cccc               else
+cccc                  kkk=kkk+1
+cccc               endif
+cccc            enddo
+cccc         enddo
+cccc      enddo
+cccc      print *, kkk
+cccc      pause
+cccc      enddo
+cccc
+cccc      call legval2coefs_3d(nd,n,fcoefs,fvals,v)
+cccc      do ind=1,nd
+cccc      do j3=1,n
+cccc         do j2=1,n
+cccc            do j1=1,n
+cccc               pot(ind,j1,j2,j3)=pot(ind,j1,j2,j3)+fvals(ind,j1,j2,j3)
+cccc            enddo
+cccc         enddo
+cccc      enddo
+cccc      enddo
+      
+      
       return
       end subroutine
 c
@@ -534,7 +575,9 @@ c----------------------------------------------------------------------c
       real *8 coeff(n,n,n,nd)
       real *8 pot(nd,n,n,n)
       real *8 ff(n,n,n),ff2(n,n,n),tabx(n,n),taby(n,n),tabz(n,n)
+cccc      real *8 fvals(nd,n,n,n),fcoefs(nd,n,n,n),xs(n),ws(n),u(n,n),v(n,n)
 c
+      
       do ind = 1,nd
 c        transform in x
          do j3=1,n
@@ -571,12 +614,40 @@ c        transform in z
                      cd=cd+tabz(j3,k3)*ff2(k1,k2,j3)
                   enddo
                   pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+cd
+cccc                  fvals(ind,k1,k2,k3)=cd
                enddo
             enddo
          enddo
 c     end of the ind loop
       enddo
 
+cccc      itype=2
+cccc      call legeexps(itype,n,xs,u,v,ws)
+cccc
+cccc      call legval2coefs_3d(nd,n,fvals,fcoefs,u)
+cccc      do ind=1,nd
+cccc      do j3=1,n
+cccc         do j2=1,n
+cccc            do j1=1,n
+cccc               if (j1+j2+j3.gt.n+2) then
+cccc                  fcoefs(ind,j1,j2,j3)=0
+cccc               endif
+cccc            enddo
+cccc         enddo
+cccc      enddo
+cccc      enddo
+cccc
+cccc      call legval2coefs_3d(nd,n,fcoefs,fvals,v)
+cccc      do ind=1,nd
+cccc      do j3=1,n
+cccc         do j2=1,n
+cccc            do j1=1,n
+cccc               pot(ind,j1,j2,j3)=pot(ind,j1,j2,j3)+fvals(ind,j1,j2,j3)
+cccc            enddo
+cccc         enddo
+cccc      enddo
+cccc      enddo
+      
       return
       end subroutine
 c

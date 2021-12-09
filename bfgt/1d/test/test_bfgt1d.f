@@ -147,7 +147,6 @@ C$     t2 = omp_get_wtime()
       call prin2('relative l2 error=*',erra,1)
 cccc      call prin2('ra=*',ra,1)
 
-      stop
       end
 c
 c

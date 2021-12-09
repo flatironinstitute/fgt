@@ -35,7 +35,7 @@ c
       bb = 1.0d0/(2.0d0**6)
       n = 4
       delta = bb*bb/(1.5*1.5)*2.0d0**n
-      delta = 0.3d-3*4
+      delta = 0.3d-3/1.05d0
       
       call prin2(' delta = *',delta,1)
       call prinf_long(' nsrc = *',nsrc,1)

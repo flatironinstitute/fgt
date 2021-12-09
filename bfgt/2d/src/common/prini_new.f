@@ -63,8 +63,8 @@ c
         CHARACTER MES*(*), AA(1)
         REAL *4 A(1)
         REAL *8 A2(1)
-        REAL *8 A4(1)
-ccc        REAL *16 A4(1)
+ccc        REAL *8 A4(1)
+        REAL *16 A4(1)
         INTEGER *4 IA(1)
         INTEGER *2 IA2(1)
         logical *1 la(1)
@@ -86,7 +86,7 @@ C
         CALL  MESSPR(MES,IP,IQ)
         IF(IP.NE.0 .AND. N.NE.0) WRITE(IP,1200)(A(J),J=1,N)
         IF(IQ.NE.0 .AND. N.NE.0) WRITE(IQ,1200)(A(J),J=1,N)
- 1200 FORMAT(6(2X,E11.5))
+ 1200 FORMAT(6(2X,E12.5))
          RETURN
 C 
 C 
@@ -97,7 +97,7 @@ C
         CALL MESSPR(MES,IP,IQ)
         IF(IP.NE.0 .AND. N.NE.0) WRITE(IP,1400)(A2(J),J=1,N)
         IF(IQ.NE.0 .AND. N.NE.0) WRITE(IQ,1400)(A2(J),J=1,N)
- 1400 FORMAT(6(2X,E11.5))
+ 1400 FORMAT(6(2X,E12.5))
         RETURN
 C 
 C 
@@ -108,7 +108,7 @@ C
         CALL MESSPR(MES,IP,IQ)
         IF(IP.NE.0 .AND. N.NE.0) WRITE(IP,1450)(A2(J),J=1,N)
         IF(IQ.NE.0 .AND. N.NE.0) WRITE(IQ,1450)(A2(J),J=1,N)
- 1450 FORMAT(2(2X,E22.16))
+ 1450 FORMAT(2(2X,E23.16))
         RETURN
 C 
 C 
@@ -119,7 +119,7 @@ C
         CALL MESSPR(MES,IP,IQ)
         IF(IP.NE.0 .AND. N.NE.0) WRITE(IP,1500)(A4(J),J=1,N)
         IF(IQ.NE.0 .AND. N.NE.0) WRITE(IQ,1500)(A4(J),J=1,N)
- 1500 FORMAT(6(2X,e11.5))
+ 1500 FORMAT(6(2X,e12.5))
         RETURN
 C 
 C 
@@ -130,7 +130,7 @@ C
         CALL MESSPR(MES,IP,IQ)
         IF(IP.NE.0 .AND. N.NE.0) WRITE(IP,1550)(A4(J),J=1,N)
         IF(IQ.NE.0 .AND. N.NE.0) WRITE(IQ,1550)(A4(J),J=1,N)
- 1550 FORMAT(2(2X,E22.16))
+ 1550 FORMAT(2(2X,E23.16))
         RETURN
 C 
 C 
@@ -221,13 +221,14 @@ c
 c 
 c 
         SUBROUTINE MESSPR(MES,IP,IQ)
-        save
-        CHARACTER mes*(*), ast*1
+        CHARACTER *1 ast
+        character *(*) mes
         data ast/'*'/
 C 
 C         DETERMINE THE LENGTH OF THE MESSAGE
 C 
-        i1=length(mes)
+c        i1=length(mes)
+        i1=len(mes)
         IF(MES(i1:i1).EQ. ast) i1=i1-1
 
          IF ( (I1.NE.0) .AND. (IP.NE.0) )

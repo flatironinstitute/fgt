@@ -28,7 +28,7 @@ c
       done = 1
       pi = atan(done)*4
 
-      nsrc =  2 000 000
+      nsrc =  700 000
 cccc      nsrc =  1 000 000
       ntarg = nsrc
       nd = 1
@@ -37,7 +37,7 @@ cccc      nsrc =  1 000 000
       n = 3
       delta = bb*bb/(1.5*1.5)*2.0d0**n
 cccc      delta = 0.1*delta
-      delta=0.3d-3*4*4
+      delta=0.3d-3/1.05d0
       
       call prin2(' delta = *',delta,1)
       call prinf_long(' nsrc = *',nsrc,1)
@@ -131,10 +131,13 @@ c
       call prinf(' ifpghtarg is *',ifpghtarg,1)
 
       iper = 0
+      call cpu_time(t1)
       call fgt3d(nd,delta,eps,nsrc,sources,ifcharge,charges,
      1    ifdipole,rnormal,dipstr,iper,ifpgh,pot,grad,hess,
      2    ntarg,targ,ifpghtarg,pottarg,gradtarg,
      3    hesstarg)
+      call cpu_time(t2)
+      call prin2('points per sec=*',nsrc/(t2-t1),1)
 
 cccc      call prin2('pot=*',pot,nd*nts)
 cccc      call prin2('pottarg=*',pottarg,nd*ntt)

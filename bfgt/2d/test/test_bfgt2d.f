@@ -19,10 +19,11 @@
       character *1 type
       data ima/(0.0d0,1.0d0)/
 
-      external fgaussn,fgauss1
-      logical flag
+      external fgaussn
+cccc      logical flag
 
       call prini(6,13)
+cccc      call prini_off()
       zk = ima
       done = 1
       pi = atan(done)*4
@@ -138,6 +139,14 @@ C$     t1 = omp_get_wtime()
 C$     t2 = omp_get_wtime()      
       call prin2('time taken in fgt=*',t2-t1,1)
 
+      call cpu_time(t1) 
+C$     t1 = omp_get_wtime()      
+      call bfgt2d(nd,delta,eps,nboxes,nlevels,ltree,itree,
+     1   iptr,norder,npols,type,fvals,centers,boxsize,npbox,
+     2   pot,timeinfo,tprecomp)
+      call cpu_time(t2) 
+      call prin2('time taken in fgt=*',t2-t1,1)
+
       nlfbox = 0
       do ilevel=1,nlevels
         do ibox=itree(2*ilevel+1),itree(2*ilevel+2)
@@ -186,7 +195,6 @@ C$     t2 = omp_get_wtime()
       erra = sqrt(erra/ra)
       call prin2('relative l2 error=*',erra,1)
 cccc      call prin2('ra=*',ra,1)
-
       stop
       end
 c

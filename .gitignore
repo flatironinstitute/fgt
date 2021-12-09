@@ -34,3 +34,5 @@ int*
 
 # data files
 fort*
+*.dat
+*.data

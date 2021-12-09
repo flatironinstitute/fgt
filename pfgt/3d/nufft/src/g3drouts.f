@@ -2284,7 +2284,7 @@ C
       complex *16 ww1(100)
       complex *16 ww2(100)
       complex *16 ww3(100)
-
+      
       complex *16 c1,c2,c3
 C
       eye = dcmplx(0,1)
@@ -2321,7 +2321,8 @@ C
             ww2(npw-j1+1) = dconjg(ww2(j1))
             ww3(npw-j1+1) = dconjg(ww3(j1))
          enddo
-c
+
+c     
          do ind = 1,nd
             c3=0
             do j3=1,npw/2

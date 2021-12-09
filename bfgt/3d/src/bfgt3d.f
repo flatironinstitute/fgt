@@ -595,7 +595,7 @@ c              Check if current box is a leaf box
 c                 form PW expansion directly
                   call leg3d_to_pw(nd,norder,fcoefs(1,1,ibox),npw,
 cccc                  call leg3dval_to_pw(nd,norder,fvals(1,1,ibox),npw,
-     1                ff,ff2,tab_leg2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
+     1               ff,ff2,tab_leg2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
                   call cpu_time(t2)
                   dt=dt+t2-t1
                endif
@@ -650,9 +650,8 @@ C$OMP$SCHEDULE(DYNAMIC)
             elseif (dx.lt.0 .and. dy.lt.0 .and. dz.lt.0) then
                k=8
             endif
-
             call g3dshiftpw_vec(nd,nexp,rmlexp(iaddr(1,jbox)),
-     1          rmlexp(iaddr(1,ibox)),wpwmsshift(1,k,klev))
+     1             rmlexp(iaddr(1,ibox)),wpwmsshift(1,k,klev))
           enddo
         enddo
 C$OMP END PARALLEL DO    
@@ -771,7 +770,7 @@ c            do nothing here
                 nb=nb+1
                 call cpu_time(t1)
                 call g3d_pw2pot(nd,norder,npw,rmlexp(iaddr(2,ibox)),
-     1              gg,gg2,tab_pw2pot(1,1,ilev),pot(1,1,ibox))
+     1             gg,gg2,tab_pw2pot(1,1,ilev),pot(1,1,ibox))
                 call cpu_time(t2)
                 dt=dt+t2-t1
              endif
@@ -814,6 +813,8 @@ cccc              jbox is the target box
 c                 colleague                  
                   if (ilev .eq. jlev) then
                      if (iflocal(ibox).eq. 1 .and. jbox.eq.ibox) then
+c     in this case, self interaction is already taken care of
+c     by the plane wave expansion.
                      else
                      ix = (centers(1,jbox)-centers(1,ibox))/bs
                      iy = (centers(2,jbox)-centers(2,ibox))/bs

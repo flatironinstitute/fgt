@@ -162,7 +162,7 @@ c     it determines the speed of the algorithm when delta goes to zero.
 c     ndiv is the maximum number of points per box at or below the cutoff level
 c     it's determined by numerical experiments on finding the crossover point
 c     between direct evaluation and the fast scheme.
-      ndiv = 100
+      ndiv = 120
 c
       ifunif = 0
       iper = 0
@@ -440,9 +440,10 @@ C$      time1=omp_get_wtime()
      $   hesstargsort)
       call cpu_time(time2)
 C$        time2=omp_get_wtime()
-      if( ifprint .eq. 1 ) call prin2('time in fgt main=*',
-     1   time2-time1,1)
-
+      if( ifprint .eq. 1 ) then
+         call prin2('time in fgt main=*',time2-time1,1)
+         call prin2('points per sec=*',ns/(time2-time1),1)
+      endif
 
 c
 c     resort the output arrays in input order
@@ -706,8 +707,42 @@ c
 
       ncutlevbox=laddr(2,npwlevel)-laddr(1,npwlevel)+1
       write(6,*) ' n per box on the cutoff level',nsource/ncutlevbox      
-      
 
+c
+c     compute list info
+c
+      call gt3d_computemnlistpw(nlevels,nboxes,itree,ltree,
+     1    iptr,centers,
+     2    boxsize,iper,mnlistpw)
+      allocate(nlistpw(nboxes),listpw(mnlistpw,nboxes))
+c     listpw contains source boxes in the pw interaction
+      call gt3d_computelistpw(nlevels,npwlevel,nboxes,
+     1    itree,ltree,iptr,centers,
+     2    itree(iptr(4)),itree(iptr(5)),
+     1    boxsize,laddr,
+     2    mnlistpw,nlistpw,listpw)
+c
+c     check whether we need to create and evaluate the PW expansion for boxes 
+c     at the cutoff level
+      allocate(ifpwexp(nboxes))
+      if (npwlevel .ge. 0 .and. npwlevel .le. nlevels) then
+         do i=1,nboxes
+            ifpwexp(i)=0
+         enddo
+
+         do ilev=npwlevel,npwlevel
+            do ibox=laddr(1,ilev),laddr(2,ilev)
+               istart = isrcse(1,ibox)
+               iend = isrcse(2,ibox)
+               npts = iend-istart+1
+               if (nlistpw(ibox).gt.0 .or. npts.gt.ndiv) then
+                  ifpwexp(ibox)=1
+               endif
+            enddo
+         enddo
+      endif
+      
+cccccc
       nlevend=nlevels
       if (npwlevel.le.nlevels) nlevend=npwlevel
       
@@ -787,39 +822,6 @@ c     determine the right translation matrices
 c      
       xmin  = boxsize(npwlevel)
 c
-c     compute list info
-c
-      call gt3d_computemnlistpw(nlevels,nboxes,itree,ltree,
-     1    iptr,centers,
-     2    boxsize,iper,mnlistpw)
-      allocate(nlistpw(nboxes),listpw(mnlistpw,nboxes))
-c     listpw contains source boxes in the pw interaction
-      call gt3d_computelistpw(nlevels,npwlevel,nboxes,
-     1    itree,ltree,iptr,centers,
-     2    itree(iptr(4)),itree(iptr(5)),
-     1    boxsize,laddr,
-     2    mnlistpw,nlistpw,listpw)
-c
-c     check whether we need to evaluate local PW expansion for boxes 
-c     at the cutoff level
-      allocate(ifpwexp(nboxes))
-      if (npwlevel .ge. 0 .and. npwlevel .le. nlevels) then
-         do i=1,nboxes
-            ifpwexp(i)=0
-         enddo
-
-         do ilev=npwlevel,npwlevel
-            do ibox=laddr(1,ilev),laddr(2,ilev)
-               istart = isrcse(1,ibox)
-               iend = isrcse(2,ibox)
-               npts = iend-istart+1
-               if (nlistpw(ibox).gt.0 .or. npts.gt.ndiv) then
-                  ifpwexp(ibox)=1
-               endif
-            enddo
-         enddo
-      endif
-c
 c     ... set all multipole and local expansions to zero
 c
 cccc      do ilev = 0,nlevels
@@ -840,11 +842,11 @@ ccccC$OMP END PARALLEL DO
 cccc       enddo
 c
 c
-      ncdir = 550
+      ncdir = 300
       nddir = 750
       ncddir = 1000
 
-      npdir = 450
+      npdir = 300
       ngdir = 900
       nhdir = 1200
 
@@ -869,7 +871,7 @@ C$OMP$SCHEDULE(DYNAMIC)
                nchild = itree(iptr(4)+ibox-1)
                istart = isrcse(1,ibox)
                iend = isrcse(2,ibox)
-               npts = iend-istart+1
+               npts = iend-istart+1 
 c              Check if current box needs to form pw exp         
                if(npts.gt.ndiv) then
                   nb=nb+1
@@ -941,6 +943,7 @@ C$OMP$SCHEDULE(DYNAMIC)
                npts = iend-istart+1
 c              Check if current box needs to form pw exp          
                if(npts.gt.ndiv) then
+cccc               if(npts.gt.ndiv.or. ifpwexp(ibox).eq.1) then
                   if (npts.gt.ncddir) then
                      call g3dformpwcd_fast_vec(nd,delta,eps,
      1                   sourcesort(1,istart),npts,chargesort(1,istart),
@@ -1010,6 +1013,7 @@ c
               jend = isrcse(2,jbox)
               nptsj = jend-jstart+1
               if (nptsj .gt. ndiv) then
+cccc              if (nptsj .gt. ndiv.or. ifpwexp(jbox).eq.1) then
                 jx= nint((centers(1,ibox) - centers(1,jbox))/xmin)
                 jy= nint((centers(2,ibox) - centers(2,jbox))/xmin)
                 jz= nint((centers(3,ibox) - centers(3,jbox))/xmin)
@@ -1181,7 +1185,7 @@ C$OMP$PRIVATE(istarts,iends,nptssrc,nptstarg)
 C$OMP$SCHEDULE(DYNAMIC)  
          do jbox = laddr(1,ilev),laddr(2,ilev)
 c        jbox is the source box            
-            if (ifhung(jbox) .eq. 1) then
+            if (ifhung(jbox) .eq. 1 ) then
                
                jstart = isrcse(1,jbox)
                jend = isrcse(2,jbox)
@@ -1198,7 +1202,8 @@ cccc              ibox is the target box
                   istartt = itargse(1,ibox)
                   iendt = itargse(2,ibox)
                   nptstarg = iendt-istartt + 1
-
+cccc                  if (ibox.eq.jbox .and. ifpwexp(jbox).eq.1) then
+cccc                  else
                   if (nptstarg .gt. 0) then
                      call fgt3dpart_direct_vec(nd,delta,dmax,
      1                   jstart,jend,istartt,iendt,sourcesort,
@@ -1213,6 +1218,7 @@ cccc              ibox is the target box
      3                   ifdipole,rnormalsort,dipstrsort,sourcesort,
      4                   ifpgh,pot,grad,hess)
                   endif
+cccc                  endif
                enddo
             endif
          enddo

@@ -26,10 +26,10 @@
 c
 c      initialize function parameters
 c
-      delta = 1d-6
+      delta = 1.0d-4
       boxlen = 1.0d0
       
-      rsig = 5.0d-5
+      rsig = 4.0d-5
 cc      rsig = 0.005d0
 
       nd = 1
@@ -38,22 +38,22 @@ cc      rsig = 0.005d0
       dpars(3) = 0.55d0
 
       dpars(4) = rsig
-      dpars(5) = 1.0d0/rsig
+      dpars(5) = 1.0d0
       
       dpars(6) = 0.7d0
       dpars(7) = 0.4d0
       dpars(8) = 0.3d0
 
       dpars(9) = rsig*2
-      dpars(10) = -0.5d0/rsig
+      dpars(10) = -1.5d0
 
       norder = 16
-      iptype = 0
+      iptype = 1
       eta = 2
 
       npbox = norder*norder*norder
 
-      eps = 1.0d-9
+      eps = 1.0d-7
       call cpu_time(t1)
 C$      t1 = omp_get_wtime()
 
@@ -149,7 +149,6 @@ C$     t2 = omp_get_wtime()
       call prin2('relative l2 error=*',erra,1)
 cccc      call prin2('ra=*',ra,1)
 
-      stop
       end
 c
 c

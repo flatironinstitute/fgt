@@ -207,6 +207,7 @@ c     find the cutoff level
          endif
       enddo
 c
+      if (boxsize(nlevels) .ge. dcutoff) npwlevel=nlevels+1
       if (boxsize(0) .le. dcutoff) npwlevel=0
       call prinf(' npwlevel =*',npwlevel,1)
 cccc      call prin2(' boxsize(npwlevel)=*',boxsize(npwlevel),1)

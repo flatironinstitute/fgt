@@ -17,7 +17,8 @@ endif
 
 ifeq ($(HOST),linux-gfortran)
 FC = gfortran
-FFLAGS = -fPIC -O3 -c -w -std=legacy
+FFLAGS = -fPIC -O3 -march=native -funroll-loops -ftree-vectorize -ffast-math -std=legacy -c -w
+#FFLAGS = -fPIC -O3 -std=legacy -c -w
 FLINK = gfortran -w -o $(EXEC)
 #FEND = -lblas -llapack
 FEND = -lopenblas -L/usr/local/opt/openblas/lib 
@@ -38,10 +39,15 @@ FEND = -lopenblas -L/usr/local/opt/openblas/lib
 endif
 
 ifeq ($(HOST),linux-ifort)
+FC = /opt/intel/oneapi/compiler/2021.4.0/linux/bin/intel64/ifort
 FC = ifort
-FFLAGS = -c -O3 -fPIC -qmkl  
-FLINK = ifort -qmkl -o $(EXEC)
-#WITH_SECOND = 1
+FFLAGS = -O1 -g -c -w -xW -qopenmp 
+FFLAGS = -fast -f77rtl -c
+FLINK = ifort -w -qopenmp -o $(EXEC)
+FLINK = /opt/intel/oneapi/compiler/2021.4.0/linux/bin/intel64/ifort -w -o $(EXEC)
+FLINK = ifort -w -o $(EXEC)
+FEND = -lblas -llapack
+#FEND = -lopenblas
 endif
 
 ifeq ($(HOST),linux-ifort-openmp)

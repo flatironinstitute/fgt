@@ -107,6 +107,7 @@ c     find the cutoff level
          endif
       enddo
 c
+      if (boxsize(nlevels) .ge. dcutoff) npwlevel=nlevels+1
       if (boxsize(0) .le. dcutoff) npwlevel=0
       call prinf(' npwlevel =*',npwlevel,1)
 cccc      call prin2(' boxsize(npwlevel)=*',boxsize(npwlevel),1)
@@ -481,7 +482,7 @@ c
       xmin  = boxsize(nlevstart)
       xmin2 = boxsize(nlevels)/2
       call cpu_time(t2)
-      print *, 'precomputation in fgt =', t2-t1
+      call prin2('precomputation in fgt =*', t2-t1,1)
       
 c
 c     compute list info
@@ -515,8 +516,6 @@ c
       call prinf('laddr=*',itree(iptr(1)),2*(nlevels+1))
 
       
-      call cpu_time(time1)
-C$        time1=omp_get_wtime()
 
 c
 c
@@ -526,6 +525,8 @@ c
       if(ifprint.ge.1) 
      $   call prinf("=== STEP 1 (coefs -> mp) ====*",i,0)
       
+      call cpu_time(time1)
+C$        time1=omp_get_wtime()
       do 1100 ilev = nlevels,nlevstart,-1
 cccc         nb=0
 cccc         dt=0
@@ -534,9 +535,10 @@ C$OMP PARALLEL DO DEFAULT (SHARED)
 C$OMP$PRIVATE(ibox,nchild)
 C$OMP$SCHEDULE(DYNAMIC)
          do ibox=itree(2*ilev+1),itree(2*ilev+2)
-            if (ilev .eq. npwlevel .and. iflocal(ibox).eq.0) then
+cccc            if (ilev .eq. npwlevel .and. iflocal(ibox).eq.0) then
 c              do nothing here
-            else    
+cccc            else    
+            if (ilev .ne. npwlevel .or. iflocal(ibox).eq.1) then
                nchild = itree(iptr(4)+ibox-1)
 c              Check if current box is a leaf box            
                if(nchild.eq.0) then
@@ -545,13 +547,14 @@ cccc                  call cpu_time(t1)
 c                 form PW expansion directly
                   call leg2d_to_pw(nd,norder,fcoefs(1,1,ibox),npw,
      1                ff,tab_leg2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
+cccc     1                tab_leg2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
 cccc                  call cpu_time(t2)
 cccc                  dt=dt+t2-t1
                endif
             endif
          enddo
 C$OMP END PARALLEL DO
- 111     format ('ilev=', i1,4x, 'nb=',i6, 4x,'formpw=', f5.2)         
+ccc 111     format ('ilev=', i1,4x, 'nb=',i6, 4x,'formpw=', f5.2)         
 cccc         write(6,111) ilev,nb,dt
 c     end of ilev do loop
  1100 continue

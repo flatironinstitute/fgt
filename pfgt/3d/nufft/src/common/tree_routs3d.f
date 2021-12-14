@@ -558,8 +558,16 @@ c         Compute list1 of ibox if it is childless
 c
 cc            boxes in list 1 at the same level
 c
+cccc              if (ilev .gt. npwlevel) then
+                 
+cccc              elseif (ilev .eq. npwlevel) then
               if (ilev .eq. npwlevel) then
-c               at the cutoff level, colleagues are directly added to list1
+c     at the cutoff level, colleagues are directly added to list1
+cccc                 if (nchild(jbox).eq. 0) then
+cccc                    nlist1(ibox) = nlist1(ibox)+1
+cccc                    list1(nlist1(ibox),ibox) = jbox
+cccc                 endif
+
                 nlist1(ibox) = nlist1(ibox)+1
                 list1(nlist1(ibox),ibox) = jbox
               else
@@ -692,9 +700,12 @@ c
             ncoll = itree(iptr(6)+ibox-1)
             do i=1,ncoll
                jbox = itree(iptr(7) + (ibox-1)*27+i-1)
-               if (jbox.ne.ibox .and. nchild(jbox).gt.0) then
-                  nlistpw(ibox)=nlistpw(ibox)+1
-                  listpw(nlistpw(ibox),ibox) = jbox
+cccc              jlev = itree(iptr(2)+jbox-1)
+cccc              if (jbox.ne.ibox .and. ilev.eq.jlev .and. 
+cccc     1            (nchild(jbox).gt.0 .or. nchild(ibox).gt.0)) then
+               if (jbox.ne.ibox .and. nchild(jbox).gt.0) then                 
+                 nlistpw(ibox)=nlistpw(ibox)+1
+                 listpw(nlistpw(ibox),ibox) = jbox
                endif
             enddo
          enddo

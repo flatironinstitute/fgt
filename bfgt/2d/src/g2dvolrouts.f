@@ -77,6 +77,7 @@ c
 c
 C*********************************************************************C
       subroutine leg2d_to_pw(nd,n,coeff,npw,ff,tab_leg2pw,pwexp)
+cccc      subroutine leg2d_to_pw(nd,n,coeff,npw,tab_leg2pw,pwexp)
 C*********************************************************************C
 c     This routine computes the plane wave expansion from
 c     Legendre series coefficients (implicitly about the box center).

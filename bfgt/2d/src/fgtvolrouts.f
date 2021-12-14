@@ -594,7 +594,7 @@ c
 cccc      print *, 'dmax=',dmax
 c      
       if (lambda.le.0.125d0) then
-         print *, 'enter small lambda zone in coll table'
+cccc         print *, 'enter small lambda zone in coll table'
          
 c
 c     colleague table -1, the scaled target interval is on [-3,-1], the scaled
@@ -789,7 +789,7 @@ c     big target interval, enlarged by a factor of 2
 cccc      print *, 'dmax=',dmax
 c
       if (lambda.le.0.125d0) then
-         print *, 'enter small lambda zone in stob table'
+cccc         print *, 'enter small lambda zone in stob table'
          
 c        stob table 1, the scaled target interval is on [-5,-1], the scaled
 c        source interval is on [-1,1]. 
@@ -1027,7 +1027,7 @@ cccc      print *, 'lambda=', lambda
 cccc      print *, 'dmax=',dmax
 c
       if (lambda.le.0.125d0) then
-         print *, 'enter small lambda zone in btos table'
+cccc         print *, 'enter small lambda zone in btos table'
 cccc         print *, 'lambda=', lambda
 c        btos table 1, the scaled target interval is on [-2,-1], the scaled
 c        source interval is on [-1,1]. 

@@ -2,8 +2,9 @@
 EXEC = int2-fgt
 
 #HOST = osx
-HOST=linux-gfortran
-#HOST=linux-ifort
+#HOST=linux-gfortran
+HOST=linux-ifort
+#HOST=linux-ifort-lopenblas
 #HOST=linux-gfortran-prof
 #HOST=linux-gfortran-openmp
 
@@ -16,10 +17,10 @@ endif
 
 ifeq ($(HOST),linux-gfortran)
 FC = gfortran
-FFLAGS = -fPIC -O3 -march=native -funroll-loops -ftree-vectorize -ffast-math -c -w
+FFLAGS = -fPIC -O3 -c -w -std=legacy
 FLINK = gfortran -w -o $(EXEC)
-FEND = -lblas -llapack
-#FEND = -lopenblas -L/usr/local/opt/openblas/lib 
+#FEND = -lblas -llapack
+FEND = -lopenblas -L/usr/local/opt/openblas/lib 
 endif
 
 ifeq ($(HOST),linux-gfortran-prof)
@@ -38,11 +39,24 @@ endif
 
 ifeq ($(HOST),linux-ifort)
 FC = ifort
-FFLAGS = -O1 -g -c -w -xW -qopenmp 
-FLINK = ifort -w -qopenmp -o $(EXEC)
-WITH_SECOND = 1
+FFLAGS = -c -O3 -fPIC -qmkl  
+FLINK = ifort -qmkl -o $(EXEC)
+#WITH_SECOND = 1
 endif
 
+ifeq ($(HOST),linux-ifort-openmp)
+FC = ifort
+FFLAGS = -fast -c -w -xHost -qopenmp -mkl
+FLINK = ifort -w -mkl -qopenmp -o $(EXEC)
+#WITH_SECOND = 1
+endif
+
+ifeq ($(HOST),linux-ifort-lopenblas)
+FC = ifort
+FFLAGS = -c -O3 -fPIC   
+FLINK = ifort -o $(EXEC)
+#WITH_SECOND = 1
+endif
 
 SRC = ../src
 FGT3D = ../src
@@ -59,7 +73,8 @@ SOURCES =  test_bfgt2d.f \
   $(SRC)/common/hkrand.f \
   $(SRC)/common/dlaran.f \
   $(SRC)/common/voltab2d.f \
-  $(SRC)/common/tree_vol_coeffs.f \
+  $(SRC)/common/tree_vol_coeffs2.f \
+  $(SRC)/common/lapack_f77.f \
   $(SRC)/bfgt2d.f \
   $(SRC)/fgtterms.f \
   $(SRC)/fgtvolrouts.f \
@@ -89,7 +104,7 @@ OBJECTS = $(patsubst %.f,%.o,$(patsubst %.f90,%.o,$(SOURCES)))
 all: $(OBJECTS)
 	rm -f $(EXEC)
 	$(FLINK) $(OBJECTS) $(FEND)
-	./$(EXEC) 2 
+	./$(EXEC) 
 
 clean:
 	rm -f $(OBJECTS)

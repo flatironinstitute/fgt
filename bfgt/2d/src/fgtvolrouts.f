@@ -242,6 +242,76 @@ c
 c
 c
 c
+c
+C*********************************************************************C
+      subroutine mk_pw2pgh(norder,npw,ts,xs,delta,boxdim,tab_pw2pot,
+     1           tab_pw2potx,tab_pw2potxx)
+C*********************************************************************C
+c     generates a table converting plane wave expansion to potential 
+c     values
+c      
+c     tab_pw2pot(j,n) = exp(i ts(j) xs(n) D/(2 \sqrt{delta}))
+c              where D is the box dimension at current level in
+c              tree hierarchy.
+c
+c     INPUT:
+c     norder   number of Legendre nodes
+c     npw      number of plane waves
+c     ts       nodes of plane wave quadrature
+c     xs       Legendre nodes
+c     delta    Gaussian variance
+c     boxdim   box dimension at current level
+c
+c     OUTPUT:
+c     tab_pw2pot 
+c----------------------------------------------------------------------c
+      implicit real *8 (a-h,o-z)
+      real *8 ts(npw),xs(norder)
+      complex *16 tab_pw2pot(npw,norder),eye,qqx,qq1,dfac
+      complex *16 tab_pw2potx(npw,norder)
+      complex *16 tab_pw2potxx(npw,norder)
+
+c
+      eye = dcmplx(0.0d0,1.0d0)
+c
+      dsq = boxdim/2/dsqrt(delta)
+      dfac = eye*dsq*2/boxdim
+C
+      npw2=npw/2
+      do i=1,norder
+         x = xs(i)*dsq
+
+         qqx = cdexp(eye*ts(npw2+1)*x)
+         
+         qq1 = qqx
+         qqx = qqx*qqx
+
+         do j1=npw2+1,npw
+            tab_pw2pot(j1,i) = qq1
+            tab_pw2potx(j1,i)= ts(j1)*tab_pw2pot(j1,i)*dfac
+            tab_pw2potxx(j1,i)= ts(j1)*tab_pw2potx(j1,i)*dfac
+
+            qq1 = qq1*qqx
+            
+              tab_pw2pot(npw-j1+1,i) = dconjg(tab_pw2pot(j1,i))
+             tab_pw2potx(npw-j1+1,i) = dconjg(tab_pw2potx(j1,i))
+            tab_pw2potxx(npw-j1+1,i) = dconjg(tab_pw2potxx(j1,i))
+         enddo
+
+cccc         do j=1,npw
+cccc            tab_pw2pot(j,i)=exp(eye*ts(j)*x)
+cccc         enddo
+      enddo
+ccc      call prin2(' in mk tab_pwpot *',tab_pw2pot,2*npw*norder)
+ccc      call prin2(' in mk tab_pwpotx *',tab_pw2potx,2*npw*norder)
+ccc      call prin2(' in mk tab_pwpotxx *',tab_pw2potxx,2*npw*norder)
+
+      return
+      end subroutine
+c
+c
+c
+c
 C*********************************************************************C
       subroutine mk_loctab_coll_old(n,nnodes,delta,boxdim,tab_colleague)
 C*********************************************************************C

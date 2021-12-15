@@ -558,3 +558,400 @@ c
 c      
 c      
 c
+c
+C*********************************************************************C
+      subroutine g2d_pw2pg(nd,n,npw,pwexp,ff,ff2,tab_pw2pot,
+     1           tab_pw2deriv,pot,grad)
+C*********************************************************************C
+c     This routine computes the potential and gradient on a tensor grid from 
+c     the plane wave expansion coefficients (implicitly about the box center).
+c
+c     INPUT:
+c     nd       vector length (for multiple RHS)
+c     n        number of Legendre nodes
+c     npw      number of plane waves
+c     pwexp    plane wave expansion
+c                 NOTE 2D convention is pwexp(npw,(npw+1)/2)
+c     ff       complex workspace (n,(npw+1)/2)
+c     ff2       complex workspace (n,(npw+1)/2)
+c     tab_pw2pot    precomputed table of 1D conversion 
+c     tab_pw2deriv  precomputed table of deriv of 1D conversion 
+c
+c     OUTPUT:
+c     pot      potential values on the tensor grid
+c     grad     grad values on the tensor grid
+c----------------------------------------------------------------------c
+      implicit real *8 (a-h,o-z)
+      real *8 pot(nd,n,n)
+      real *8 grad(nd,2,n,n)
+      complex *16 tab_pw2pot(npw,n)
+      complex *16 tab_pw2deriv(npw,n)
+ccc      complex *16 ff(n,(npw+1)/2)
+ccc      complex *16 ff2(n,(npw+1)/2)
+      complex *16 ff(npw/2,n)
+      complex *16 ff2(npw/2,n)
+      complex *16 pwexp(npw,npw/2,nd),cd,cdx,cdy
+c
+ccc      call prin2(' tab_pwpot *',tab_pw2pot,2*npw*n)
+ccc      call prin2(' tab_pwderiv *',tab_pw2deriv,2*npw*n)
+      do ind = 1,nd
+         do m2 = 1,npw/2
+            do k1 = 1,n
+               cd=0.0d0
+               cdx=0.0d0
+               do m1 = 1,npw
+                  cd = cd+tab_pw2pot(m1,k1)*pwexp(m1,m2,ind)
+                  cdx = cdx+tab_pw2deriv(m1,k1)*pwexp(m1,m2,ind)
+               enddo
+               ff(m2,k1) = cd
+               ff2(m2,k1) = cdx
+            enddo
+         enddo
+c
+         do k2 = 1,n
+            do k1 = 1,n
+               cd = 0.0d0
+               cdx = 0.0d0
+               cdy = 0.0d0
+               do m2 = 1,npw/2
+                  cd = cd+tab_pw2pot(m2,k2)*ff(m2,k1)
+                  cdx = cdx+tab_pw2pot(m2,k2)*ff2(m2,k1)
+                  cdy = cdy+tab_pw2deriv(m2,k2)*ff(m2,k1)
+               enddo
+               pot(ind,k1,k2)=pot(ind,k1,k2)+dreal(cd)*2
+               grad(ind,1,k1,k2)=grad(ind,1,k1,k2)+dreal(cdx)
+               grad(ind,2,k1,k2)=grad(ind,2,k1,k2)+dreal(cdy)
+            enddo
+         enddo
+c
+      enddo
+c
+      return
+      end subroutine
+c
+c
+c
+c      
+c      
+c
+c
+C*********************************************************************C
+      subroutine g2d_pw2pgh(nd,n,npw,pwexp,ff,ff2,ff3,tab_pw2pot,
+     1           tab_pw2deriv,tab_pw2dxx,pot,grad,hess)
+C*********************************************************************C
+c     This routine computes the potential and gradient on a tensor grid from 
+c     the plane wave expansion coefficients (implicitly about the box center).
+c
+c     INPUT:
+c     nd       vector length (for multiple RHS)
+c     n        number of Legendre nodes
+c     npw      number of plane waves
+c     pwexp    plane wave expansion
+c                 NOTE 2D convention is pwexp(npw,(npw+1)/2)
+c     ff       complex workspace (n,(npw+1)/2)
+c     ff2       complex workspace (n,(npw+1)/2)
+c     ff3       complex workspace (n,(npw+1)/2)
+c     tab_pw2pot    precomputed table of 1D conversion 
+c     tab_pw2deriv  precomputed table of deriv of 1D conversion 
+c     tab_pw2dxx  precomputed table of second deriv of 1D conversion 
+c
+c     OUTPUT:
+c     pot      potential values on the tensor grid
+c     grad     grad values on the tensor grid
+c     hess     hess values on the tensor grid
+c----------------------------------------------------------------------c
+      implicit real *8 (a-h,o-z)
+      real *8 pot(nd,n,n)
+      real *8 grad(nd,2,n,n)
+      real *8 hess(nd,3,n,n)
+      complex *16 tab_pw2pot(npw,n)
+      complex *16 tab_pw2deriv(npw,n)
+      complex *16 tab_pw2dxx(npw,n)
+ccc      complex *16 ff(n,(npw+1)/2)
+ccc      complex *16 ff2(n,(npw+1)/2)
+      complex *16 ff(npw/2,n)
+      complex *16 ff2(npw/2,n)
+      complex *16 ff3(npw/2,n)
+      complex *16 pwexp(npw,npw/2,nd),cd,cdx,cdy
+      complex *16 cdxx,cdxy,cdyy
+c
+ccc      call prin2(' tab_pwpot *',tab_pw2pot,2*npw*n)
+ccc      call prin2(' tab_pwderiv *',tab_pw2deriv,2*npw*n)
+      do ind = 1,nd
+         do m2 = 1,npw/2
+            do k1 = 1,n
+               cd=0.0d0
+               cdx=0.0d0
+               cdxx=0.0d0
+               do m1 = 1,npw
+                  cd = cd+tab_pw2pot(m1,k1)*pwexp(m1,m2,ind)
+                  cdx = cdx+tab_pw2deriv(m1,k1)*pwexp(m1,m2,ind)
+                  cdxx = cdxx+tab_pw2dxx(m1,k1)*pwexp(m1,m2,ind)
+               enddo
+               ff(m2,k1) = cd
+               ff2(m2,k1) = cdx
+               ff3(m2,k1) = cdxx
+            enddo
+         enddo
+c
+         do k2 = 1,n
+            do k1 = 1,n
+               cd = 0.0d0
+               cdx = 0.0d0
+               cdy = 0.0d0
+               cdxx = 0.0d0
+               cdxy = 0.0d0
+               cdyy = 0.0d0
+               do m2 = 1,npw/2
+                  cd = cd+tab_pw2pot(m2,k2)*ff(m2,k1)
+                  cdx = cdx+tab_pw2pot(m2,k2)*ff2(m2,k1)
+                  cdxx = cdxx+tab_pw2pot(m2,k2)*ff3(m2,k1)
+                  cdy = cdy+tab_pw2deriv(m2,k2)*ff(m2,k1)
+                  cdyy = cdyy+tab_pw2dxx(m2,k2)*ff(m2,k1)
+                  cdxy = cdxy+tab_pw2deriv(m2,k2)*ff2(m2,k1)
+               enddo
+               pot(ind,k1,k2)=pot(ind,k1,k2)+dreal(cd)*2
+               grad(ind,1,k1,k2)=grad(ind,1,k1,k2)+dreal(cdx)
+               grad(ind,2,k1,k2)=grad(ind,2,k1,k2)+dreal(cdy)
+               hess(ind,1,k1,k2)=hess(ind,1,k1,k2)+dreal(cdxx)
+               hess(ind,2,k1,k2)=hess(ind,2,k1,k2)+dreal(cdxy)
+               hess(ind,3,k1,k2)=hess(ind,3,k1,k2)+dreal(cdyy)
+            enddo
+         enddo
+c
+      enddo
+c
+      return
+      end subroutine
+c
+c
+c
+c
+c
+C*********************************************************************C
+      subroutine ortho_to_g(nd,n,coeff,ff,ff2,grad,
+     1           tabf,tabfx,boxsize)
+C*********************************************************************C
+c     This routine takes an orthogonal polynomial expansion for a 
+c     potential on the standard box [-1,1]^2 and computes the 
+c     correspomnding gradient and Hessian on the corresponding
+c     tensor product grid.
+c
+c     INPUT:
+c     nd          vector length (for multiple RHS)
+c     n           dimension of coeff array
+c     coeff       orthogonal polynomial coefficients
+c                 f = sum coeff(n,m) F_n(x) F_m(y)
+c     ff          workspace
+c     ff2         workspace
+c     ff3         workspace
+c     tabf        precomputed table  tabf(n,i) =   F_n(x_i)
+c     tabfx       precomputed table  tabfx(n,i) =  F'_n(x_i)
+c     tabfxx      precomputed table  tabfxx(n,i) = F''_n(x_i)
+c
+c     OUTPUT:
+c     grad        output on tensor product grid
+c----------------------------------------------------------------------c
+      implicit real *8 (a-h,o-z)
+      real *8 coeff(n,n,nd)
+      real *8 grad(nd,2,n,n)
+      real *8 ff2(n,n)
+      real *8 ff(n,n),tabf(n,n)
+      real *8 tabfx(n,n)
+c
+      b2 = boxsize**2
+      do ind = 1,nd
+c        transform in x
+         do j2=1,n
+            do k1=1,n
+               cd=0
+               cdx=0
+               do j1=1,n
+                  cd=cd+tabf(j1,k1)*coeff(j1,j2,ind)
+                  cdx=cdx+tabfx(j1,k1)*coeff(j1,j2,ind)
+               enddo
+               ff(j2,k1)=cd
+               ff2(j2,k1)=cdx
+            enddo
+         enddo
+c        transform in y
+         do k2=1,n
+            do k1=1,n
+               cd=0
+               cdx=0
+               cdy=0
+               do j2=1,n
+                  cdx=cdx+tabf(j2,k2)*ff2(j2,k1)
+                  cdy=cdy+tabfx(j2,k2)*ff(j2,k1)
+               enddo
+               grad(ind,1,k1,k2)=cdx*2/boxsize
+               grad(ind,2,k1,k2)=cdy*2/boxsize
+            enddo
+         enddo
+c     end of the ind loop
+      enddo
+c
+c
+      return
+      end subroutine
+c
+c
+c
+c
+c
+c
+C*********************************************************************C
+      subroutine ortho_to_gh(nd,n,coeff,ff,ff2,ff3,grad,
+     1           hess,tabf,tabfx,tabfxx,boxsize)
+C*********************************************************************C
+c     This routine takes an orthogonal polynomial expansion for a 
+c     potential on the standard box [-1,1]^2 and computes the 
+c     correspomnding gradient and Hessian on the corresponding
+c     tensor product grid.
+c
+c     INPUT:
+c     nd          vector length (for multiple RHS)
+c     n           dimension of coeff array
+c     coeff       orthogonal polynomial coefficients
+c                 f = sum coeff(n,m) F_n(x) F_m(y)
+c     ff          workspace
+c     ff2         workspace
+c     ff3         workspace
+c     tabf        precomputed table  tabf(n,i) =   F_n(x_i)
+c     tabfx       precomputed table  tabfx(n,i) =  F'_n(x_i)
+c     tabfxx      precomputed table  tabfxx(n,i) = F''_n(x_i)
+c
+c     OUTPUT:
+c     grad        output on tensor product grid
+c     hess        output on tensor product grid
+c----------------------------------------------------------------------c
+      implicit real *8 (a-h,o-z)
+      real *8 coeff(n,n,nd)
+      real *8 grad(nd,2,n,n)
+      real *8 hess(nd,3,n,n)
+      real *8 ff3(n,n)
+      real *8 ff2(n,n)
+      real *8 ff(n,n),tabf(n,n)
+      real *8 tabfx(n,n),tabfxx(n,n)
+c
+      b2 = boxsize**2
+      do ind = 1,nd
+c        transform in x
+         do j2=1,n
+            do k1=1,n
+               cd=0
+               cdx=0
+               cdxx=0
+               do j1=1,n
+                  cd=cd+tabf(j1,k1)*coeff(j1,j2,ind)
+                  cdx=cdx+tabfx(j1,k1)*coeff(j1,j2,ind)
+                  cdxx=cdxx+tabfxx(j1,k1)*coeff(j1,j2,ind)
+               enddo
+               ff(j2,k1)=cd
+               ff2(j2,k1)=cdx
+               ff3(j2,k1)=cdxx
+            enddo
+         enddo
+c        transform in y
+         do k2=1,n
+            do k1=1,n
+               cd=0
+               cdx=0
+               cdy=0
+               cdxx=0
+               cdxy=0
+               cdyy=0
+               do j2=1,n
+                  cdx=cdx+tabf(j2,k2)*ff2(j2,k1)
+                  cdxx=cdxx+tabf(j2,k2)*ff3(j2,k1)
+                  cdy=cdy+tabfx(j2,k2)*ff(j2,k1)
+                  cdxy=cdxy+tabfx(j2,k2)*ff2(j2,k1)
+                  cdyy=cdyy+tabfxx(j2,k2)*ff(j2,k1)
+               enddo
+               grad(ind,1,k1,k2)=cdx*2/boxsize
+               grad(ind,2,k1,k2)=cdy*2/boxsize
+               hess(ind,1,k1,k2)=cdxx*4/b2
+               hess(ind,2,k1,k2)=cdxy*4/b2
+               hess(ind,3,k1,k2)=cdyy*4/b2
+            enddo
+         enddo
+c     end of the ind loop
+      enddo
+c
+c
+      return
+      end subroutine
+c
+c
+C
+c 
+c 
+c 
+      subroutine mklegtables(norder,xnodes,tabf,tabfx,tabfxx)
+      implicit real *8 (a-h,o-z)
+      integer norder
+      real *8 xnodes(norder)
+      real *8 tabf(norder,norder)
+      real *8 tabfx(norder,norder)
+      real *8 tabfxx(norder,norder)
+C 
+C     This subroutine computes the values and the derivatives
+c     of first norder Legendre polynomials at the Legendre nodes
+C     in interval [-1,1] as well as their first and second derivatives.
+c 
+c     INPUT:
+c 
+C     norder = order of expansion
+C     xnodes = Legendre nodes
+c 
+c     OUTPUT:
+c 
+C     tabf:    tabf(i,j) = P_i(x_j)
+C     tabfx:   tabf(i,j) = P'_i(x_j)
+C     tabfxx:  tabf(i,j) = P''_i(x_j)
+C 
+C 
+      do k = 1,norder
+         x = xnodes(k)
+         done=1
+         pjm2=1
+         pjm1=x
+         dxjm2=0
+         dxjm1=1
+         dxxjm2=0
+         dxxjm1=0
+c 
+         tabf(1,k)=1
+         tabfx(1,k)=0
+         tabfxx(1,k)=0
+c 
+         tabf(2,k)=x
+         tabfx(2,k)=1
+         tabfxx(2,k)=0
+c 
+         do j = 2,norder-1
+            pj= ( (2*j-1)*x*pjm1-(j-1)*pjm2 ) / j
+            dxj=(2*j-1)*(pjm1+x*dxjm1)-(j-1)*dxjm2
+            dxxj=(2*j-1)*(2.0d0*dxjm1+x*dxxjm1)-(j-1)*dxxjm2
+c 
+            dxj=dxj/j
+            dxxj=dxxj/j
+  
+            tabf(j+1,k)=pj
+            tabfx(j+1,k)=dxj
+            tabfxx(j+1,k)=dxxj
+c 
+            pjm2=pjm1
+            pjm1=pj
+            dxjm2=dxjm1
+            dxjm1=dxj
+            dxxjm2=dxxjm1
+            dxxjm1=dxxj
+         enddo
+      enddo
+      return
+      end
+c 
+c 
+c 
+

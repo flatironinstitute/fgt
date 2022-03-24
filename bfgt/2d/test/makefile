@@ -2,8 +2,8 @@
 EXEC = int2-fgt
 
 #HOST = osx
-#HOST=linux-gfortran
-HOST=linux-ifort
+HOST=linux-gfortran
+#HOST=linux-ifort
 #HOST=linux-ifort-lopenblas
 #HOST=linux-gfortran-prof
 #HOST=linux-gfortran-openmp
@@ -21,7 +21,7 @@ FFLAGS = -fPIC -O3 -march=native -funroll-loops -ftree-vectorize -ffast-math -st
 #FFLAGS = -fPIC -O3 -std=legacy -c -w
 FLINK = gfortran -w -o $(EXEC)
 #FEND = -lblas -llapack
-FEND = -lopenblas -L/usr/local/opt/openblas/lib 
+#FEND = -lopenblas -L/usr/local/opt/openblas/lib 
 endif
 
 ifeq ($(HOST),linux-gfortran-prof)
@@ -46,7 +46,7 @@ FFLAGS = -fast -f77rtl -c
 FLINK = ifort -w -qopenmp -o $(EXEC)
 FLINK = /opt/intel/oneapi/compiler/2021.4.0/linux/bin/intel64/ifort -w -o $(EXEC)
 FLINK = ifort -w -o $(EXEC)
-FEND = -lblas -llapack
+#FEND = -lblas -llapack
 #FEND = -lopenblas
 endif
 

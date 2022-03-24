@@ -25,7 +25,7 @@ c       input
 c         nd - integer
 c            number of right hand sides
 c         delta - double precision
-c            Gaussian variance 
+c            Gaussian variance
 c         eps - double precision
 c            tolerance requested
 c         nboxes - integer

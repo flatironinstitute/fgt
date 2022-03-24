@@ -32,6 +32,10 @@ c
 c   legepolders - evaluates a bunch of Legendre polynomials
 c         at the user-provided point, and the derivatives of the
 c         said polynomials
+c      
+c   legepolders2 - evaluates a bunch of Legendre polynomials
+c         at the user-provided point, the first and second derivatives 
+c         of the said polynomials
 c   legeinmt - for the user-specified n, constructs the matrices of
 c        spectral indefinite integration differentiation on the n
 c        Gaussian nodes on the interval [-1,1].
@@ -545,7 +549,7 @@ C
         done=1
         pjm2=1
         pjm1=x
-        derjm2=0
+c        derjm2=0
         derjm1=1
 c 
         vals(1)=1
@@ -557,17 +561,80 @@ c
         DO 600 J = 2,N
 c 
         pj= ( (2*j-1)*x*pjm1-(j-1)*pjm2 ) / j
-        derj=(2*j-1)*(pjm1+x*derjm1)-(j-1)*derjm2
+c        derj=(2*j-1)*(pjm1+x*derjm1)-(j-1)*derjm2
+c        derj=derj/j
+        derj=j*pjm1+x*derjm1
 c 
-        derj=derj/j
-  
         vals(j+1)=pj
         ders(j+1)=derj
 c 
         pjm2=pjm1
         pjm1=pj
-        derjm2=derjm1
+c        derjm2=derjm1
         derjm1=derj
+ 600   CONTINUE
+c 
+      RETURN
+      END
+c 
+c 
+c 
+c 
+c 
+      SUBROUTINE legepolders2(X,VALs,ders,ders2,N)
+      IMPLICIT REAL *8 (A-H,O-Z)
+      REAL *8 vals(1),ders(1),ders2(1)
+C 
+C     This subroutine computes the values and the derivatives
+c     of n+1 first Legendre polynomials at the point x
+C     in interval [-1,1].
+c 
+c                input parameters:
+c 
+C     X = evaluation point
+C     N  = order of expansion
+c   IMPORTANT NOTE: n is {\bf the order of the expansion, which is
+c         one less than the number of terms in the expansion!!}
+c 
+c                output parameters:
+c 
+C     VALs = computed values of Legendre polynomials
+C     ders = computed values of the first derivatives
+C     ders2 = computed values of the first derivatives
+C 
+C 
+  
+  
+        done=1
+        pjm2=1
+        pjm1=x
+        derjm1=1
+        der2jm1=0
+c 
+        vals(1)=1
+        ders(1)=0
+        ders2(1)=0
+c 
+        vals(2)=x
+        ders(2)=1
+        ders2(2)=0
+c 
+        DO 600 J = 2,N
+c 
+        pj= ( (2*j-1)*x*pjm1-(j-1)*pjm2 ) / j
+c        derj=(2*j-1)*(pjm1+x*derjm1)-(j-1)*derjm2
+        derj=j*pjm1+x*derjm1
+        der2j=(j+1)*derjm1+x*der2jm1
+c 
+  
+        vals(j+1)=pj
+        ders(j+1)=derj
+        ders2(j+1)=der2j
+c 
+        pjm2=pjm1
+        pjm1=pj
+        derjm1=derj
+        der2jm1=der2j
  600   CONTINUE
 c 
       RETURN

@@ -139,13 +139,13 @@ C$     t1 = omp_get_wtime()
 C$     t2 = omp_get_wtime()      
       call prin2('time taken in fgt=*',t2-t1,1)
 
-      call cpu_time(t1) 
-C$     t1 = omp_get_wtime()      
-      call bfgt2d(nd,delta,eps,nboxes,nlevels,ltree,itree,
-     1   iptr,norder,npols,type,fvals,centers,boxsize,npbox,
-     2   pot,timeinfo,tprecomp)
-      call cpu_time(t2) 
-      call prin2('time taken in fgt=*',t2-t1,1)
+ccc      call cpu_time(t1) 
+cccC$     t1 = omp_get_wtime()      
+ccc      call bfgt2d(nd,delta,eps,nboxes,nlevels,ltree,itree,
+ccc     1   iptr,norder,npols,type,fvals,centers,boxsize,npbox,
+ccc     2   pot,timeinfo,tprecomp)
+ccc      call cpu_time(t2) 
+ccc      call prin2('time taken in fgt=*',t2-t1,1)
 
       nlfbox = 0
       do ilevel=1,nlevels
@@ -195,7 +195,6 @@ C$     t1 = omp_get_wtime()
       erra = sqrt(erra/ra)
       call prin2('relative l2 error=*',erra,1)
 cccc      call prin2('ra=*',ra,1)
-      stop
       end
 c
 c

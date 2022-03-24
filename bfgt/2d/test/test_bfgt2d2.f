@@ -5,11 +5,11 @@
       integer, allocatable :: itree(:)
       real *8, allocatable :: fvals(:,:,:),centers(:,:),boxsize(:)
       real *8, allocatable :: xref(:,:)
-      real *8 xyztmp(3),rintl(0:200),umat,vmat,wts
-      real *8 targs(2,1000000)
-      real *8 pote(1000000)
-      real *8 grade(2,1000000)
-      real *8 hesse(3,1000000)
+      real *8 xyztmp(3),rintl(0:200),wts
+      real *8 targs(2,1000 000)
+      real *8 pote(1000 000)
+      real *8 grade(2,1000 000)
+      real *8 hesse(3,1000 000)
 c
       real *8 timeinfo(6),tprecomp(3)
       complex *16 zpars
@@ -17,11 +17,22 @@ c
       real *8, allocatable :: pot(:,:,:), potex(:,:,:)
       real *8, allocatable :: grad(:,:,:,:), gradex(:,:,:,:)
       real *8, allocatable :: hess(:,:,:,:), hessex(:,:,:,:)
-      real *8, allocatable :: potexe(:)
-      real *8, allocatable :: gradexe(:,:)
-      real *8, allocatable :: hessexe(:,:)
+
+      real *8, allocatable :: coefsp(:,:,:)
+      real *8, allocatable :: coefsg(:,:,:,:)
+      real *8, allocatable :: coefsh(:,:,:,:)
+
+      real *8, allocatable :: adiff(:,:)
+      
+      real *8, allocatable :: potexe(:,:)
+      real *8, allocatable :: gradexe(:,:,:)
+      real *8, allocatable :: hessexe(:,:,:)
       complex *16 ima,zz,ztmp,zk
 
+      real *8 xs(100),ws(100),umat(2000),vmat(2000)
+      real *8 ainte(2000),endinter(1000),work(10000)
+      real *8 polin(100),polout(100)
+      
       real *8 alpha,beta
       character *9 fname1,fname3
       character *8 fname2
@@ -87,6 +98,13 @@ c
 
       npbox = norder*norder
 
+      ntarg = 1 000 000
+      do i=1,ntarg
+         do j=1,2
+            targs(j,i) = hkrand(0)-0.5d0
+         enddo
+      enddo
+      
       eps = 1.5d-10
       call cpu_time(t1)
 C$      t1 = omp_get_wtime()
@@ -132,9 +150,10 @@ cccc      npols = norder*(norder+1)*(norder+2)/6
       allocate(pot(nd,npbox,nboxes))
       allocate(grad(nd,2,npbox,nboxes))
       allocate(hess(nd,3,npbox,nboxes))
-ccc      allocate(pote(nd,ntarg))
-ccc      allocate(grade(nd,2,ntarg))
-ccc      allocate(hesse(nd,3,ntarg))
+
+      allocate(potexe(nd,ntarg))
+      allocate(gradexe(nd,2,ntarg))
+      allocate(hessexe(nd,3,ntarg))
 
       do i=1,nboxes
         do j=1,npbox
@@ -151,25 +170,17 @@ ccc      allocate(hesse(nd,3,ntarg))
 
       type = 'f'
       ifpgh= 3
+      ifpghtarg=1
       
       call cpu_time(t1) 
 C$     t1 = omp_get_wtime()      
-      call bfgt2dpght(nd,delta,eps,nboxes,nlevels,ltree,itree,
+c      call bfgt2dpght(nd,delta,eps,nboxes,nlevels,ltree,itree,
+c     1   iptr,norder,npols,type,fvals,centers,boxsize,npbox,
+c     2   ifpgh,pot,grad,hess,ntarg,targs,
+c     3   ifpghtarg,pote,grade,hesse,timeinfo,tprecomp)
+      call bfgt2d(nd,delta,eps,nboxes,nlevels,ltree,itree,
      1   iptr,norder,npols,type,fvals,centers,boxsize,npbox,
-     2   ifpgh,pot,grad,hess,ntarg,targs,
-     3   ifpghtarg,pote,grade,hesse,timeinfo,tprecomp)
-ccc     2   pot,grad,hess,ntarg,targs,pote,grade,hesse,timeinfo,tprecomp)
-
-      call cpu_time(t2) 
-C$     t2 = omp_get_wtime()      
-      call prin2('time taken in fgt=*',t2-t1,1)
-
-      call cpu_time(t1) 
-C$     t1 = omp_get_wtime()      
-      call bfgt2dpght(nd,delta,eps,nboxes,nlevels,ltree,itree,
-     1   iptr,norder,npols,type,fvals,centers,boxsize,npbox,
-     2   ifpgh,pot,grad,hess,ntarg,targs,
-     3   ifpghtarg,pote,grade,hesse,timeinfo,tprecomp)
+     2   pot,timeinfo,tprecomp)
 
       call cpu_time(t2) 
       call prin2('time taken in fgt=*',t2-t1,1)
@@ -191,13 +202,6 @@ C$     t1 = omp_get_wtime()
       call prin2('speed in pps with precomputation excluded=*',
      1    (npbox*nlfbox+0.0d0)/d,1)
 
-      erra = 0.0d0
-      errb = 0.0d0
-      errc = 0.0d0
-      ra = 0.0d0
-      rb = 0.0d0
-      rc = 0.0d0
-
       allocate(potex(nd,npbox,nboxes))
       allocate(gradex(nd,2,npbox,nboxes))
       allocate(hessex(nd,3,npbox,nboxes))
@@ -216,46 +220,117 @@ C$     t1 = omp_get_wtime()
 ccc             call exact_old(nd,delta,targ,dpars,potex(nd,j,ibox))
              call exact(nd,delta,targ,dpars,potex(nd,j,ibox),
      1           gradex(nd,1,j,ibox),hessex(nd,1,j,ibox))
-              do ind=1,nd
-ccc                 call prin2(' pot *',pot(ind,j,ibox),1)
-ccc                 call prin2(' grad *',grad(ind,1,j,ibox),2)
-ccc                 call prin2(' hess *',hess(ind,1,j,ibox),3)
-ccc                 call prin2(' potex *',potex(ind,j,ibox),1)
-ccc                 call prin2(' gradex *',gradex(ind,1,j,ibox),2)
-                 erra = erra + (pot(ind,j,ibox)-potex(ind,j,ibox))**2
-                 ra = ra + potex(ind,j,ibox)**2
-                 errb = errb + 
-     1                  (grad(ind,1,j,ibox)-gradex(ind,1,j,ibox))**2
-                 rb = rb + gradex(ind,1,j,ibox)**2
-                 errb = errb + 
-     1                  (grad(ind,2,j,ibox)-gradex(ind,2,j,ibox))**2
-                 rb = rb + gradex(ind,2,j,ibox)**2
-                 errc = errc + 
-     1                  (hess(ind,1,j,ibox)-hessex(ind,1,j,ibox))**2
-                 rc = rc + hessex(ind,1,j,ibox)**2
-                 errc = errc + 
-     1                  (hess(ind,2,j,ibox)-hessex(ind,2,j,ibox))**2
-                 rc = rc + hessex(ind,1,j,ibox)**2
-                 errc = errc + 
-     1                  (hess(ind,3,j,ibox)-hessex(ind,3,j,ibox))**2
-                 rc = rc + hessex(ind,1,j,ibox)**2
-
-              enddo
             enddo
           endif
         enddo
       enddo
 
+      call treedata_derror(nd,nlevels,itree,iptr,
+     1    npbox,potex,pot,abserrp,rnormp,nleaf)
+      errp = abserrp/rnormp
+      call prin2('relative pot l2 error=*',errp,1)
 
-      erra = sqrt(erra/ra)
-      errb = sqrt(errb/rb)
-      errc = sqrt(errc/rc)
-      call prin2('relative l2 error=*',erra,1)
-      call prin2('relative grad l2 error=*',errb,1)
-      call prin2('relative hess l2 error=*',errc,1)
+      do j=1,ntarg
+         call exact(nd,delta,targs(1,j),dpars,potexe(nd,j),
+     1           gradexe(nd,1,j),hessexe(nd,1,j))
+      enddo
 
-cccc      call prin2('ra=*',ra,1)
-      stop
+cccc  call prin2('ra=*',ra,1)
+
+c
+c       convert values to coefs
+c
+      itype=2
+      call legeexps(itype,norder,xs,umat,vmat,ws)
+
+      allocate(coefsp(nd,npbox,nboxes))
+      allocate(coefsg(nd,2,npbox,nboxes))
+      allocate(coefsh(nd,3,npbox,nboxes))
+
+      itype=0
+      call cpu_time(t1) 
+C     $     t1 = omp_get_wtime()
+      call treedata_trans2d(nd,itype,nlevels,itree,iptr,boxsize,
+     1    norder,pot,coefsp,umat)
+      call cpu_time(t2) 
+C$     t2 = omp_get_wtime()      
+      call prin2('time on treedata_trans2d=*',t2-t1,1)
+      
+      call prin2('speed in pps=*',
+     1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
+
+c     construct 1D Chebyshev differentiation matrix
+cccc      itype=2
+cccc      call chebinmt(norder,ainte,adiff,xs,ws,endinter,
+cccc     1    itype,work)
+      allocate(adiff(norder,norder))
+      do 2600 i=1,norder
+c 
+         do 2200 j=1,norder+3
+            polin(j)=0
+ 2200    continue
+c 
+         polin(i)=1
+         call legediff(polin,norder+1,polout)
+c 
+         polout(norder)=0
+         do 2400 j=1,norder
+            adiff(j,i)=polout(j)
+ 2400    continue
+c 
+ 2600 continue
+      
+c     compute the expansion coefficients of gradient and hessian
+      call cpu_time(t1) 
+C     $     t1 = omp_get_wtime()
+      call treedata_coefs_p_to_gh2d(nd,nlevels,itree,iptr,
+     1    boxsize,norder,coefsp,coefsg,coefsh,adiff)
+c     evaluate the gradient
+      itype=0
+      call treedata_trans2d(nd*2,itype,nlevels,itree,iptr,boxsize,
+     1    norder,coefsg,grad,vmat)
+c     evaluate the hessian
+      call treedata_trans2d(nd*3,itype,nlevels,itree,iptr,boxsize,
+     1    norder,coefsh,hess,vmat)
+      call cpu_time(t2) 
+C$     t2 = omp_get_wtime()      
+      call prin2('time on calculating grad and hess=*',t2-t1,1)
+      
+      call prin2('speed in pps=*',
+     1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
+
+      call treedata_derror(nd*2,nlevels,itree,iptr,
+     1    npbox,gradex,grad,abserrg,rnormg,nleaf)
+      call treedata_derror(nd*3,nlevels,itree,iptr,
+     1    npbox,hessex,hess,abserrh,rnormh,nleaf)
+      errg = abserrg/rnormg
+      errh = abserrh/rnormh
+      call prin2('relative grad l2 error=*',errg,1)
+      call prin2('relative hess l2 error=*',errh,1)
+
+c
+c
+      itype=1
+      call cpu_time(t1) 
+C$     t1 = omp_get_wtime()      
+c     evaluate the potential, gradient and hessian at targets 
+      call treedata_evalpgh2d(nd,itype,itree,ltree,nboxes,nlevels,
+     1    iptr,centers,boxsize,norder,coefsp,
+     2    ntarg,targs,pote,grade,hesse)
+      call cpu_time(t2) 
+C$     t2 = omp_get_wtime()      
+      call prin2('time on extra targ pot eval=*',t2-t1,1)
+      call prin2('speed in pps=*',(ntarg+0.0d0)/(t2-t1),1)
+
+c     compute relative error
+      call derr(potexe,pote,nd*ntarg,errpe)
+      call derr(gradexe,grade,nd*2*ntarg,errge)
+      call derr(hessexe,hesse,nd*3*ntarg,errhe)
+
+      call prin2('relative pottarg l2 error=*',errpe,1)
+      call prin2('relative gradtarg l2 error=*',errge,1)
+      call prin2('relative hesstarg l2 error=*',errhe,1)
+      
       end
 c
 c

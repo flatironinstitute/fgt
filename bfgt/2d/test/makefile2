@@ -2,8 +2,8 @@
 EXEC = int2-fgt
 
 #HOST = osx
-HOST=linux-gfortran
-#HOST=linux-ifort
+#HOST=linux-gfortran
+HOST=linux-ifort
 #HOST=linux-gfortran-prof
 #HOST=linux-gfortran-openmp
 
@@ -20,9 +20,9 @@ FC = gfortran
 FFLAGS = -fPIC -O3 -march=native -funroll-loops -ftree-vectorize -ffast-math -std=legacy -c -w
 #FFLAGS = -fPIC -O3 -std=legacy -c -w
 
-FFLAGS = -fPIC -O3 -march=native -funroll-loops -std=legacy -fcx-limited-range -c -w
+#FFLAGS = -fPIC -O3 -march=native -funroll-loops -std=legacy -fcx-limited-range -c -w
 FLINK = gfortran -w -o $(EXEC)
-FEND = -lblas -llapack
+#FEND = -lblas -llapack
 #FEND = -lopenblas -L/usr/local/opt/openblas/lib 
 endif
 
@@ -44,11 +44,12 @@ ifeq ($(HOST),linux-ifort)
 FC = /opt/intel/oneapi/compiler/2021.4.0/linux/bin/intel64/ifort
 FC = ifort
 FFLAGS = -O1 -g -c -w -xW -qopenmp 
+FFLAGS = -O1 -g -c -w -xW
 FFLAGS = -fast -f77rtl -c
 FLINK = ifort -w -qopenmp -o $(EXEC)
 FLINK = /opt/intel/oneapi/compiler/2021.4.0/linux/bin/intel64/ifort -w -o $(EXEC)
 FLINK = ifort -w -o $(EXEC)
-FEND = -lblas -llapack
+#FEND = -lblas -llapack
 #FEND = -lopenblas
 endif
 
@@ -64,12 +65,18 @@ SOURCES =  test_bfgt2d2.f \
   $(SRC)/common/prini_new.f \
   $(SRC)/common/toms644.f \
   $(SRC)/common/legeexps.f \
+  $(SRC)/common/chebexps.f \
   $(SRC)/common/legetens.f \
   $(SRC)/common/hkrand.f \
   $(SRC)/common/dlaran.f \
   $(SRC)/common/voltab2d.f \
-  $(SRC)/common/tree_vol_coeffs.f \
+  $(SRC)/common/tree_vol_coeffs2.f \
+  $(SRC)/common/tree_data_routs2d.f \
+  $(SRC)/common/fmmcommon2d.f \
+  $(SRC)/common/pts_tree2d4.f \
+  $(SRC)/common/lapack_f77.f \
   $(SRC)/bfgt2dpght2.f \
+  $(SRC)/bfgt2d.f \
   $(SRC)/fgtterms.f \
   $(SRC)/fgtvolrouts.f \
   $(SRC)/g2dvolrouts.f \

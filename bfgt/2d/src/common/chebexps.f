@@ -183,6 +183,196 @@ c
 c 
 c 
 c 
+        subroutine chebexps2(itype,n,x,u,v,whts,vp,vpp)
+        implicit real *8 (a-h,o-z)
+        dimension x(1),whts(1),u(n,n),v(n,n),vp(n,n),vpp(n,n)
+        real *8 p(n),pd(n),pdd(n)
+c 
+c         this subroutine constructs the chebychev nodes
+c         on the interval [-1,1], and the weights for the
+c         corresponding order n quadrature. it also constructs
+c         the matrix converting the coefficients
+c         of a chebychev expansion into its values at the n
+c         chebychev nodes. no attempt has been made to
+c         make this code efficient, but its speed is normally
+c         sufficient, and it is mercifully short.
+c 
+c                 input parameters:
+c 
+c  itype - the type of the calculation to be performed
+c          itype=0 means that only the chebychev nodes are
+c                  to be constructed.
+c          itype=1 means that only the nodes and the weights
+c                  are to be constructed
+c          itype=2 means that the nodes, the weights, and
+c                  the matrices u, v are to be constructed
+c  n - the number of chebychev nodes and weights to be generated
+c 
+c                 output parameters:
+c 
+c  x - the order n chebychev nodes - computed independently
+c          of the value of itype.
+c  u - the n*n matrix converting the  values at of a polynomial of order
+c         n-1 at n chebychev nodes into the coefficients of its
+c         chebychev expansion - computed only in itype=2
+c  v - the n*n matrix converting the coefficients
+c         of an n-term chebychev expansion into its values at
+c         n chebychev nodes (note that v is the inverse of u)
+c          - computed only in itype=2
+c  whts - the corresponding quadrature weights - computed only
+c         if itype .ge. 1
+c 
+c  vp - the n*n matrix converting the coefficients
+c         of an n-term Chebyshev expansion into its first derivatives at
+c         n Chebyshev nodes 
+c  vpp - the n*n matrix converting the coefficients
+c         of an n-term Chebyshev expansion into its second derivatives at
+c         n Chebyshev nodes 
+c        
+c       . . . construct the chebychev nodes on the interval [-1,1]
+c 
+        ZERO=0
+        DONE=1
+        pi=datan(done)*4
+        h=pi/(2*n)
+ccc        do 1200 i=n,1,-1
+        do 1200 i=1,n
+        t=(2*i-1)*h
+        x(n-i+1)=dcos(t)
+1200  CONTINUE
+c 
+        if(itype .eq. 0) return
+c 
+c        construct the weights of the quadrature
+c        formula based on the chebychev nodes,
+c        and also the matrix of the chebychev transform
+c 
+c        . . . construct the first two rows of the matrix
+c 
+        if(itype .le. 1) goto 1350
+        do 1300 i=1,n
+        u(1,i)=1
+        u(2,i)=x(i)
+ 1300 continue
+ 1350 continue
+c 
+c       construct all quadrature weights and the rest of the rows
+c 
+        do 2000 i=1,n
+c 
+c       construct the weight for the i-th node
+c 
+        Tjm2=1
+        Tjm1=x(i)
+        whts(i)=2
+c 
+        ic=-1
+        do 1400 j=2,n-1
+c 
+c       calculate the T_j(x(i))
+c 
+        Tj=2*x(i)*Tjm1-Tjm2
+c 
+        if(itype .eq. 2) u(j+1,i)=tj
+c 
+        tjm2=tjm1
+        tjm1=tj
+c 
+c       calculate the contribution of this power to the
+c       weight
+c 
+  
+        ic=-ic
+        if(ic .lt. 0) goto 1400
+        rint=-2*(done/(j+1)-done/(j-1))
+        whts(i)=whts(i)-rint*tj
+ccc        whts(i)=whts(i)+rint*tj
+ 1400 continue
+        whts(i)=whts(i)/n
+ 2000 continue
+           if(itype .ne. 2) return
+c 
+c        now, normalize the matrix of the chebychev transform
+c 
+        do 3000 i=1,n
+c 
+        d=0
+        do 2200 j=1,n
+        d=d+u(i,j)**2
+ 2200 continue
+        d=done/dsqrt(d)
+        do 2400 j=1,n
+        u(i,j)=u(i,j)*d
+ 2400 continue
+ 3000 continue
+c 
+c        now, rescale the matrix
+c 
+        ddd=2
+        ddd=dsqrt(ddd)
+        dd=n
+        dd=done/dsqrt(dd/2)
+        do 3400 i=1,n
+        do 3200 j=1,n
+        u(j,i)=u(j,i)*dd
+ 3200 continue
+        u(1,i)=u(1,i)/ddd
+ 3400 continue
+c 
+c        finally, construct the matrix v, converting the values at the
+c        chebychev nodes into the coefficients of the chebychev
+c        expansion
+c 
+        dd=n
+        dd=dd/2
+        do 4000 i=1,n
+        do 3800 j=1,n
+        v(j,i)=u(i,j)*dd
+ 3800 continue
+ 4000 continue
+c 
+        do 4600 i=1,n
+        do 4400 j=1,n
+c
+        d=v(j,i)
+        v(j,i)=u(j,i) *n/2
+        u(j,i)=d/n*2
+ 4400 continue
+ 4600 continue
+c
+        do 5200 i=1,n
+        v(1,i)=v(1,i)*2
+ 5200 continue
+c
+        do 5600 i=1,n
+        do 5400 j=1,i-1
+c
+        d=u(j,i)
+        u(j,i)=u(i,j)
+        u(i,j)=d
+c
+        d=v(j,i)
+        v(j,i)=v(i,j)
+        v(i,j)=d
+ 5400 continue
+ 5600 continue
+c
+
+        do i=1,n
+           call chebpolders2(x(i),p,pd,pdd,n-1)
+           do j=1,n
+              vp(i,j)=pd(j)
+              vpp(i,j)=pdd(j)
+           enddo
+        enddo
+      
+        return
+        end
+c 
+c 
+c 
+c 
+c 
         subroutine chebinmt(n,ainte,adiff,x,whts,endinter,
      1      itype,w)
         implicit real *8 (a-h,o-z)
@@ -445,6 +635,130 @@ c
 c 
 c 
 c 
+      SUBROUTINE chebpolders(X,VALs,ders,N)
+      IMPLICIT REAL *8 (A-H,O-Z)
+      REAL *8 vals(1),ders(1)
+C 
+C     This subroutine computes the values and the derivatives
+c     of n+1 first Chebyshev polynomials at the point x
+C     in interval [-1,1].
+c 
+c                input parameters:
+c 
+C     X = evaluation point
+C     N  = order of expansion
+c   IMPORTANT NOTE: n is {\bf the order of the expansion, which is
+c         one less than the number of terms in the expansion!!}
+c 
+c                output parameters:
+c 
+C     VALs = computed values of Chebyshev polynomials
+C     ders = computed values of the derivatives
+C 
+C 
+  
+  
+        done=1
+        pjm2=1
+        pjm1=x
+        derjm2=0
+        derjm1=1
+c 
+        vals(1)=1
+        ders(1)=0
+c 
+        vals(2)=x
+        ders(2)=1
+c 
+        DO 600 J = 2,N
+c 
+        pj= 2*x*pjm1-pjm2 
+        derj=2*(pjm1+x*derjm1)-derjm2
+c 
+        vals(j+1)=pj
+        ders(j+1)=derj
+c 
+        pjm2=pjm1
+        pjm1=pj
+        derjm2=derjm1
+        derjm1=derj
+ 600   CONTINUE
+c 
+      RETURN
+      END
+c 
+c 
+c 
+c 
+c 
+      SUBROUTINE chebpolders2(X,VALs,ders,ders2,N)
+      IMPLICIT REAL *8 (A-H,O-Z)
+      REAL *8 vals(1),ders(1),ders2(1)
+C 
+C     This subroutine computes the values and the derivatives
+c     of n+1 first Chebyshev polynomials at the point x
+C     in interval [-1,1].
+c 
+c                input parameters:
+c 
+C     X = evaluation point
+C     N  = order of expansion
+c   IMPORTANT NOTE: n is {\bf the order of the expansion, which is
+c         one less than the number of terms in the expansion!!}
+c 
+c                output parameters:
+c 
+C     VALs = computed values of Chebyshev polynomials
+C     ders = computed values of the first derivatives
+C     ders2 = computed values of the second derivatives
+C 
+C 
+        done=1
+        pjm2=1
+        pjm1=x
+
+        derjm2=0
+        derjm1=1
+
+        der2jm2=0
+        der2jm1=0
+c 
+        vals(1)=1
+        ders(1)=0
+        ders2(1)=0
+c 
+        vals(2)=x
+        ders(2)=1
+        ders2(2)=0
+c 
+        DO 600 J = 2,N
+c 
+        pj= 2*x*pjm1-pjm2 
+        derj=2*(pjm1+x*derjm1)-derjm2
+        der2j=4*derjm1+2*x*der2jm1-der2jm2
+c 
+  
+        vals(j+1)=pj
+        ders(j+1)=derj
+        ders2(j+1)=der2j
+c 
+        pjm2=pjm1
+        pjm1=pj
+
+        derjm2=derjm1
+        derjm1=derj
+
+        der2jm2=der2jm1
+        der2jm1=der2j
+ 600   CONTINUE
+c 
+      RETURN
+      END
+c 
+c 
+c 
+c 
+c 
         subroutine chebinte(polin,n,polout)
         implicit real *8 (a-h,o-z)
         save
@@ -544,7 +858,7 @@ c
 c 
       SUBROUTINE chebexev(X,VAL,TEXP,N)
       IMPLICIT REAL *8 (A-H,O-Z)
-        save
+      save
       REAL *8 TEXP(1)
 C 
 C     This subroutine computes the value o a Chebychev

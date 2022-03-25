@@ -36,3 +36,6 @@ int*
 fort*
 *.dat
 *.data
+
+# emacs files
+*~

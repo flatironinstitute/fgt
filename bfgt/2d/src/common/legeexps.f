@@ -9,7 +9,7 @@ c
 c 
 c 
 c        This file contains a set of subroutines for the handling
-c        of Legendre expansions. It contains 19 subroutines that are
+c        of Legendre expansions. It contains 27 subroutines that are
 c        user-callable. Following is a brief description of these
 c        subroutines.
 c 
@@ -20,6 +20,17 @@ c         the n Gaussian nodes, and its inverse u, converting the
 c         values of a function at n Gaussian nodes into the
 c         coefficients of the corresponding Legendre series.
 c 
+c   legeexps2 - constructs Legendre nodes, and  corresponding Gaussian
+c        weights. Also constructs the matrix v converting the
+c         coefficients of a legendre expansion into its values at
+c         the n Gaussian nodes; its inverse u, converting the
+c         values of a function at n Gaussian nodes into the
+c         coefficients of the corresponding Legendre series; the matrix vp 
+c         converting the coefficients of a legendre expansion into the values
+c         of the first derivatives at the n Gaussian nodes; the matrix vp 
+c         converting the coefficients of a legendre expansion into the values
+c         of the second derivatives at the n Gaussian nodes.
+c      
 c   legepol - evaluates a single Legendre polynomial (together
 c         with its derivative) at the user-provided point
 c 
@@ -191,6 +202,107 @@ c
         do 1800 i=1,n
         do 1600 j=1,n
         v(i,j)=u(j,i)
+ 1600 continue
+ 1800 continue
+c 
+c       now, v converts coefficients of a legendre expansion
+c       into its values at the gaussian nodes. construct its
+c       inverse u, converting the values of a function at
+c       gaussian nodes into the coefficients of a legendre
+c       expansion of that function
+c 
+        do 2800 i=1,n
+        d=1
+        d=d*(2*i-1)/2
+        do 2600 j=1,n
+        u(i,j)=v(j,i)*whts(j)*d
+ 2600 continue
+ 2800 continue
+        return
+        end
+c 
+c 
+c 
+c 
+c 
+        subroutine legeexps2(itype,n,x,u,v,whts,vp,vpp)
+        implicit real *8 (a-h,o-z)
+        dimension x(1),whts(1),u(n,n),v(n,n),vp(n,n),vpp(n,n)
+        real *8 pd(n),pdd(n)
+c 
+c         this subroutine constructs the gaussiaqn nodes
+c         on the interval [-1,1], and the weights for the
+c         corresponding order n quadrature. it also constructs
+c         the matrices v,vp,vpp converting the coefficients
+c         of a legendre expansion into its values, 1st and 2nd derivatives 
+c         at the n gaussian nodes, and its inverse u, converting the
+c         values of a function at n gaussian nodes into the
+c         coefficients of the corresponding legendre series.
+c         no attempt has been made to make this code efficient,
+c         but its speed is normally sufficient, and it is
+c         mercifully short.
+c 
+c                 input parameters:
+c 
+c  itype - the type of the calculation to be performed
+c          itype=0 means that only the gaussian nodes are
+c                  to be constructed.
+c          itype=1 means that only the nodes and the weights
+c                  are to be constructed
+c          itype=2 means that the nodes, the weights, and
+c                  the matrices u, v are to be constructed
+c  n - the number of gaussian nodes and weights to be generated
+c 
+c                 output parameters:
+c 
+c  x - the order n gaussian nodes - computed independently
+c          of the value of itype.
+c  u - the n*n matrix converting the  values at of a polynomial of order
+c         n-1 at n legendre nodes into the coefficients of its
+c         legendre expansion - computed only in itype=2
+c  v - the n*n matrix converting the coefficients
+c         of an n-term legendre expansion into its values at
+c         n legendre nodes (note that v is the inverse of u)
+c          - computed only in itype=2
+c  whts - the corresponding quadrature weights - computed only
+c         if itype .ge. 1
+c 
+c  vp - the n*n matrix converting the coefficients
+c         of an n-term legendre expansion into its first derivatives at
+c         n legendre nodes 
+c  vpp - the n*n matrix converting the coefficients
+c         of an n-term legendre expansion into its second derivatives at
+c         n legendre nodes 
+c        
+c          - computed only in itype=2
+c       . . . construct the nodes and the weights of the n-point gaussian
+c             quadrature
+c 
+cccc        ifwhts=0
+cccc        if(itype. gt. 0) ifwhts=1
+cccc        call legewhts(n,x,whts,ifwhts)
+c
+        itype_rts=0
+        if(itype .gt. 0) itype_rts=1
+c   
+        call legerts(itype_rts,n,x,whts)
+c 
+c       construct the matrix of values of the legendre polynomials
+c       at these nodes
+c 
+        if(itype .ne. 2) return
+        do 1400 i=1,n
+c 
+           call legepolders2(x(i),u(1,i),pd,pdd,n-1)
+           do j=1,n
+              vp(i,j)=pd(j)
+              vpp(i,j)=pdd(j)
+           enddo
+ 1400 continue
+c 
+        do 1800 i=1,n
+        do 1600 j=1,n
+           v(i,j)=u(j,i)
  1600 continue
  1800 continue
 c 
@@ -600,11 +712,9 @@ c                output parameters:
 c 
 C     VALs = computed values of Legendre polynomials
 C     ders = computed values of the first derivatives
-C     ders2 = computed values of the first derivatives
+C     ders2 = computed values of the second derivatives
 C 
 C 
-  
-  
         done=1
         pjm2=1
         pjm1=x

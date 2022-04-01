@@ -208,15 +208,9 @@ c     compute the number of leaf boxes
         enddo
       enddo
       call prinf('nlfbox=*',nlfbox,1)
-      d = 0
-      do i = 1,6
-         d = d + timeinfo(i)
-      enddo
       
       call prin2('speed in pps with precomputation included=*',
      1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
-      call prin2('speed in pps with precomputation excluded=*',
-     1    (npbox*nlfbox+0.0d0)/d,1)
 
       allocate(potex(nd,npbox,nboxes))
       allocate(gradex(nd,2,npbox,nboxes))

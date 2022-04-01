@@ -122,40 +122,34 @@ c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       complex *16 tab_leg2pw(n,npw),eye,eyem,z,cd
       real *8 ws(npw),ts(npw)
-      real *8, allocatable :: cyr(:),cyi(:)
       real *8, allocatable :: xq(:),wq(:),u(:,:),v(:,:)
       complex *16, allocatable :: tabtemp(:,:)
+      complex *16 fjs(0:n),fjder
 
+      ifder=0
       allocate(tabtemp(n,npw))
       allocate(xq(n),wq(n),u(n,n),v(n,n))
 c
-      allocate(cyr(n))
-      allocate(cyi(n))
-c
       pi = 4*atan(1.0d0)
       
+      scale=1.0d0
       eye = dcmplx(0.0d0,1.0d0)
       fac = boxdim/(2*dsqrt(delta))
 
-      fnu=0.5d0
-      kode=1
       do j = npw/2+1,npw
-         dd = ws(j)*boxdim/2.0d0
+         dd = ws(j)*boxdim
          
          if (abs(ts(j)).lt.1d-12) then
-            tabtemp(1,j)=dd*2
+            tabtemp(1,j)=dd
             do m=2,n
                tabtemp(m,j)=0
             enddo
          else
-            zi=0.0d0
-            zr = ts(j)*fac
-            ddd = sqrt(2*pi/zr)
-            z = cmplx(zr,0.0d0)
-            call zbesj(zr,zi,fnu,kode,n,cyr,cyi,nz,ierr)
+            z = ts(j)*fac
+            call besseljs3d(n,z,scale,fjs,ifder,fjder)
             eyem=1.0d0
             do m=1,n
-               tabtemp(m,j)=dd*dcmplx(cyr(m),cyi(m))*ddd/eyem
+               tabtemp(m,j)=dd*fjs(m-1)/eyem
                tabtemp(m,npw-j+1) = conjg(tabtemp(m,j))
                eyem=eyem*eye
             enddo
@@ -218,11 +212,12 @@ c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       complex *16 tab_cheb2pw(n,npw),zsum,eye,eyem,cd
       real *8 ws(npw),ts(npw)
-      real *8, allocatable :: cyr(:),cyi(:),chebv(:,:)
+      real *8, allocatable :: chebv(:,:)
       real *8, allocatable :: whts(:), xnodes(:)
       complex *16, allocatable :: legv(:)
       real *8, allocatable :: xq(:),wq(:),u(:,:),v(:,:)
       complex *16, allocatable :: tabtemp(:,:)
+      complex *16 fjs(0:n),fjder
 
       allocate(tabtemp(n,npw))
       allocate(xq(n),wq(n),u(n,n),v(n,n))
@@ -232,9 +227,6 @@ c
       allocate(whts(n))
       allocate(xnodes(n))
       allocate(legv(n))
-      allocate(cyr(n))
-      allocate(cyi(n))
-      
 c
       itype = 2
       call legeexps(itype,n,xnodes,u,v,whts)
@@ -256,31 +248,29 @@ c     polynomial expansions
 c
 c
       pi = 4*atan(1.0d0)
-      
+
+      ifder=0
+      scale=1.0d0
       eye = dcmplx(0.0d0,1.0d0)
       fac = boxdim/(2*dsqrt(delta))
 
-      fnu=0.5d0
-      kode=1
       do j = npw/2+1,npw
-         dd = ws(j)*boxdim/2.0d0
+         dd = ws(j)*boxdim
          
          if (abs(ts(j)).lt.1d-12) then
             do m=0,n-1,2
-               tabtemp(m+1,j) = dd*2/(1-m*m)
+               tabtemp(m+1,j) = dd/(1-m*m)
             enddo
             do m=1,n-1,2
                tabtemp(m+1,j) = 0
             enddo
          else
-            zi=0.0d0
-            zr = ts(j)*fac
-            ddd = sqrt(2*pi/zr)
-            call zbesj(zr,zi,fnu,kode,n,cyr,cyi,nz,ierr)
+            z = ts(j)*fac
+            call besseljs3d(n,z,scale,fjs,ifder,fjder)
             eyem=1.0d0
 c           legv contains the Fourier transform of the Legendre polynomials
             do m=1,n
-               legv(m)=dd*dcmplx(cyr(m),cyi(m))*ddd/eyem
+               legv(m)=dd*fjs(m-1)/eyem
                eyem=eyem*eye
             enddo
 c           now convert to the Fourier transform of the Chebyshev polynomials

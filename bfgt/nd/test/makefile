@@ -57,7 +57,7 @@ UTILS_DIR = ../src/common
 
 SOURCES =  test_boxfgt.f \
   $(SRC)/common/prini_new.f \
-  $(SRC)/common/toms644.f \
+  $(SRC)/common/besseljs3d.f \
   $(SRC)/common/legeexps.f \
   $(SRC)/common/chebexps.f \
   $(SRC)/common/polytens.f \

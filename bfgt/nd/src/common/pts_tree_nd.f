@@ -1,5 +1,6 @@
 c
-c
+c     pts_tree in ndim=1,2,3 dimensions
+c     modifed from pts_tree3d.f by Shidong Jiang 04/01/2022
 c
 c
 c   generate level restricted tree based on resolving points
@@ -31,19 +32,21 @@ c
 c 
 
 
-      subroutine pts_tree_mem(src,ns,targ,nt,idivflag,
-     1    ndiv,nlmin,nlmax,iper,
+      subroutine pts_tree_mem(ndim,src,ns,targ,nt,idivflag,
+     1    ndiv,nlmin,nlmax,ifunif,iper,
      2    ndiv0,levcut,bs0,cen0,
      3    nlevels,nboxes,ltree)
+c
+c
 c
 c----------------------------------------
 c  get memory requirements for the tree
 c
 c
 c  input parameters:
-c    - src: real *8 (2,ns)
+c    - src: real *8 (3,ns)
 c        source locations
-c    - targ: real *8 (2,nt) 
+c    - targ: real *8 (3,nt) 
 c        target locations
 c    - idivflag: integer
 c        subdivision criterion
@@ -52,27 +55,27 @@ c          * idivflag = 1 -> subdivide on targets only
 c          * idivflag = 2 -> subdivide on max(sources+targets)
 c    - ndiv: integer
 c        subdivide if relevant number of particles
-c        per box is greater than ndiv for levels >= levcut
+c        per box is greater than ndiv
 c    - nlmin: integer
 c        minimum number of levels of uniform refinement.
 c        Note that empty boxes are not pruned along the way
 c    - nlmax: integer
-c        maximum number of levels.
+c        max number of levels
+c    - ifunif: integer
+c        flag for creating uniform pruned tree
+c        Tree is uniform if ifunif=1 (Currently pruned part
+c        under construction)
 c    - iper: integer
 c        flag for periodic implementations. Currently unused.
-c        Feature under construction
+c        Feature under constructionc
 c    - ndiv0: integer
 c        subdivide if relevant number of particles
 c        per box is greater than ndiv0 for levels < levcut
-c     - levcut: integer
+c    - levcut: integer
 c        the cutoff level 
-c     - bs0 : real
+c    - bs0 : real
 c        side length of the bounding box
-c     - cen0(2) : center of the bounding box
-c        
-c
-c        
-c
+c    - cen0(3) : center of the bounding box
 c        
 c  output parameters
 c    - nlevels: integer
@@ -86,58 +89,63 @@ c
      
 
       implicit none
-      integer nlevels,nboxes,ltree,idivflag
-      integer nlmin,nlmax,iper
-      integer ns,nt,ndiv,levcut,ndiv0
-      real *8 delta,eps,src(2,ns),targ(2,nt)
-      real *8 bs0,cen0(2)
+      integer ndim,nlevels,levcut,nboxes,idivflag
+      integer ltree,nboxes8
+      integer nbmax,nbtot
+      integer ns,nt,ndiv,ndiv0
+      integer nlmin,iper,ifunif
+      double precision src(ndim,ns),targ(ndim,nt),cen0(ndim),bs0
+
 
       integer, allocatable :: laddr(:,:),ilevel(:),iparent(:),nchild(:)
       integer, allocatable :: ichild(:,:),ncoll(:),icoll(:,:)
-      real *8, allocatable :: centers(:,:)
+      double precision, allocatable :: centers(:,:)
       integer, allocatable :: nbors(:,:),nnbors(:)
 
       integer, allocatable :: isrc(:),itarg(:),isrcse(:,:),itargse(:,:)
 
       integer, allocatable :: ilevel2(:),iparent2(:),nchild2(:),
      1    ichild2(:,:),isrcse2(:,:),itargse2(:,:)
-      real *8, allocatable :: centers2(:,:)
+      double precision, allocatable :: centers2(:,:)
 
-      integer nbmax
-      integer i,itype,j
+      integer nlmax
+      integer i,itype,j,k,mc,mnbors
 
-      real *8, allocatable :: centerstmp(:,:,:)
-      real *8, allocatable :: boxsize(:)
+      double precision, allocatable :: centerstmp(:,:,:)
+      double precision, allocatable :: boxsize(:)
       integer, allocatable :: irefinebox(:)
 
-      real *8 rsc
+      double precision rsc
       integer nbloc,nbctr,nbadd,irefine,ilev,ifirstbox,ilastbox
-      integer nbtot,iii
+      integer iii
       integer ibox,nn,nss,ntt
-      real *8 sizey
+      double precision sizey,sizez
 
-      real *8 xmin,xmax,ymin,ymax
-      real *8 dfac
+      double precision xmin,xmax,ymin,ymax,zmin,zmax
+      double precision dfac
 
-      nbmax = 100000
-
+      nbmax = 100 000
+      mc = 2**ndim
+      mnbors = 3**ndim
+      
       allocate(boxsize(0:nlmax))
+
       
       allocate(laddr(2,0:nlmax),ilevel(nbmax),iparent(nbmax))
-      allocate(nchild(nbmax),ichild(4,nbmax))
+      allocate(nchild(nbmax),ichild(mc,nbmax))
 
-      allocate(centers(2,nbmax),isrcse(2,nbmax),itargse(2,nbmax))
+      allocate(centers(ndim,nbmax),isrcse(2,nbmax),itargse(2,nbmax))
       allocate(isrc(ns),itarg(nt))
 
 c
 c     step 1: find enclosing box
 c
-      
       boxsize(0) = bs0
 
-      centers(1,1) = cen0(1)
-      centers(2,1) = cen0(2)
-
+      do i=1,ndim
+         centers(i,1) = cen0(i)
+      enddo
+      
 c
 c      set tree info for level 0
 c
@@ -146,7 +154,7 @@ c
       ilevel(1) = 0
       iparent(1) = -1
       nchild(1) = 0
-      do i=1,4
+      do i=1,mc
         ichild(i,1) = -1
       enddo
 
@@ -156,18 +164,20 @@ c
       itargse(1,1) = 1
       itargse(2,1) = nt
 
+C$OMP PARALLEL DO DEFAULT(SHARED)
       do i=1,ns
         isrc(i) = i
       enddo
+C$OMP END PARALLEL DO      
 
+C$OMP PARALLEL DO DEFAULT(SHARED)
       do i=1,nt
         itarg(i) = i
       enddo
+C$OMP END PARALLEL DO      
 
 
       nbctr = 1
-
-     
 
       do ilev=0,nlmax-1
         irefine = 0
@@ -181,7 +191,10 @@ c
 c
 c          determine which boxes need to be refined
 c
+
+
         if(ilev.ge.nlmin) then
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,nss,ntt,nn)
           do i=1,nbloc
             irefinebox(i) = 0
             ibox = ifirstbox + i-1
@@ -197,23 +210,36 @@ c
                if(nn.gt.ndiv) irefinebox(i) = 1
             endif
           enddo
+C$OMP END PARALLEL DO        
+
+          irefine = maxval(irefinebox(1:nbloc))
+          if(ifunif.eq.1) then
+C$OMP PARALLEL DO DEFAULT(SHARED)         
+            do i=1,nbloc
+              irefinebox(i) = irefine
+            enddo
+C$OMP END PARALLEL DO            
+          endif
         else
+C$OMP PARALLEL DO DEFAULT(SHARED)        
           do i=1,nbloc
             irefinebox(i) = 1
           enddo
+C$OMP END PARALLEL DO         
+          irefine = 1
         endif
 
-        irefine = maxval(irefinebox(1:nbloc))
-
 c
 c
-c          figure out if current allocation of boxes is sufficient
+c          figure out if current set of boxes is sufficient
 c
 
         nbadd = 0 
+C$OMP PARALLEL DO DEFAULT(SHARED) REDUCTION(+:nbadd)        
         do i=1,nbloc
-          if(irefinebox(i).eq.1) nbadd = nbadd+4
+          if(irefinebox(i).eq.1) nbadd = nbadd+mc
         enddo
+C$OMP END PARALLEL DO        
 
         nbtot = nbctr+nbadd
 
@@ -222,38 +248,44 @@ c         if current memory is not sufficient reallocate
 c
         if(nbtot.gt.nbmax) then
           print *, "Reallocating"
-          allocate(centers2(2,nbmax),ilevel2(nbmax),iparent2(nbmax))
-          allocate(nchild2(nbmax),ichild2(4,nbmax),isrcse2(2,nbmax))
+          allocate(centers2(ndim,nbmax),ilevel2(nbmax),iparent2(nbmax))
+          allocate(nchild2(nbmax),ichild2(mc,nbmax),isrcse2(2,nbmax))
           allocate(itargse2(2,nbmax))
 
-          call tree_copy(nbctr,centers,ilevel,iparent,nchild,
+          call tree_copy(ndim,nbctr,centers,ilevel,iparent,nchild,
      1            ichild,centers2,ilevel2,iparent2,
      2            nchild2,ichild2)
+
+C$OMP PARALLEL DO DEFAULT(SHARED)     
           do i=1,nbctr
             isrcse2(1,i) = isrcse(1,i)
             isrcse2(2,i) = isrcse(2,i)
             itargse2(1,i) = itargse(1,i)
             itargse2(2,i) = itargse(2,i)
           enddo
+C$OMP END PARALLEL DO          
 
 
           deallocate(centers,ilevel,iparent,nchild,ichild,
      1        isrcse,itargse)
 
           nbmax = nbtot
-          allocate(centers(2,nbmax),ilevel(nbmax),iparent(nbmax))
-          allocate(nchild(nbmax),ichild(4,nbmax),isrcse(2,nbmax))
+          allocate(centers(ndim,nbmax),ilevel(nbmax),iparent(nbmax))
+          allocate(nchild(nbmax),ichild(mc,nbmax),isrcse(2,nbmax))
           allocate(itargse(2,nbmax))
 
 
-          call tree_copy(nbctr,centers2,ilevel2,iparent2,
+          call tree_copy(ndim,nbctr,centers2,ilevel2,iparent2,
      1            nchild2,ichild2,centers,ilevel,iparent,nchild,ichild)
+
+C$OMP PARALLEL DO DEFAULT(SHARED)
           do i=1,nbctr
             isrcse(1,i) = isrcse2(1,i)
             isrcse(2,i) = isrcse2(2,i)
             itargse(1,i) = itargse2(1,i)
             itargse(2,i) = itargse2(2,i)
           enddo
+C$OMP END PARALLEL DO          
 
           deallocate(centers2,ilevel2,iparent2,nchild2,ichild2,
      1       isrcse2,itargse2)
@@ -264,19 +296,21 @@ c
           boxsize(ilev+1) = boxsize(ilev)/2
           laddr(1,ilev+1) = nbctr+1
 
-          call tree_refine_boxes(irefinebox,nbmax,
+          call tree_refine_boxes(ndim,irefinebox,nbmax,
      1       ifirstbox,nbloc,centers,boxsize(ilev+1),nbctr,ilev+1,
      2       ilevel,iparent,nchild,ichild)
 
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox) 
           do i=1,nbloc
             ibox = ifirstbox+i-1
             if(irefinebox(i).eq.1) then
-              call sort_pts_to_children(ibox,nbmax,centers,ichild,
+              call sort_pts_to_children(ndim,ibox,nbmax,centers,ichild,
      1            src,ns,isrc,isrcse)
-              call sort_pts_to_children(ibox,nbmax,centers,ichild,
+              call sort_pts_to_children(ndim,ibox,nbmax,centers,ichild,
      1            targ,nt,itarg,itargse)
             endif
           enddo
+C$OMP END PARALLEL DO          
 
           laddr(2,ilev+1) = nbctr
         else
@@ -289,40 +323,46 @@ c
       nboxes = nbctr
       nlevels = ilev
 
+      if(nlevels.ge.2.and.ifunif.ne.1) then
 
-      if(nlevels.ge.2) then
-        nbtot = 8*nboxes
+        nbtot = 2*mc*nboxes
         if(nbtot.gt.nbmax) then
-          allocate(centers2(2,nbmax),ilevel2(nbmax),iparent2(nbmax))
-          allocate(nchild2(nbmax),ichild2(4,nbmax),isrcse2(2,nbmax))
+          allocate(centers2(ndim,nbmax),ilevel2(nbmax),iparent2(nbmax))
+          allocate(nchild2(nbmax),ichild2(mc,nbmax),isrcse2(2,nbmax))
           allocate(itargse2(2,nbmax))
-          call tree_copy(nbctr,centers,ilevel,iparent,nchild,
+          call tree_copy(ndim,nbctr,centers,ilevel,iparent,nchild,
      1            ichild,centers2,ilevel2,iparent2,
      2            nchild2,ichild2)
+
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i)     
           do i=1,nbctr
             isrcse2(1,i) = isrcse(1,i)
             isrcse2(2,i) = isrcse(2,i)
             itargse2(1,i) = itargse(1,i)
             itargse2(2,i) = itargse(2,i)
           enddo
+C$OMP END PARALLEL DO          
 
           deallocate(centers,ilevel,iparent,nchild,ichild,
      1        isrcse,itargse)
 
           nbmax = nbtot
-          allocate(centers(2,nbmax),ilevel(nbmax),iparent(nbmax))
-          allocate(nchild(nbmax),ichild(4,nbmax),isrcse(2,nbmax))
+          allocate(centers(ndim,nbmax),ilevel(nbmax),iparent(nbmax))
+          allocate(nchild(nbmax),ichild(mc,nbmax),isrcse(2,nbmax))
           allocate(itargse(2,nbmax))
 
 
-          call tree_copy(nbctr,centers2,ilevel2,iparent2,
+          call tree_copy(ndim,nbctr,centers2,ilevel2,iparent2,
      1            nchild2,ichild2,centers,ilevel,iparent,nchild,ichild)
+
+C$OMP PARALLEL DO DEFAULT(SHARED)     
           do i=1,nbctr
             isrcse(1,i) = isrcse2(1,i)
             isrcse(2,i) = isrcse2(2,i)
             itargse(1,i) = itargse2(1,i)
             itargse(2,i) = itargse2(2,i)
           enddo
+C$OMP END PARALLEL DO          
 
           deallocate(centers2,ilevel2,iparent2,nchild2,ichild2,
      1       isrcse2,itargse2)
@@ -330,27 +370,29 @@ c
         endif
 
         allocate(nnbors(nbmax))
-        allocate(nbors(9,nbmax))
-
+        allocate(nbors(mnbors,nbmax))
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j)
         do i=1,nboxes
           nnbors(i) = 0
-          do j=1,9
+          do j=1,mnbors
             nbors(j,i) = -1
           enddo
         enddo
+C$OMP END PARALLEL DO        
 
-        call computecoll(nlevels,nboxes,laddr,boxsize,centers,
+        call computecoll(ndim,nlevels,nboxes,laddr,boxsize,centers,
      1        iparent,nchild,ichild,iper,nnbors,nbors)
 
-        if(nlevels.ge.2) then
-          call pts_tree_fix_lr(centers,nlevels,nboxes,boxsize,nbmax,
-     1         nlmax,iper,laddr,ilevel,iparent,nchild,ichild,nnbors,
-     2         nbors)
+        if(nlevels.ge.2.and.ifunif.ne.1) then
+          call pts_tree_fix_lr(ndim,centers,nlevels,nboxes,boxsize,
+     1         nbmax,nlmax,iper,laddr,ilevel,iparent,nchild,ichild,
+     2         nnbors,nbors)
         endif
+
       endif
 
-      ltree = 17*nboxes + 2*(nlevels+1) 
-
+      nboxes8 = nboxes
+      ltree = (4+mc+mnbors)*nboxes8 + 2*(nlevels+1) 
 
       return
       end
@@ -360,10 +402,12 @@ c
 c
 c
 
-      subroutine pts_tree_build(src,ns,targ,nt,idivflag,ndiv,
-     1    nlmin,iper,nlevels,nboxes,
+      subroutine pts_tree_build(ndim,src,ns,targ,nt,idivflag,ndiv,
+     1    nlmin,nlmax,ifunif,iper,nlevels,nboxes,
      2    ndiv0,levcut,bs0,cen0,
-     3    ltree,itree,iptr,centers,boxsize)
+     3    ltree,itree,iptr,centers,
+     4    boxsize)
+c
 c
 c
 c----------------------------------------
@@ -371,9 +415,9 @@ c  build tree
 c
 c
 c  input parameters:
-c    - src: real *8 (2,ns)
+c    - src: real *8 (3,ns)
 c        source locations
-c    - targ: real *8 (2,nt) 
+c    - targ: real *8 (3,nt) 
 c        target locations
 c    - idivflag: integer
 c        subdivision criterion
@@ -382,10 +426,16 @@ c          * idivflag = 1 -> subdivide on targets only
 c          * idivflag = 2 -> subdivide on max(sources+targets)
 c    - ndiv: integer
 c        subdivide if relevant number of particles
-c        per box is greater than ndiv for levels >= levcut
+c        per box is greater than ndiv
 c    - nlmin: integer
 c        minimum number of levels of uniform refinement.
 c        Note that empty boxes are not pruned along the way
+c    - nlmax: integer
+c        max number of levels
+c    - ifunif: integer
+c        flag for creating uniform pruned tree
+c        Tree is uniform if ifunif=1 (Currently pruned part
+c        under construction)
 c    - iper: integer
 c        flag for periodic implementations. Currently unused.
 c        Feature under construction
@@ -401,9 +451,8 @@ c     - levcut: integer
 c        the cutoff level 
 c     - bs0 : real
 c        side length of the bounding box
-c     - cen0(2) : center of the bounding box
-c     
-c     
+c     - cen0(3) : center of the bounding box
+c
 c  output:
 c    - itree: integer(ltree)
 c        tree info
@@ -423,37 +472,43 @@ c        size of box at each of the levels
 c
 
       implicit none
-      integer nlevels,nboxes,ltree,ns,nt,idivflag,ndiv
-      integer iper,nlmin,levcut,ndiv0
-      integer iptr(8)
-      integer itree(ltree),ier
-      real *8 centers(2,nboxes),src(2,ns),targ(2,nt)
-      real *8 bs0,cen0(2)
+      integer ndim,nlevels,nboxes,ns,nt,idivflag,ndiv,levcut,ndiv0
+      integer iptr(8),ltree
+      integer itree(ltree),iper
+      integer ifunif,nlmin,nlmax
+      double precision centers(ndim,nboxes),src(ndim,ns),targ(ndim,nt)
+      real *8 bs0,cen0(ndim)
       integer, allocatable :: irefinebox(:)
-      real *8 boxsize(0:nlevels)
+      double precision boxsize(0:nlevels)
       integer, allocatable :: isrc(:),itarg(:),isrcse(:,:),itargse(:,:)
 
-      integer i,ilev,irefine,itype,nbmax,nlmax,npbox,npc,ii
+      integer i,ilev,irefine,itype,nbmax,npbox,npc,ii
       integer ifirstbox,ilastbox,nbctr,nbloc
-      real *8 rsc
+      double precision rsc
 
-      real *8 ra
+      double precision ra
       integer j,nboxes0
-      integer ibox,nn,nss,ntt
+      integer ibox,nn,nss,ntt,k,mc,mnbors
+
+      mc=2**ndim
+      mnbors=3**ndim
 c
       iptr(1) = 1
       iptr(2) = 2*(nlevels+1)+1
       iptr(3) = iptr(2) + nboxes
       iptr(4) = iptr(3) + nboxes
       iptr(5) = iptr(4) + nboxes
-      iptr(6) = iptr(5) + 4*nboxes
+      iptr(6) = iptr(5) + mc*nboxes
       iptr(7) = iptr(6) + nboxes
-      iptr(8) = iptr(7) + 9*nboxes
-
+      iptr(8) = iptr(7) + mnbors*nboxes
+c
+c     step 1: find enclosing box
+c
       boxsize(0) = bs0
 
-      centers(1,1) = cen0(1)
-      centers(2,1) = cen0(2)
+      do i=1,ndim
+         centers(i,1) = cen0(i)
+      enddo
 
       allocate(isrc(ns),itarg(nt),isrcse(2,nboxes),itargse(2,nboxes))
 
@@ -465,7 +520,7 @@ c
       itree(iptr(2)) = 0
       itree(iptr(3)) = -1
       itree(iptr(4)) = 0
-      do i=1,4
+      do i=1,mc
         itree(iptr(5)+i-1) = -1
       enddo
 
@@ -474,23 +529,23 @@ c
       itargse(1,1) = 1
       itargse(2,1) = nt
 
+C$OMP PARALLEL DO DEFAULT(SHARED)
       do i=1,ns
         isrc(i) = i
       enddo
+C$OMP END PARALLEL DO      
 
+C$OMP PARALLEL DO DEFAULT(SHARED)
       do i=1,nt
         itarg(i) = i
       enddo
+C$OMP END PARALLEL DO      
 
-
-     
 
 c
 c       Reset nlevels, nboxes
 c
       nbctr = 1
-
-     
 
       do ilev=0,nlevels-1
         irefine = 0
@@ -504,7 +559,9 @@ c
 c
 c          determine which boxes need to be refined
 c
+c       
         if(ilev.ge.nlmin) then
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,nss,ntt,nn)
           do i=1,nbloc
             irefinebox(i) = 0
             ibox = ifirstbox + i-1
@@ -521,21 +578,31 @@ c
                if(nn.gt.ndiv) irefinebox(i) = 1
             endif
           enddo
+C$OMP END PARALLEL DO        
+          irefine = maxval(irefinebox(1:nbloc))
+
+          if(ifunif.eq.1) then
+C$OMP PARALLEL DO DEFAULT(SHARED)
+            do i=1,nbloc
+              irefinebox(i) = irefine
+            enddo
+C$OMP END PARALLEL DO 
+          endif
         else
+C$OMP PARALLEL DO DEFAULT(SHARED)
           do i=1,nbloc
             irefinebox(i) = 1
           enddo
+C$OMP END PARALLEL DO 
+          irefine = 1
         endif
-
-
-        irefine = maxval(irefinebox(1:nbloc))
         
 
         if(irefine.eq.1) then
           boxsize(ilev+1) = boxsize(ilev)/2
           itree(2*ilev+3) = nbctr+1
 
-          call tree_refine_boxes(irefinebox,nboxes,
+          call tree_refine_boxes(ndim,irefinebox,nboxes,
      1       ifirstbox,nbloc,centers,boxsize(ilev+1),nbctr,ilev+1,
      2       itree(iptr(2)),itree(iptr(3)),itree(iptr(4)),
      3       itree(iptr(5)))
@@ -543,15 +610,17 @@ c
 c
 c     re sort points in refined boxes
 c
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox)
           do i=1,nbloc
             ibox = ifirstbox+i-1
             if(irefinebox(i).eq.1) then
-              call sort_pts_to_children(ibox,nboxes,centers,
+              call sort_pts_to_children(ndim,ibox,nboxes,centers,
      1          itree(iptr(5)),src,ns,isrc,isrcse)
-              call sort_pts_to_children(ibox,nboxes,centers,
+              call sort_pts_to_children(ndim,ibox,nboxes,centers,
      1          itree(iptr(5)),targ,nt,itarg,itargse)
             endif
           enddo
+C$OMP END PARALLEL DO          
 
           
           itree(2*ilev+4) = nbctr
@@ -566,23 +635,25 @@ c
       nlevels = ilev
 
 
-
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j)
       do i=1,nboxes0
         itree(iptr(6)+i-1) = 0
-        do j=1,9
-          itree(iptr(7)+9*(i-1)+j-1) = -1
+        do j=1,mnbors
+          itree(iptr(7)+mnbors*(i-1)+j-1) = -1
         enddo
       enddo
+C$OMP END PARALLEL DO      
 
-      call computecoll(nlevels,nboxes0,itree(iptr(1)),boxsize,centers,
-     1        itree(iptr(3)),itree(iptr(4)),itree(iptr(5)),iper,
-     2        itree(iptr(6)),itree(iptr(7)))
 
-      if(nlevels.ge.2) then
-         call pts_tree_fix_lr(centers,nlevels,
-     1         nboxes0,boxsize,nboxes,nlevels,iper,itree(iptr(1)),
-     2         itree(iptr(2)),itree(iptr(3)),itree(iptr(4)),
-     3         itree(iptr(5)),itree(iptr(6)),itree(iptr(7)))
+      call computecoll(ndim,nlevels,nboxes0,itree(iptr(1)),boxsize,
+     1    centers,itree(iptr(3)),itree(iptr(4)),itree(iptr(5)),iper,
+     2    itree(iptr(6)),itree(iptr(7)))
+
+      if(nlevels.ge.2.and.ifunif.ne.1) then
+         call pts_tree_fix_lr(ndim,centers,nlevels,
+     1       nboxes0,boxsize,nboxes,nlevels,iper,itree(iptr(1)),
+     2       itree(iptr(2)),itree(iptr(3)),itree(iptr(4)),
+     3       itree(iptr(5)),itree(iptr(6)),itree(iptr(7)))
 
       endif
 
@@ -590,8 +661,90 @@ c
       end
 c
 c
+      subroutine sort_pts_to_children(ndim,ibox,nboxes,centers,
+     1   ichild,src,ns,isrc,isrcse)
+      implicit real *8 (a-h,o-z)
+      integer nboxes
+      real *8 centers(ndim,nboxes),src(ndim,ns)
+      integer ns, isrc(ns),isrcse(2,nboxes)
+      integer ichild(2**ndim,nboxes)
+
+      if (ndim.eq.1) then
+         call sort_pts_to_children_1d(ibox,nboxes,centers,
+     1       ichild,src,ns,isrc,isrcse)
+      elseif (ndim.eq.2) then
+         call sort_pts_to_children_2d(ibox,nboxes,centers,
+     1       ichild,src,ns,isrc,isrcse)
+      elseif (ndim.eq.3) then
+         call sort_pts_to_children_3d(ibox,nboxes,centers,
+     1       ichild,src,ns,isrc,isrcse)
+      endif
+      
+      return
+      end
+c     
 c
-      subroutine sort_pts_to_children(ibox,nboxes,centers,
+      subroutine sort_pts_to_children_1d(ibox,nboxes,centers,
+     1   ichild,src,ns,isrc,isrcse)
+      implicit real *8 (a-h,o-z)
+      integer nboxes
+      real *8 centers(nboxes),src(ns)
+      integer ns, isrc(ns),isrcse(2,nboxes)
+      integer ichild(2,nboxes)
+      integer iss, nsc(2)
+      integer, allocatable :: isrctmp(:)
+
+c
+c       Allocate temporary array to figure out which child you
+c       belong to?  1,2,3,4? counter ns1,ns2,ns3,ns4
+c       The box nomenclature is as follows
+c           1   2
+c
+
+      npts = isrcse(2,ibox)-isrcse(1,ibox)+1
+      allocate(isrctmp(npts))
+c
+c         now sort into boxes 1,2           
+c
+      nsc(1) = 0
+      nsc(2) = 0
+c
+c       sort into boxes 1,2
+c
+      do iss = isrcse(1,ibox),isrcse(2,ibox)
+        if(src(isrc(iss))-centers(ibox).lt.0) then
+          isrc(isrcse(1,ibox)+nsc(1)) = isrc(iss)
+          nsc(1) = nsc(1)+1
+        else
+          nsc(2) = nsc(2) + 1
+          isrctmp(nsc(2)) = isrc(iss)
+        endif
+      enddo
+c
+c      reorder sources so that sources in 2 are at end of array
+c
+      do i=1,nsc(2)
+        isrc(isrcse(1,ibox)+nsc(1)+i-1) = isrctmp(i)
+      enddo
+
+      istart = isrcse(1,ibox)
+      do i=1,2
+        jbox = ichild(i,ibox)
+        isrcse(1,jbox) = istart
+        isrcse(2,jbox) = istart + nsc(i)-1
+        istart = istart + nsc(i)
+      enddo
+c
+c
+
+      return
+      end
+c       
+c
+c
+c
+c
+      subroutine sort_pts_to_children_2d(ibox,nboxes,centers,
      1   ichild,src,ns,isrc,isrcse)
       implicit real *8 (a-h,o-z)
       integer nboxes
@@ -689,28 +842,225 @@ c
       end
 c       
 c
+      subroutine sort_pts_to_children_3d(ibox,nboxes,centers,
+     1   ichild,src,ns,isrc,isrcse)
+      implicit double precision (a-h,o-z)
+      integer nboxes
+      double precision centers(3,nboxes),src(3,ns)
+      integer ns, isrc(ns),isrcse(2,nboxes)
+      integer ichild(8,nboxes)
+      integer iss, nsc(8)
+      integer, allocatable :: isrctmp(:)
+
+c           Allocate temporary array to figure out which child you
+c           belong to
+c           which child?  1,2,3,4,5,6,7,8? counter ns1,ns2,ns3,ns4,
+c           ns5,ns6,ns7,ns8
+c           The box nomenclature is as follows
+c           3   4       7  8       <--- Looking down in z direction
+c           1   2       5  6
+c
+c           If the parent box center is at the origin then the centers
+c           of box i have co-ordinates
+c           1     x<0,y<0,z<0
+c           2     x>0,y<0,z<0
+c           3     x<0,y>0,z<0
+c           4     x>0,y>0,z<0
+c           5     x<0,y<0,z>0
+c           6     x>0,y<0,z>0
+c           7     x<0,y>0,z>0
+c           8     x>0,y>0,z>0
+c
+
+      i1234 = isrcse(1,ibox)-1
+      i5678 = 0
+      npts = isrcse(2,ibox)-isrcse(1,ibox)+1
+      allocate(isrctmp(npts))
+
+      do iss=isrcse(1,ibox),isrcse(2,ibox)
+        if(src(3,isrc(iss))-centers(3,ibox).lt.0) then
+          i1234 = i1234+1
+          isrc(i1234) = isrc(iss)
+        else
+          i5678 = i5678 + 1
+          isrctmp(i5678) = isrc(iss)
+        endif
+      enddo
+
+c
+c           reorder sources
+c
+      do i=1,i5678
+        isrc(i1234+i) = isrctmp(i)
+      enddo
+
+
+c
+c     sort i1234 to i12 and i34
+c
+      i12 = isrcse(1,ibox)-1
+      i34 = 0
+      do iss=isrcse(1,ibox),i1234
+        if(src(2,isrc(iss))-centers(2,ibox).lt.0) then
+          i12 = i12+1
+          isrc(i12) = isrc(iss)
+        else
+          i34 = i34 + 1
+          isrctmp(i34) = isrc(iss)
+        endif
+      enddo
+c
+c  reorder sources to include 34 in the array
+c
+      do i=1,i34
+        isrc(i12+i) = isrctmp(i)
+      enddo
+
+c
+c    sort i5678 into i56 and i78
+c
+      i56 = i1234
+      i78 = 0
+      do iss=i1234+1,isrcse(2,ibox)
+        if(src(2,isrc(iss))-centers(2,ibox).lt.0) then
+          i56 = i56+1
+          isrc(i56) = isrc(iss)
+        else
+          i78 = i78 + 1
+          isrctmp(i78) = isrc(iss)
+        endif
+      enddo
+
+c     reorder sources to include 78 in the array      
+      do i=1,i78
+        isrc(i56+i) = isrctmp(i)
+      enddo
+
+      nsc(1) = 0
+      nsc(2) = 0
+      nsc(3) = 0
+      nsc(4) = 0
+      nsc(5) = 0
+      nsc(6) = 0
+      nsc(7) = 0
+      nsc(8) = 0
+c
+c       sort into boxes 1,2
+c
+      do iss = isrcse(1,ibox),i12
+        if(src(1,isrc(iss))-centers(1,ibox).lt.0) then
+          isrc(isrcse(1,ibox)+nsc(1)) = isrc(iss)
+          nsc(1) = nsc(1)+1
+        else
+          nsc(2) = nsc(2) + 1
+          isrctmp(nsc(2)) = isrc(iss)
+        endif
+      enddo
+c
+c      reorder sources so that sources in 2 are at end of array
+c
+      do i=1,nsc(2)
+        isrc(isrcse(1,ibox)+nsc(1)+i-1) = isrctmp(i)
+      enddo
+c
+c    sort intow boxes 3,4 
+c 
+      do iss=i12+1,i1234
+        if(src(1,isrc(iss))-centers(1,ibox).lt.0) then
+          isrc(i12+1+nsc(3)) = isrc(iss)
+          nsc(3) = nsc(3) + 1
+        else
+          nsc(4) = nsc(4) + 1
+          isrctmp(nsc(4)) = isrc(iss)
+        endif
+      enddo
+
+      do i=1,nsc(4)
+        isrc(i12+nsc(3)+i) = isrctmp(i)
+      enddo
+
+c
+c   sort into boxes 5,6
+c
+      do iss=i1234+1,i56
+        if(src(1,isrc(iss))-centers(1,ibox).lt.0) then
+          isrc(i1234+1+nsc(5)) = isrc(iss)
+          nsc(5) = nsc(5) + 1
+        else
+          nsc(6) = nsc(6) + 1
+          isrctmp(nsc(6)) = isrc(iss)
+        endif
+      enddo
+
+      do i=1,nsc(6)
+        isrc(i1234+nsc(5)+i) = isrctmp(i)
+      enddo
+c
+c   End of sorting sources into boxes 5 and 6
+c
+
+c
+c    sort into boxes 7 and 8
+c
+      do iss=i56+1,isrcse(2,ibox)
+        if(src(1,isrc(iss))-centers(1,ibox).lt.0) then
+          isrc(i56+1+nsc(7)) = isrc(iss)
+          nsc(7) = nsc(7) + 1
+        else
+          nsc(8) = nsc(8) + 1
+          isrctmp(nsc(8)) = isrc(iss)
+        endif
+      enddo
+
+      do i=1,nsc(8)
+        isrc(i56+nsc(7)+i) = isrctmp(i)
+      enddo
+c
+c   End of sorting sources into boxes 5 and 6
+
+
+      istart = isrcse(1,ibox)
+      do i=1,8
+        jbox = ichild(i,ibox)
+        isrcse(1,jbox) = istart
+        isrcse(2,jbox) = istart + nsc(i)-1
+        istart = istart + nsc(i)
+      enddo
+
+c
+c
+
+      return
+      end
+c       
+c
+c       
+c
 c-------------------------------------------------------------      
-      subroutine pts_tree_fix_lr(centers,nlevels,nboxes,
+      subroutine pts_tree_fix_lr(ndim,centers,nlevels,nboxes,
      1       boxsize,nbmax,nlmax,iper,laddr,ilevel,iparent,nchild,
-     1       ichild,nnbors,nbors)
+     2       ichild,nnbors,nbors)
 c
 c
 c       convert an adaptive tree into a level restricted tree
 c
       implicit none
-      integer nlevels,nboxes,nlmax
+      integer ndim,nlevels,nboxes,nlmax
       integer nbmax,iper
-      real *8 centers(2,nbmax),boxsize(0:nlmax)
+      double precision centers(ndim,nbmax),boxsize(0:nlmax)
       integer laddr(2,0:nlmax),ilevel(nbmax),iparent(nbmax)
-      integer nchild(nbmax),ichild(4,nbmax),nnbors(nbmax)
-      integer nbors(9,nbmax)
+      integer nchild(nbmax),ichild(2**ndim,nbmax),nnbors(nbmax)
+      integer nbors(3**ndim,nbmax)
       integer laddrtail(2,0:nlmax),isum
       integer, allocatable :: iflag(:)
 
       integer i,j,k,l,ibox,jbox,kbox,ilev,idad,igranddad
-      integer nbloc,ict
-      real *8 xdis,ydis,zdis,distest
+      integer nbloc,ict,mc,mnbors,ifnbor
+      double precision dis,distest
 
+      mc = 2**ndim
+      mnbors = 3**ndim
+      
       allocate(iflag(nbmax))
 
 c     Initialize flag array
@@ -742,7 +1092,7 @@ c        This is the distance to test if two boxes separated
 c        by two levels are touching
          distest = 1.05d0*(boxsize(ilev-1) + boxsize(ilev-2))/2.0d0
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,idad,igranddad,i,jbox)         
-C$OMP$ PRIVATE(ict,xdis,ydis,zdis)
+C$OMP$ PRIVATE(ict,dis,k)
          do ibox = laddr(1,ilev),laddr(2,ilev) 
             idad = iparent(ibox)
             igranddad = iparent(idad)
@@ -754,12 +1104,12 @@ c              Check if the colleague of grandad
 c              is a leaf node. This automatically
 c              eliminates the granddad
                if(nchild(jbox).eq.0.and.iflag(jbox).eq.0) then
-                   xdis = centers(1,jbox) - centers(1,idad)
-                   ydis = centers(2,jbox) - centers(2,idad)
                    ict = 0
-                   if(abs(xdis).le.distest) ict = ict + 1
-                   if(abs(ydis).le.distest) ict = ict + 1
-                   if(ict.eq.2) then
+                   do k=1,ndim
+                      dis = centers(k,jbox) - centers(k,idad)
+                      if(abs(dis).le.distest) ict = ict + 1
+                   enddo
+                   if(ict.eq.ndim) then
                       iflag(jbox) = 1
                    endif
                endif
@@ -790,8 +1140,8 @@ c     is contacting a flagged or flag+ box.
 c        This is the distance to test if two boxes separated
 c        by one level are touching
          distest = 1.05d0*(boxsize(ilev) + boxsize(ilev-1))/2.0d0
-C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,idad,i,jbox,xdis,ydis)
-C$OMP$PRIVATE(zdis,ict)
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,idad,i,jbox,dis)
+C$OMP$PRIVATE(k,ict)
          do ibox = laddr(1,ilev),laddr(2,ilev)
             if(iflag(ibox).eq.1.or.iflag(ibox).eq.2) then
                idad = iparent(ibox)
@@ -802,12 +1152,12 @@ c                 Check if the colleague of dad
 c                 is a leaf node. This automatically
 c                 eliminates the dad
                   if(nchild(jbox).eq.0.and.iflag(jbox).eq.0) then
-                     xdis = centers(1,jbox) - centers(1,ibox)
-                     ydis = centers(2,jbox) - centers(2,ibox)
                      ict = 0
-                     if(abs(xdis).le.distest) ict = ict + 1
-                     if(abs(ydis).le.distest) ict = ict + 1
-                     if(ict.eq.2) then
+                     do k=1,ndim
+                        dis = centers(k,jbox) - centers(k,ibox)
+                        if(abs(dis).le.distest) ict = ict + 1
+                     enddo
+                     if(ict.eq.ndim) then
                         iflag(jbox) = 2
                      endif
                   endif
@@ -852,7 +1202,7 @@ c        in the standard format
 
 
          nbloc = laddr(2,ilev)-laddr(1,ilev)+1
-         call tree_refine_boxes_flag(iflag,nbmax,laddr(1,ilev),
+         call tree_refine_boxes_flag(ndim,iflag,nbmax,laddr(1,ilev),
      1    nbloc,centers,boxsize(ilev+1),nboxes,ilev,ilevel,iparent,
      2    nchild,ichild)
 
@@ -860,7 +1210,8 @@ c        in the standard format
          laddrtail(2,ilev+1) = nboxes
       enddo
 c     Reorganize the tree to get it back in the standard format
-      call pts_tree_reorg(nboxes,centers,nlevels,laddr,
+
+      call pts_tree_reorg(ndim,nboxes,centers,nlevels,laddr,
      1          laddrtail,ilevel,iparent,nchild,ichild,
      2          iflag)
 
@@ -869,12 +1220,12 @@ c     Compute colleague information again
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j)
       do i=1,nboxes
          nnbors(i) = 0
-         do j=1,9
+         do j=1,mnbors
             nbors(j,i) = -1
          enddo
       enddo
 C$OMP END PARALLEL DO      
-      call computecoll(nlevels,nboxes,laddr, boxsize,
+      call computecoll(ndim,nlevels,nboxes,laddr, boxsize,
      1                   centers,iparent,nchild,
      2                   ichild,iper,nnbors,nbors)
 
@@ -915,23 +1266,23 @@ c     further division. In the even a flag++ box needs
 c     further subdivision then flag the box with iflag(box) = 1
 c     This will again ensure that the subdivide_flag routine
 c     will take care of handling the flag++ case
-         call updateflags(ilev,nboxes,nlevels,laddr,nchild,ichild,
-     1                    nnbors,nbors,centers,boxsize,iflag)
+         call updateflags(ndim,ilev,nboxes,nlevels,laddr,nchild,
+     1       ichild,nnbors,nbors,centers,boxsize,iflag)
 
-         call updateflags(ilev,nboxes,nlevels,laddrtail,nchild,ichild,
-     1                    nnbors,nbors,centers,boxsize,iflag)
+         call updateflags(ndim,ilev,nboxes,nlevels,laddrtail,nchild,
+     1       ichild,nnbors,nbors,centers,boxsize,iflag)
         
 c      Step 2: Subdivide all the boxes that need subdivision
 c      in the laddr set and the laddrtail set as well
          laddrtail(1,ilev+1) = nboxes + 1
 
          nbloc = laddr(2,ilev)-laddr(1,ilev)+1
-         call tree_refine_boxes_flag(iflag,nbmax,laddr(1,ilev),
+         call tree_refine_boxes_flag(ndim,iflag,nbmax,laddr(1,ilev),
      1    nbloc,centers,boxsize(ilev+1),nboxes,ilev,ilevel,iparent,
      2    nchild,ichild)
 
          nbloc = laddrtail(2,ilev)-laddrtail(1,ilev)+1
-         call tree_refine_boxes_flag(iflag,nbmax,laddrtail(1,ilev),
+         call tree_refine_boxes_flag(ndim,iflag,nbmax,laddrtail(1,ilev),
      1    nbloc,centers,boxsize(ilev+1),nboxes,ilev,ilevel,iparent,
      2    nchild,ichild)
 
@@ -939,7 +1290,7 @@ c      in the laddr set and the laddrtail set as well
 c      Step 3: Update the colleague information for the newly
 c      created boxes
 
-C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,i,idad,jbox,j,kbox)
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,i,idad,jbox,j,kbox,k,ifnbor)
           do ibox = laddrtail(1,ilev+1),laddrtail(2,ilev+1)
             nnbors(ibox) = 0
 c           Find the parent of the current box         
@@ -948,18 +1299,22 @@ c           Loop over the neighbors of the parent box
 c           to find out colleagues
             do i=1,nnbors(idad)
                 jbox = nbors(i,idad)
-                do j=1,4
+                do j=1,mc
 c               ichild(j,jbox) is one of the children of the
 c               neighbors of the parent of the current
 c               box
                    kbox = ichild(j,jbox)
                    if(kbox.gt.0) then
-c               Check if kbox is a nearest neighbor or in list 2
-                      if((abs(centers(1,kbox)-centers(1,ibox)).le.
-     1                   1.05*boxsize(ilev+1)).and.
-     2                   (abs(centers(2,kbox)-centers(2,ibox)).le.
-     3                   1.05*boxsize(ilev+1))) then
-                     
+c     Check if kbox is a nearest neighbor or in list 2
+                      ifnbor=1
+                      do k=1,ndim
+                         if((abs(centers(k,kbox)-centers(k,ibox)).gt.
+     1                       1.05*boxsize(ilev+1))) then
+                            ifnbor=0
+                            exit
+                         endif
+                      enddo
+                      if (ifnbor.eq.1) then
                          nnbors(ibox) = nnbors(ibox)+1
                          nbors(nnbors(ibox),ibox) = kbox
                       endif
@@ -972,7 +1327,7 @@ C$OMP END PARALLEL DO
       enddo
 
 c     Reorganize tree once again and we are all done      
-      call pts_tree_reorg(nboxes,centers,nlevels,laddr,
+      call pts_tree_reorg(ndim,nboxes,centers,nlevels,laddr,
      1          laddrtail,ilevel,iparent,nchild,ichild,
      2          iflag)
 
@@ -981,13 +1336,13 @@ c     Compute colleague information again
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j)
       do i=1,nboxes
          nnbors(i) = 0
-         do j=1,9
+         do j=1,mnbors
             nbors(j,i) = -1
          enddo
       enddo
 C$OMP END PARALLEL DO    
 
-      call computecoll(nlevels,nboxes,laddr, boxsize,
+      call computecoll(ndim,nlevels,nboxes,laddr, boxsize,
      1                   centers,iparent,nchild,
      2                   ichild,iper,nnbors,nbors)
       
@@ -998,7 +1353,7 @@ C$OMP END PARALLEL DO
 
 c-------------------------------------------------------------      
 
-      subroutine pts_tree_reorg(nboxes,centers,nlevels,laddr,
+      subroutine pts_tree_reorg(ndim,nboxes,centers,nlevels,laddr,
      1     laddrtail,ilevel,iparent,nchild,ichild,iflag)
 
 c    This subroutine reorganizes the current data in all the tree
@@ -1049,14 +1404,14 @@ c                 level restricted tree from adaptive tree
 
       implicit none
 c     Calling sequence variables and temporary variables
-      integer nboxes,nlevels
-      double precision centers(2,nboxes)
+      integer ndim,nboxes,nlevels
+      double precision centers(ndim,nboxes)
       integer laddr(2,0:nlevels), tladdr(2,0:nlevels)
       integer laddrtail(2,0:nlevels)
       integer ilevel(nboxes)
       integer iparent(nboxes)
       integer nchild(nboxes)
-      integer ichild(4,nboxes)
+      integer ichild(2**ndim,nboxes)
       integer iflag(nboxes)
       
       integer, allocatable :: tilevel(:),tiparent(:),tnchild(:)
@@ -1068,18 +1423,20 @@ c     Calling sequence variables and temporary variables
 
 
 c     Temporary variables
-      integer i,j,k,l
+      integer i,j,k,l,mc,mnbors
       integer ibox,ilev, curbox,idim,nblev
 
+      mc=2**ndim
+      
       allocate(tilevel(nboxes),tiparent(nboxes),tnchild(nboxes))
-      allocate(tichild(4,nboxes),tiflag(nboxes),iboxtocurbox(nboxes))
-      allocate(tcenters(2,nboxes))
+      allocate(tichild(mc,nboxes),tiflag(nboxes),iboxtocurbox(nboxes))
+      allocate(tcenters(ndim,nboxes))
 
       do ilev = 0,nlevels
          tladdr(1,ilev) = laddr(1,ilev)
          tladdr(2,ilev) = laddr(2,ilev)
       enddo
-      call tree_copy(nboxes,centers,ilevel,iparent,nchild,
+      call tree_copy(ndim,nboxes,centers,ilevel,iparent,nchild,
      1            ichild,tcenters,tilevel,tiparent,
      2            tnchild,tichild)
 
@@ -1112,8 +1469,9 @@ c     Rearrange old arrays now
          do ibox = tladdr(1,ilev),tladdr(2,ilev)
             ilevel(curbox) = tilevel(ibox)
             nchild(curbox) = tnchild(ibox)
-            centers(1,curbox) = tcenters(1,ibox)
-            centers(2,curbox) = tcenters(2,ibox)
+            do k=1,ndim
+               centers(k,curbox) = tcenters(k,ibox)
+            enddo
             iflag(curbox) = tiflag(ibox)
             iboxtocurbox(ibox) = curbox
 
@@ -1121,8 +1479,9 @@ c     Rearrange old arrays now
          enddo
          do ibox = laddrtail(1,ilev),laddrtail(2,ilev)
             ilevel(curbox) = tilevel(ibox)
-            centers(1,curbox) = tcenters(1,ibox)
-            centers(2,curbox) = tcenters(2,ibox)
+            do k=1,ndim
+               centers(k,curbox) = tcenters(k,ibox)
+            enddo
             nchild(curbox) = tnchild(ibox)
             iflag(curbox) = tiflag(ibox)
             iboxtocurbox(ibox) = curbox
@@ -1139,7 +1498,7 @@ c     using the mapping iboxtocurbox
          if(tiparent(ibox).eq.-1) iparent(iboxtocurbox(ibox)) = -1
          if(tiparent(ibox).gt.0) 
      1    iparent(iboxtocurbox(ibox)) = iboxtocurbox(tiparent(ibox))
-         do i=1,4
+         do i=1,mc
             if(tichild(i,ibox).eq.-1) ichild(i,iboxtocurbox(ibox)) = -1
             if(tichild(i,ibox).gt.0) 
      1      ichild(i,iboxtocurbox(ibox)) = iboxtocurbox(tichild(i,ibox))
@@ -1154,12 +1513,13 @@ c
 c
 c
 c
-      subroutine pts_tree_sort(n,xys,itree,ltree,nboxes,nlevels,
+      subroutine pts_tree_sort(ndim,n,xys,itree,ltree,nboxes,nlevels,
      1   iptr,centers,ixy,ixyse)
-      implicit real *8 (a-h,o-z)
-      integer n,ltree,nboxes,nlevels,itree(ltree),iptr(8)
+      implicit double precision (a-h,o-z)
+      integer iptr(8),ltree
+      integer n,nboxes,nlevels,itree(ltree)
       integer ixy(n),ixyse(2,nboxes)
-      real *8 xys(2,n),centers(2,nboxes)
+      double precision xys(ndim,n),centers(ndim,nboxes)
 
       do i=1,n
         ixy(i) = i
@@ -1171,7 +1531,7 @@ c
       do ilev = 0,nlevels-1
         do ibox=itree(2*ilev+1),itree(2*ilev+2)
           if(itree(iptr(4)+ibox-1).gt.0) then
-            call sort_pts_to_children(ibox,nboxes,centers,
+            call sort_pts_to_children(ndim,ibox,nboxes,centers,
      1          itree(iptr(5)),xys,n,ixy,ixyse)
           endif
         enddo
@@ -1182,9 +1542,91 @@ c
 
 c
 c
+c--------------------------------------------------------------
+c
+      subroutine subdividebox_new(ndim,pos,npts,center,boxsize,
+     1           isorted,iboxfl,subcenters)
+      implicit none
+      double precision pos(ndim,npts)
+      double precision center(ndim)
+      double precision subcenters(ndim,8)
+      double precision boxsize,bsh
+      integer ndim,npts
+      integer isorted(*)
+      integer iboxfl(2,2**ndim)
+      double precision centerstmp(ndim,2**ndim+1)
+      integer iboxfltmp(2,2**ndim+1),ichild(2**ndim,2**ndim+1)
+      integer nboxes
+      integer i,ibox,ii,j,jj,mc,k
+      integer, allocatable :: isign(:,:)
+      
+      bsh = boxsize/2.0d0
+
+      allocate(isign(ndim,2**ndim))
+
+      mc=2**ndim
+      do j=1,ndim
+         isign(j,1)=-1
+      enddo
+
+      do j=1,ndim
+         do i=1,mc,2**(j-1)
+            if (i.gt.1) isign(j,i)=-isign(j,i-2**(j-1))
+            do k=1,2**(j-1)-1
+               isign(j,i+k)=isign(j,i)
+            enddo
+         enddo
+      enddo
+
+      nboxes = mc+1
+
+      iboxfltmp(1,1) = 1
+      iboxfltmp(2,1) = npts
+
+      do i=1,ndim
+         centerstmp(i,1) = center(i)
+      enddo
+
+      do i=1,mc
+        ichild(i,1) = i+1
+      enddo
+
+      do i=2,mc+1
+        do j=1,mc
+          ichild(j,i) = -1
+        enddo
+      enddo
+
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i)
+      do i=1,npts
+        isorted(i) = i
+      enddo
+C$OMP END PARALLEL DO      
+
+      do i=1,mc
+         do k=1,ndim
+            subcenters(k,i) = center(k)+isign(k,i)*bsh
+         enddo
+         do k=1,ndim
+            centerstmp(k,i+1) = subcenters(k,i)
+         enddo
+      enddo
+      ibox = 1
+      call sort_pts_to_children(ndim,ibox,nboxes,centerstmp,ichild,
+     1    pos,npts,isorted,iboxfltmp)
+      do i=1,mc
+        iboxfl(1,i) = iboxfltmp(1,i+1)
+        iboxfl(2,i) = iboxfltmp(2,i+1)
+      enddo
+
+      return
+      end
+c--------------------------------------------------------------------     
 c
 c
-      subroutine pts_tree_boxsize0(delta,eps,src,ns,targ,nt,
+c
+c
+      subroutine pts_tree_boxsize0(ndim,delta,eps,src,ns,targ,nt,
      1    levcut,bs0,cen0)
 c      
 c     given a collection of sources and targs, this subroutine returns to the user 
@@ -1195,9 +1637,9 @@ c     input parameters:
 c     delta         : Gaussian variance 
 c     eps           : precision requested
 c     ns            : number of sources
-c     src(2,ns)     : source locations
+c     src(3,ns)     : source locations
 c     nt            : number of targets
-c     targ(2,nt)    : target locationsc     
+c     targ(3,nt)    : target locationsc     
 c      
 c      
 c     output parameters:
@@ -1208,39 +1650,45 @@ c                    Gaussian variance that there is no need to build the tree. 
 c                    this case, the interactions will be computed by form local, then
 c                    evaluate local
 c     bs0 : the side length of the bounding box
-c     cen0(2) : the center of the bounding box
+c     cen0(3) : the center of the bounding box
 c     
 c      
-      Implicit real *8 (a-h,o-z)
+      implicit real *8 (a-h,o-z)
       integer ns,nt,levcut
-      real *8 src(2,ns),targ(2,nt),bs0,cen0(2)
-      
-      xmin = src(1,1)
-      xmax = src(1,1)
-      ymin = src(2,1)
-      ymax = src(2,1)
+      real *8 src(ndim,ns),targ(ndim,nt),bs0,cen0(ndim)
+      real *8 xyzmin(ndim),xyzmax(ndim)
 
+      do i=1,ndim
+         xyzmin(i) = src(i,1)
+         xyzmax(i) = src(i,1)
+      enddo
+C$OMP PARALLEL DO DEFAULT(SHARED)
       do i=1,ns
-        if(src(1,i).lt.xmin) xmin = src(1,i)
-        if(src(1,i).gt.xmax) xmax = src(1,i)
-        if(src(2,i).lt.ymin) ymin = src(2,i)
-        if(src(2,i).gt.ymax) ymax = src(2,i)
+         do k=1,ndim
+            if(src(k,i).lt.xyzmin(k)) xyzmin(k) = src(k,i)
+            if(src(k,i).gt.xyzmax(k)) xyzmax(k) = src(k,i)
+         enddo
       enddo
+C$OMP END PARALLEL DO      
 
+C$OMP PARALLEL DO DEFAULT(SHARED)
       do i=1,nt
-        if(targ(1,i).lt.xmin) xmin = targ(1,i)
-        if(targ(1,i).gt.xmax) xmax = targ(1,i)
-        if(targ(2,i).lt.ymin) ymin = targ(2,i)
-        if(targ(2,i).gt.ymax) ymax = targ(2,i)
+         do k=1,ndim
+            if(targ(k,i).lt.xyzmin(k)) xyzmin(k) = targ(k,i)
+            if(targ(k,i).gt.xyzmax(k)) xyzmax(k) = targ(k,i)
+         enddo
+      enddo
+C$OMP END PARALLEL DO      
+
+      bs0 = (xyzmax(1) - xyzmin(1))
+      do k=2,ndim
+         sizek = xyzmax(k)-xyzmin(k)
+         if(sizek.gt.bs0) bs0 = sizek
       enddo
 
-      bs0 = (xmax - xmin)
-      sizey = (ymax -ymin)
-
-      cen0(1) = (xmin+xmax)/2
-      cen0(2) = (ymin+ymax)/2
-      
-      if(sizey.gt.bs0) bs0 = sizey
+      do i=1,ndim
+         cen0(i) = (xyzmin(i)+xyzmax(i))/2
+      enddo
 
       dc = sqrt(delta*log(1.0d0/eps))
 
@@ -1250,9 +1698,11 @@ c
 
       if (bs0 .lt. dc) return
       
-cccc      bs0 = 2**(levcut+1)*dc
-cccc      levcut = levcut+1
-cccc      call prin2('boxsize(0) is enlarged to*',bs0,1)
+      bs0 = 2**(levcut+1)*dc
+      levcut = levcut+1
+      call prin2('boxsize(0) is enlarged to*',bs0,1)
       
       return
       end
+      
+      

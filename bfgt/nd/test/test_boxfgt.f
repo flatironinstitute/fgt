@@ -1,6 +1,6 @@
       implicit real *8 (a-h,o-z)
       real *8 dpars(1000)
-      integer iptr(9)
+      integer iptr(8),ltree
       integer ifpgh,ifpghtarg
       integer, allocatable :: itree(:)
       real *8, allocatable :: fvals(:,:,:),centers(:,:),boxsize(:)

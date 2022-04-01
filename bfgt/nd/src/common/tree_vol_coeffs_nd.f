@@ -115,7 +115,8 @@ c
       real *8, allocatable :: fvals(:,:,:)
       complex *16 zpars(*),zk
       integer nd,ipars(*),iptype
-      integer ndim,ipoly,nlevels,nboxes,ltree,norder
+      integer ltree
+      integer ndim,ipoly,nlevels,nboxes,norder
 
       external fun
 
@@ -505,8 +506,8 @@ c
       real *8 eps,boxlen,eta,dpars(*)
       complex *16 zk,zpars(*)
       integer ndim,ipoly,nd,ipars(*),iptype
-      integer nlevels,nboxes,ltree,norder
-      integer iptr(8)
+      integer nlevels,nboxes,norder
+      integer iptr(8),ltree
       integer itree(ltree),ier
       real *8 fvals(nd,norder**ndim,nboxes),centers(ndim,nboxes)
       real *8, allocatable :: fval1(:,:,:,:),centerstmp(:,:,:)

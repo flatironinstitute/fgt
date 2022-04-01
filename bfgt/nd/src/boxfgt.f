@@ -87,8 +87,9 @@ c            hessian of the volume potential at targets
 c
       implicit real *8 (a-h,o-z)
       real *8 eps
-      integer nboxes,nlevels,ltree,ntarg,ifpgh,ifpghtarg
-      integer itree(ltree),iptr(8),norder,npbox
+      integer nboxes,nlevels,ntarg,ifpgh,ifpghtarg
+      integer iptr(8),ltree
+      integer itree(ltree),norder,npbox
       real *8 targs(ndim,ntarg)
       real *8 fvals(nd,npbox,nboxes)
 
@@ -317,8 +318,9 @@ c
       implicit real *8 (a-h,o-z)
       integer nd,ndim
       real *8 delta,eps
-      integer nboxes,nlevels,ltree,ntarg
-      integer itree(ltree),iptr(8),npbox
+      integer nboxes,nlevels,ntarg
+      integer iptr(8),ltree
+      integer itree(ltree),npbox
       real *8 fvals(nd,npbox,nboxes)
       real *8 targs(ndim,ntarg)
 
@@ -1073,8 +1075,9 @@ c
       implicit real *8 (a-h,o-z)
       integer nd
       real *8 delta,eps
-      integer nboxes,nlevels,ltree
-      integer itree(ltree),iptr(8),ncbox,npbox
+      integer nboxes,nlevels
+      integer iptr(8),ltree
+      integer itree(ltree),ncbox,npbox
       real *8 fvals(nd,npbox,nboxes)
       real *8 pot(nd,npbox,nboxes)
       real *8 boxsize(0:nlevels),centers(2,nboxes)

@@ -438,8 +438,8 @@ c
 c
 c
 c
-      subroutine print_tree2d(itree,ltree,nboxes,centers,boxsize,nlevels,
-     1   iptr,fname)
+      subroutine print_tree2d(itree,ltree,nboxes,centers,boxsize,
+     1    nlevels,iptr,fname)
 c
 c        this subroutine writes the tree info to a file
 c
@@ -466,10 +466,9 @@ c            file with name fname, which contains the tree info
 c            file can be plotted using the python script
 c              tree_plot.py containted in src/common
 c
-
-
       implicit real *8 (a-h,o-z)
-      integer itree(ltree),ltree,nboxes,nlevels,iptr(8)
+      integer ipts(8),ltree
+      integer itree(ltree),nboxes,nlevels
       real *8 centers(2,nboxes),boxsize(0:nlevels)
       character (len=*) fname
 
@@ -679,9 +678,10 @@ c
 c      
 c---------------------------------------------------------------
       implicit none
-      integer nlevels,npwlevel,nboxes,ltree,ndim
+      integer nlevels,npwlevel,nboxes,ndim
+      integer iptr(8),ltree
       integer iper
-      integer itree(ltree),iptr(8)
+      integer itree(ltree)
       real *8 boxsize(0:nlevels)
       real *8 centers(ndim,nboxes)
       integer mnlist1
@@ -803,8 +803,8 @@ c
 c     NOTE: we use max values
 c
       implicit real *8 (a-h,o-z)
-      integer ltree
-      integer nlevels,nboxes,itree(ltree),iptr(8)
+      integer iptr(8),ltree
+      integer nlevels,nboxes,itree(ltree)
       real *8 centers(ndim,nboxes),boxsize(0:nlevels)
       integer mnlistpw
 
@@ -839,8 +839,9 @@ c     listpw (mnlistpw,nboxes) = contains the box ID for the PW interaction
 c                            for each box
 c      
       implicit real *8 (a-h,o-z)
-      integer nlevels,nboxes,ltree
-      integer itree(ltree),iptr(8),laddr(2,0:nlevels)
+      integer nlevels,nboxes
+      integer iptr(8),ltree
+      integer itree(ltree),laddr(2,0:nlevels)
       real *8 centers(ndim,nboxes),boxsize(0:nlevels)
       integer mnlistpw
       integer nlistpw(nboxes), listpw(mnlistpw,nboxes)
@@ -929,8 +930,8 @@ c          size of box at each of the levels
       integer *4  icolbox(1), irowbox(1)
       integer *4  iparentbox(1), ichildbox(4,1)
       integer *4  nblevel(0:1), iboxlev(1), istartlev(0:1)
-      integer nlevels,ltree
-      integer iptr(8)
+      integer nlevels
+      integer iptr(8),ltree
       integer itree(ltree)
       real *8 cent0(2),xsize0
       real *8 centers(2,*),boxsize(0:1)

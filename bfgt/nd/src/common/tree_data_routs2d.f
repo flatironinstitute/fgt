@@ -431,8 +431,9 @@ c         fvals - double precision (nd,nt) function values
 c            
       implicit real *8 (a-h,o-z)
       integer nd
-      integer nboxes,nlevels,ltree
-      integer itree(ltree),iptr(8)
+      integer nboxes,nlevels
+      integer iptr(8),ltree
+      integer itree(ltree)
       real *8 tcenters(2,nboxes),boxsize(0:nlevels)
       
       real *8 fcoefs(nd,norder*norder,nboxes)
@@ -444,7 +445,9 @@ c
       real *8, allocatable :: potsort(:,:)
 
       allocate(itarg(nt),itargse(2,nboxes))
-      call pts_tree_sort(nt,targ,itree,ltree,nboxes,nlevels,iptr,
+      ndim=2
+      
+      call pts_tree_sort(ndim,nt,targ,itree,ltree,nboxes,nlevels,iptr,
      1    tcenters,itarg,itargse)
       
       allocate(targsort(2,nt),potsort(nd,nt))
@@ -537,8 +540,10 @@ c         grad - double precision (nd,2,nt) gradient values
 c            
       implicit real *8 (a-h,o-z)
       integer nd
-      integer nboxes,nlevels,ltree
-      integer itree(ltree),iptr(8)
+      integer nboxes,nlevels
+      integer iptr(8),ltree
+      
+      integer itree(ltree)
       real *8 tcenters(2,nboxes),boxsize(0:nlevels)
       
       real *8 coefs(nd,norder*norder,nboxes)
@@ -551,7 +556,8 @@ c
       real *8, allocatable :: gradsort(:,:,:)
 
       allocate(itarg(nt),itargse(2,nboxes))
-      call pts_tree_sort(nt,targ,itree,ltree,nboxes,nlevels,iptr,
+      ndim=2
+      call pts_tree_sort(ndim,nt,targ,itree,ltree,nboxes,nlevels,iptr,
      1    tcenters,itarg,itargse)
       
       allocate(targsort(2,nt),potsort(nd,nt),gradsort(nd,2,nt))
@@ -647,8 +653,9 @@ c         hess - double precision (nd,3,nt) gradient values
 c            
       implicit real *8 (a-h,o-z)
       integer nd
-      integer nboxes,nlevels,ltree
-      integer itree(ltree),iptr(8)
+      integer nboxes,nlevels
+      integer iptr(8),ltree
+      integer itree(ltree)
       real *8 tcenters(2,nboxes),boxsize(0:nlevels)
       
       real *8 coefs(nd,norder*norder,nboxes)
@@ -662,7 +669,8 @@ c
       real *8, allocatable :: hesssort(:,:,:)
 
       allocate(itarg(nt),itargse(2,nboxes))
-      call pts_tree_sort(nt,targ,itree,ltree,nboxes,nlevels,iptr,
+      ndim=2
+      call pts_tree_sort(ndim,nt,targ,itree,ltree,nboxes,nlevels,iptr,
      1    tcenters,itarg,itargse)
       
       allocate(targsort(2,nt),potsort(nd,nt),gradsort(nd,2,nt))

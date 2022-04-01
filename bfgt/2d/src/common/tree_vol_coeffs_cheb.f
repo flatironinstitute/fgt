@@ -291,7 +291,7 @@ c
           call vol_tree_copy(nd,nbctr,npbox,centers,ilevel,iparent,
      1            nchild,ichild,fvals,centers2,ilevel2,iparent2,nchild2,
      2            ichild2,fvals2)
-          call dcopy(nbctr,rintbs,1,rintbs2,1)
+          call dcopy_f77(nbctr,rintbs,1,rintbs2,1)
 
           deallocate(centers,ilevel,iparent,nchild,ichild,fvals,rintbs)
 
@@ -303,7 +303,7 @@ c
           call vol_tree_copy(nd,nbctr,npbox,centers2,ilevel2,iparent2,
      1            nchild2,ichild2,fvals2,centers,ilevel,iparent,nchild,
      2            ichild,fvals)
-          call dcopy(nbctr,rintbs2,1,rintbs,1)
+          call dcopy_f77(nbctr,rintbs2,1,rintbs,1)
 
           deallocate(centers2,ilevel2,iparent2,nchild2,ichild2,fvals2)
           deallocate(rintbs2)
@@ -349,7 +349,7 @@ c
           call vol_tree_copy(nd,nboxes,npbox,centers,ilevel,iparent,
      1       nchild,ichild,fvals,centers2,ilevel2,iparent2,nchild2,
      2       ichild2,fvals2)
-          call dcopy(nboxes,rintbs,1,rintbs2,1)
+          call dcopy_f77(nboxes,rintbs,1,rintbs2,1)
 
           deallocate(centers,ilevel,iparent,nchild,ichild,fvals,rintbs)
 
@@ -361,7 +361,7 @@ c
           call vol_tree_copy(nd,nboxes,npbox,centers2,ilevel2,iparent2,
      1          nchild2,ichild2,fvals2,centers,ilevel,iparent,nchild,
      2          ichild,fvals)
-          call dcopy(nboxes,rintbs2,1,rintbs,1)
+          call dcopy_f77(nboxes,rintbs2,1,rintbs,1)
 
           deallocate(centers2,ilevel2,iparent2,nchild2,ichild2,fvals2)
           deallocate(rintbs2)
@@ -813,7 +813,7 @@ c
 c
 c
 c
-      subroutine fun_err(nd,n,fcoefs,rmask,iptype,rscale,err)
+      subroutine fun_err(nd,n,fcoefs,rmask,iptype,rscale,erra)
 c       this subroutine estimates the error based on the expansion
 c       coefficients in a given basis
 c       
@@ -835,12 +835,12 @@ c        rscale: double precision
 c          scaling factor
 c
 c       output
-c         err: double precision
+c         erra: double precision
 c           max scaled error in the functions
 c
         implicit none
         integer n,i,iptype,idim,nd
-        real *8 rscale,err
+        real *8 rscale,erra
         real *8 fcoefs(nd,n),rmask(n)
         real *8, allocatable :: errtmp(:),ftmp(:,:)
         real *8 alpha, beta
@@ -850,7 +850,7 @@ c
         alpha = 1.0d0
         beta = 0.0d0
    
-        err = 0
+        erra = 0
         do idim=1,nd
           errtmp(idim) = 0
         enddo
@@ -871,7 +871,7 @@ c
               ftmp(idim,i) = abs(fcoefs(idim,i))
             enddo
           enddo
-          call dgemv('n',nd,n,alpha,ftmp,nd,rmask,1,beta,errtmp,1)
+          call dgemv_f77('n',nd,n,alpha,ftmp,nd,rmask,1,beta,errtmp,1)
         endif
 
 
@@ -881,19 +881,19 @@ c
               ftmp(idim,i) = fcoefs(idim,i)**2
             enddo
           enddo
-          call dgemv('n',nd,n,alpha,ftmp,nd,rmask,1,beta,errtmp,1)
+          call dgemv_f77('n',nd,n,alpha,ftmp,nd,rmask,1,beta,errtmp,1)
 
           do idim=1,nd
             errtmp(idim) = sqrt(errtmp(idim))
           enddo
         endif
 
-        err = 0
+        erra = 0
         do idim=1,nd
-          if(errtmp(idim).gt.err) err = errtmp(idim)
+          if(errtmp(idim).gt.erra) erra = errtmp(idim)
         enddo
 
-        err = err*rscale
+        erra = erra*rscale
 
         return
         end
@@ -1090,7 +1090,7 @@ c
        integer i,j,nel
 
        nel = nd*npb*nb
-       call dcopy(nel,fvals,1,fvals2,1)
+       call dcopy_f77(nel,fvals,1,fvals2,1)
 
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j)
        do i=1,nb

@@ -855,7 +855,6 @@ c
         real *8 errtmp(nd),ftmp(nd,n)
         real *8 alpha, beta
 
-
         alpha = 1.0d0
         beta = 0.0d0
    

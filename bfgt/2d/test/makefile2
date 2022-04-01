@@ -78,7 +78,7 @@ SOURCES =  test_bfgt2d2.f \
   $(SRC)/bfgt2dpght2.f \
   $(SRC)/bfgt2d.f \
   $(SRC)/fgtterms.f \
-  $(SRC)/fgtvolrouts.f \
+  $(SRC)/fgtvolroutspg.f \
   $(SRC)/g2dvolrouts.f \
   $(SRC)/common/tree_routs4.f \
 

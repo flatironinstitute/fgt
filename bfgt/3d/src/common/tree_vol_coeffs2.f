@@ -1,4 +1,4 @@
-c
+
 c
 c    generate level restricted oct tree based on resolving a 
 c    function to desired precision

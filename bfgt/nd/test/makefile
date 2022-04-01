@@ -1,0 +1,119 @@
+
+EXEC = int2-fgt
+
+#HOST = osx
+HOST=linux-gfortran
+#HOST=linux-ifort
+#HOST=linux-gfortran-prof
+#HOST=linux-gfortran-openmp
+
+ifeq ($(HOST),osx)
+FC = gfortran
+FFLAGS = -O3 -march=native -std=legacy --openmp -funroll-loops -c -w
+FLINK = gfortran -w --openmp -o $(EXEC)
+FEND = -lopenblas ${LDFLAGS}
+endif
+
+ifeq ($(HOST),linux-gfortran)
+FC = gfortran
+FFLAGS = -fPIC -O3 -march=native -funroll-loops -ftree-vectorize -ffast-math -std=legacy -c -w
+FLINK = gfortran -w -o $(EXEC)
+#FEND = -lblas -llapack
+#FEND = -lopenblas -L/usr/local/opt/openblas/lib 
+endif
+
+ifeq ($(HOST),linux-gfortran-prof)
+FC = gfortran
+FFLAGS = -O3 -march=native -pg -g -funroll-loops -ftree-vectorize -ffast-math -c -w  
+FLINK = gfortran -w -o $(EXEC) -pg
+FEND = -lblas -llapack
+endif
+
+ifeq ($(HOST),linux-gfortran-openmp)
+FC = gfortran
+FFLAGS = -fPIC -O3 -march=native -c --openmp
+FLINK = gfortran -w --openmp -o $(EXEC) 
+FEND = -lopenblas -L/usr/local/opt/openblas/lib 
+endif
+
+ifeq ($(HOST),linux-ifort)
+FC = ifort
+#FFLAGS = -O1 -g -c -w -xW -qopenmp 
+#FFLAGS = -O1 -g -c -w -xW
+FFLAGS = -fast -f77rtl -c
+#FLINK = ifort -w -qopenmp -o $(EXEC)
+FLINK = ifort -w -o $(EXEC)
+#FEND = -lblas -llapack
+#FEND = -lopenblas
+endif
+
+
+SRC = ../src
+FGT3D = ../src
+UTILS_DIR = ../src/common
+
+
+.PHONY: all clean list
+
+SOURCES =  test_boxfgt.f \
+  $(SRC)/common/prini_new.f \
+  $(SRC)/common/toms644.f \
+  $(SRC)/common/legeexps.f \
+  $(SRC)/common/chebexps.f \
+  $(SRC)/common/polytens.f \
+  $(SRC)/common/hkrand.f \
+  $(SRC)/common/dlaran.f \
+  $(SRC)/common/voltab2d.f \
+  $(SRC)/common/voltab3d.f \
+  $(SRC)/common/tree_data_routs2d.f \
+  $(SRC)/common/tensor_prod_routs2d.f \
+  $(SRC)/common/fmmcommon2d.f \
+  $(SRC)/common/pts_tree_nd.f \
+  $(SRC)/common/lapack_f77.f \
+  $(SRC)/fgtterms.f \
+  $(SRC)/gndvolrouts.f \
+  $(SRC)/common/tree_routs_nd.f \
+  $(SRC)/common/tree_vol_coeffs_nd.f \
+  $(SRC)/fgtvolrouts.f \
+  $(SRC)/boxfgt.f \
+#  $(SRC)/bfgt2d.f \
+#  $(SRC)/common/tree_vol_coeffs_cheb.f \
+#  $(SRC)/bfgt2d_cheb.f \
+#  $(SRC)/fgtvolrouts_cheb_vals.f \
+
+ifeq ($(WITH_SECOND),1)
+SOURCES += $(SRC)/second-r8.f
+endif
+
+OBJECTS = $(patsubst %.f,%.o,$(patsubst %.f90,%.o,$(SOURCES)))
+
+#
+# use only the file part of the filename, then manually specify
+# the build location
+#
+
+%.o : %.f
+	$(FC) $(FFLAGS) $< -o $@
+
+%.o : %.f90
+	$(FC) $(FFLAGS) $< -o $@
+
+%.mod : %.f90
+	$(FC) $(FFLAGS) $< 
+
+all: $(OBJECTS)
+	rm -f $(EXEC)
+	$(FLINK) $(OBJECTS) $(FEND)
+	./$(EXEC)
+
+clean:
+	rm -f $(OBJECTS)
+	rm -f $(EXEC)
+	rm -f fort*
+	rm -f int*
+
+list: $(SOURCES)
+	$(warning Requires:  $^)
+
+
+

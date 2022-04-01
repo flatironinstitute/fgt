@@ -19,10 +19,16 @@ c
       real *8, allocatable :: hess(:,:,:,:), hessex(:,:,:,:)
 
       real *8, allocatable :: coefs(:,:,:)
+      real *8, allocatable :: coefsg(:,:,:,:)
+      real *8, allocatable :: adiff(:,:)
       
-      real *8, allocatable :: potexe(:,:)
+      real *8, allocatable :: potexe(:,:),fxvalsexe(:,:),fxvalse(:,:)
+      real *8, allocatable :: uxexe(:,:)
       real *8, allocatable :: gradexe(:,:,:)
       real *8, allocatable :: hessexe(:,:,:)
+
+      real *8, allocatable :: fxvalsex(:,:,:)
+      real *8, allocatable :: fxcoefs(:,:,:)
       complex *16 ima,zz,ztmp,zk
 
       real *8 xs(100),ws(100),umat(2000),vmat(2000)
@@ -38,7 +44,7 @@ c
       character *1 type
       data ima/(0.0d0,1.0d0)/
 
-      external fgaussn
+      external fgaussn,fgaussnx
 cccc      logical flag
 
       call prini(6,13)
@@ -50,7 +56,7 @@ c
 c      initialize function parameters
 c
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 1d-20
+      delta = 4d-6
       
       boxlen = 1.0d0
       
@@ -61,16 +67,16 @@ c
       nd = 1
 c     first gaussian
 c     centers
-      dpars(1) = 0.75d0
-      dpars(2) = 0.5d0
+      dpars(1) = 0.64d0
+      dpars(2) = 0.55d0
 c     variance
       dpars(3) = rsig
 c     strength
       dpars(4) = 1/pi/rsig
 
 c     second gaussian
-      dpars(5) = 0.25d0
-      dpars(6) = 0.5d0
+      dpars(5) = 0.36d0
+      dpars(6) = 0.45d0
 
       dpars(7) = rsig
       dpars(8) = -0.5d0/pi/rsig
@@ -80,26 +86,26 @@ c     third gaussian
       dpars(9) = 0.678d0
       dpars(10) = 0.4d0
 
-      dpars(11) = rsig/4.5
+      dpars(11) = rsig/4.5d0
       dpars(12) = 1.0d0/pi/rsig
       
 c     fourth gaussian
       dpars(13) = 0.412d0
       dpars(14) = 0.8d0
 
-      dpars(15) = rsig/1.2
+      dpars(15) = rsig/1.2d0
       dpars(16) = 1/pi/dpars(15)
       
 c     fifth gaussian
       dpars(17) = 0.12d0
       dpars(18) = 0.45d0
 
-      dpars(19) = rsig/3.3
+      dpars(19) = rsig/3.3d0
       dpars(20) = 0.5d0/pi/rsig
 
 c     polynomial expansion order for each leaf box
-      norder = 16
-      iptype = 1
+      norder = 6
+      iptype = 0
       eta = 1.0d0
 
       npbox = norder*norder
@@ -111,12 +117,13 @@ c     polynomial expansion order for each leaf box
          enddo
       enddo
       
-      eps = 0.5d-13
+      eps = 0.5d-14
       call cpu_time(t1)
 C$      t1 = omp_get_wtime()
 
       call vol_tree_mem(eps,zk,boxlen,norder,iptype,eta,
      1   fgaussn,nd,dpars,zpars,ipars,nlevels,nboxes,ltree,rintl)
+c     1   fgaussnx,nd,dpars,zpars,ipars,nlevels,nboxes,ltree,rintl)
 
       call prinf('nboxes=*',nboxes,1)
       call prinf('nlevels=*',nlevels,1)
@@ -125,6 +132,7 @@ C$      t1 = omp_get_wtime()
       allocate(boxsize(0:nlevels),itree(ltree))
 
       call vol_tree_build(eps,zk,boxlen,norder,iptype,eta,fgaussn,nd,
+c      call vol_tree_build(eps,zk,boxlen,norder,iptype,eta,fgaussnx,nd,
      1  dpars,zpars,ipars,nlevels,nboxes,ltree,rintl,itree,iptr,fvals,
      2  centers,boxsize)
 
@@ -169,19 +177,29 @@ c     allocate memory and initialization
         enddo
       enddo
 
+      allocate(fxvalsex(nd,npbox,nboxes))
+      allocate(fxcoefs(nd,npbox,nboxes))
+      allocate(fxvalsexe(nd,ntarg))
+      allocate(fxvalse(nd,ntarg))
+      allocate(uxexe(nd,ntarg))
+      
       type = 'f'
       ifpgh= 3
-      ifpghtarg=1
+      ifpghtarg=3
 
 c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
       ipoly=0
-      
+      iperiod=0
       call cpu_time(t1) 
 C$     t1 = omp_get_wtime()      
 c     call main box FGT routine
-      call bfgt2d(nd,delta,eps,nboxes,nlevels,ltree,itree,
-     1   iptr,norder,npols,type,fvals,centers,boxsize,npbox,
-     2   pot,timeinfo,tprecomp)
+      call bfgt2dpght(nd,delta,eps,iperiod,nboxes,nlevels,ltree,
+     1   itree,iptr,norder,npbox,ttype,fvals,centers,boxsize,npbox,
+     2   ifpgh,pot,grad,hess,ntarg,targs,ifpghtarg,pote,grade,hesse,
+     4   timeinfo,tprecomp)
+c      call bfgt2d(nd,delta,eps,iperiod,nboxes,nlevels,ltree,itree,
+c     1   iptr,norder,npols,type,fvals,centers,boxsize,npbox,
+c     2   pot,timeinfo,tprecomp)
 
       call cpu_time(t2) 
       call prin2('time taken in fgt=*',t2-t1,1)
@@ -211,8 +229,12 @@ c     compute the number of leaf boxes
 c     compute exact solutions on tensor grid
       allocate(xref(2,npbox))
       itype = 0
-      call legetens_exps_2d(itype,norder,type,xref,umat,1,vmat,1,wts)
-
+      if (ipoly.eq.0) then
+         call legetens_exps_2d(itype,norder,type,xref,umat,1,vmat,1,wts)
+      elseif (ipoly.eq.1) then
+         call chebtens_exps_2d(itype,norder,type,xref,umat,1,vmat,1,wts)
+      endif
+      
       do ilevel=1,nlevels
         bs = boxsize(ilevel)/2.0d0
         do ibox=itree(2*ilevel+1),itree(2*ilevel+2)
@@ -221,37 +243,58 @@ c     compute exact solutions on tensor grid
               targ(1)=centers(1,ibox) + xref(1,j)*bs
               targ(2)=centers(2,ibox) + xref(2,j)*bs
 
-              call exact(nd,delta,targ,dpars,potex(nd,j,ibox),
-     1            gradex(nd,1,j,ibox),hessex(nd,1,j,ibox))
-            enddo
+              call exact(nd,delta,targ,dpars,potex(1,j,ibox),
+     1            gradex(1,1,j,ibox),hessex(1,1,j,ibox))
+
+              write(33,*) targ(1), targ(2), potex(1,j,ibox),
+     1            pot(1,j,ibox)
+              call fgaussn(nd,targ,dpars,zpars,ipars,
+     1            fxvalsex(1,j,ibox))
+           enddo
           endif
         enddo
       enddo
-
-      call treedata_derror(nd,nlevels,itree,iptr,
-     1    npbox,potex,pot,abserrp,rnormp,nleaf)
-      errp = abserrp/rnormp
-      call prin2('relative pot l2 error=*',errp,1)
-
-c     compute exact solutions on arbitrary targets      
-      do j=1,ntarg
-         call exact(nd,delta,targs(1,j),dpars,potexe(nd,j),
-     1           gradexe(nd,1,j),hessexe(nd,1,j))
-      enddo
-
 c
 c     convert potential values to expansion coefs
 c
       allocate(coefs(nd,npbox,nboxes))
+      allocate(coefsg(nd,2,npbox,nboxes))
+      
+c     construct 1D differentiation matrix
+      allocate(adiff(norder,norder))
+      do 2600 i=1,norder
+c 
+         do 2200 j=1,norder+3
+            polin(j)=0
+ 2200    continue
+c 
+         polin(i)=1
+         call legediff(polin,norder+1,polout)
+c 
+         polout(norder)=0
+         do 2400 j=1,norder
+            adiff(j,i)=polout(j)
+ 2400    continue
+c 
+ 2600 continue
 
       itype=2
-      call legeexps(itype,norder,xs,umat,vmat,ws)
+      if (ipoly.eq.0) then
+         call legeexps(itype,norder,xs,umat,vmat,ws)
+      elseif (ipoly.eq.1) then
+         call chebexps(itype,norder,xs,umat,vmat,ws)
+      endif
       
       itype=0
       call cpu_time(t1) 
 C     $     t1 = omp_get_wtime()
       call treedata_trans2d(nd,itype,nlevels,itree,iptr,boxsize,
      1    norder,pot,coefs,umat,umat)
+      call treedata_trans2d(nd,itype,nlevels,itree,iptr,boxsize,
+     1    norder,fxvalsex,fxcoefs,umat,umat)
+      call treedata_coefs_p_to_g2d(nd,nlevels,itree,iptr,
+     1    boxsize,norder,coefs,coefsg,adiff)
+      
       call cpu_time(t2) 
 C$     t2 = omp_get_wtime()      
       call prin2('time on treedata_trans2d=*',t2-t1,1)
@@ -259,13 +302,36 @@ C$     t2 = omp_get_wtime()
       call prin2('speed in pps=*',
      1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
 
-c     evaluate the gradient and hessian
+      call treedata_trans2d(nd,itype,nlevels,itree,iptr,boxsize,
+     1    norder,coefs,pot,vmat,vmat)
+      call treedata_derror(nd,nlevels,itree,iptr,
+     1    npbox,potex,pot,abserrp,rnormp,nleaf)
+      errp = abserrp/rnormp
+      call prin2('relative pot l2 error=*',errp,1)
+
+c     compute exact solutions on arbitrary targets      
+      do j=1,ntarg
+         call exact(nd,delta,targs(1,j),dpars,potexe(1,j),
+     1       gradexe(1,1,j),hessexe(1,1,j))
+c         do ind=1,nd
+c     uxexe(ind,j)=gradexe(ind,1,j)
+c         enddo
+         
+         call fgaussn(nd,targs(1,j),dpars,zpars,ipars,fxvalsexe(1,j))
+      enddo
+
+
+c     evaluate the gradient and hessian at tensor grids
       call cpu_time(t1) 
 C     $     t1 = omp_get_wtime()
-      call treedata_evalg2d(nd,ipoly,nlevels,itree,iptr,boxsize,
-     1    norder,coefs,grad)
-      call treedata_evalh2d(nd,ipoly,nlevels,itree,iptr,boxsize,
-     1    norder,coefs,hess)
+c      call treedata_evalg2d(nd,ipoly,nlevels,itree,iptr,boxsize,
+c     1    norder,coefs,grad)
+
+c      call treedata_trans2d(nd*2,itype,nlevels,itree,iptr,boxsize,
+c     1    norder,coefsg,grad,vmat,vmat)
+      
+c      call treedata_evalh2d(nd,ipoly,nlevels,itree,iptr,boxsize,
+c     1    norder,coefs,hess)
       call cpu_time(t2) 
 C$     t2 = omp_get_wtime()      
       call prin2('time on calculating grad and hess=*',t2-t1,1)
@@ -288,11 +354,11 @@ c
 C$     t1 = omp_get_wtime()      
 c     evaluate the potential, gradient and hessian at targets
       if (ifpghtarg.eq.1) then
-         call treedata_evalt2d(nd,itype,itree,ltree,nboxes,nlevels,
+         call treedata_evalt2d(nd,ipoly,itree,ltree,nboxes,nlevels,
      1       iptr,centers,boxsize,norder,coefs,
      2       ntarg,targs,pote)
       elseif (ifpghtarg.eq.2) then
-         call treedata_evalpgt2d(nd,itype,itree,ltree,nboxes,nlevels,
+         call treedata_evalpgt2d(nd,ipoly,itree,ltree,nboxes,nlevels,
      1       iptr,centers,boxsize,norder,coefs,
      2       ntarg,targs,pote,grade)
       elseif (ifpghtarg.eq.3) then
@@ -305,9 +371,14 @@ C$     t2 = omp_get_wtime()
       call prin2('time on extra targ pot eval=*',t2-t1,1)
       call prin2('speed in pps=*',(ntarg+0.0d0)/(t2-t1),1)
 
+      do i=1,ntarg
+         write(34,*) targs(1,i), targs(2,i), potexe(1,i), pote(i)
+      enddo
+      
 c     compute relative error
       if (ifpghtarg.ge.1) then
          call derr(potexe,pote,nd*ntarg,errpe)
+c         call derr(uxexe,pote,nd*ntarg,errpe)
          call prin2('relative pottarg l2 error=*',errpe,1)
       endif
       if (ifpghtarg.ge.2) then
@@ -318,6 +389,12 @@ c     compute relative error
          call derr(hessexe,hesse,nd*3*ntarg,errhe)
          call prin2('relative hesstarg l2 error=*',errhe,1)
       endif
+
+      call treedata_evalt2d(nd,ipoly,itree,ltree,nboxes,nlevels,
+     1    iptr,centers,boxsize,norder,fxcoefs,
+     2    ntarg,targs,fxvalse)
+      call derr(fxvalsexe,fxvalse,nd*ntarg,errfxe)
+      call prin2('relative fx targ l2 error=*',errfxe,1)
       
       end
 c
@@ -335,16 +412,50 @@ c
       complex *16 zpars
       real *8 dpars(*),f(nd),xy(2)
 c     number of Gaussians, at most 5
-      k=2
+      ng=2
 
       do ind=1,nd
          f(ind)=0
-         do i=1,k
+         do i=1,ng
             idp = (i-1)*4
             rr = (xy(1)+0.5d0 - dpars(idp+1))**2 + 
      1          (xy(2)+0.5d0 - dpars(idp+2))**2
             sigma = dpars(idp+3)
             f(ind) = f(ind)+dpars(idp+4)*exp(-rr/sigma)
+         enddo
+      enddo
+
+      return
+      end
+
+c
+c
+c
+c
+c
+c
+      subroutine fgaussnx(nd,xy,dpars,zpars,ipars,f)
+c     right-hand-side function
+c       consisting of x-derivative of several gaussians, their
+c       centers are given in dpars(1:3*nd), and their 
+c       variances in dpars(3*nd+1:4*nd)
+c
+      implicit real *8 (a-h,o-z)
+      integer nd,ipars
+      complex *16 zpars
+      real *8 dpars(*),f(nd),xy(2)
+c     number of Gaussians, at most 5
+      ng=2
+
+      do ind=1,nd
+         f(ind)=0
+         do i=1,ng
+            idp = (i-1)*4
+            rr = (xy(1)+0.5d0 - dpars(idp+1))**2 + 
+     1          (xy(2)+0.5d0 - dpars(idp+2))**2
+            sigma = dpars(idp+3)
+            dx = -2*(xy(1)+0.5d0 - dpars(idp+1))/sigma
+            f(ind) = f(ind)+dpars(idp+4)*exp(-rr/sigma)*dx
          enddo
       enddo
 

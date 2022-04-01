@@ -75,7 +75,7 @@ c
 
 
       do ilev = 0,nlevels
-        sc = 2/boxsize(ilev)
+        sc = 2.0d0/boxsize(ilev)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
@@ -154,7 +154,7 @@ c
       endif
 
       do ilev = 0,nlevels
-        sc = 2/boxsize(ilev)
+        sc = 2.0d0/boxsize(ilev)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
@@ -230,7 +230,7 @@ c
       endif
       
       do ilev = 0,nlevels
-        sc = 2/boxsize(ilev)
+        sc = 2.0d0/boxsize(ilev)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
@@ -289,7 +289,7 @@ c
       real *8 umat(norder,norder)
 
       do ilev = 0,nlevels
-        sc = 2/boxsize(ilev)
+        sc = 2.0d0/boxsize(ilev)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
@@ -358,7 +358,7 @@ c
       real *8 umat(norder,norder)
 
       do ilev = 0,nlevels
-        sc = 2/boxsize(ilev)
+        sc = 2.0d0/boxsize(ilev)
         sc2 = sc*sc 
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
@@ -456,7 +456,7 @@ c
 c     
 c     
       do ilev = 0,nlevels
-         bs = boxsize(ilev)/2
+         sc = 2.0d0/boxsize(ilev)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
             nchild = itree(iptr(4)+ibox-1)
             if (nchild.eq.0) then
@@ -469,8 +469,8 @@ c
                   cy = tcenters(2,ibox)
 
                   do i=istart,iend
-                     xy(1) = (targsort(1,i)-cx)/bs
-                     xy(2) = (targsort(2,i)-cy)/bs
+                     xy(1) = (targsort(1,i)-cx)*sc
+                     xy(2) = (targsort(2,i)-cy)*sc
                      call orth_evalt2d(nd,ipoly,norder,fcoefs(1,1,ibox),
      1                   xy,potsort(1,i))
                   enddo
@@ -563,8 +563,7 @@ c
 c     
 c     
       do ilev = 0,nlevels
-         bs = boxsize(ilev)/2
-         sc = 2/boxsize(ilev)
+         sc = 2.0d0/boxsize(ilev)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
             nchild = itree(iptr(4)+ibox-1)
             if (nchild.eq.0) then
@@ -577,8 +576,8 @@ c
                   cy = tcenters(2,ibox)
 
                   do i=istart,iend
-                     xy(1) = (targsort(1,i)-cx)/bs
-                     xy(2) = (targsort(2,i)-cy)/bs
+                     xy(1) = (targsort(1,i)-cx)*sc
+                     xy(2) = (targsort(2,i)-cy)*sc
                      call orth_evalpgt2d(nd,ipoly,norder,
      1                   coefs(1,1,ibox),sc,xy,
      2                   potsort(1,i),gradsort(1,1,i))
@@ -674,8 +673,7 @@ c
       call dreorderf(2,nt,targ,targsort,itarg)
 c
       do ilev = 0,nlevels
-         bs = boxsize(ilev)/2
-         sc = 1/bs
+         sc = 2.0d0/boxsize(ilev)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
             nchild = itree(iptr(4)+ibox-1)
             if (nchild.eq.0) then
@@ -688,9 +686,9 @@ c
                   cy = tcenters(2,ibox)
 
                   do i=istart,iend
-                     xy(1) = (targsort(1,i)-cx)/bs
-                     xy(2) = (targsort(2,i)-cy)/bs
-                     call orth_evalpght2d(nd,itype,norder,
+                     xy(1) = (targsort(1,i)-cx)*sc
+                     xy(2) = (targsort(2,i)-cy)*sc
+                     call orth_evalpght2d(nd,ipoly,norder,
      1                   coefs(1,1,ibox),sc,xy,
      2                   potsort(1,i),gradsort(1,1,i),hesssort(1,1,i))
                   enddo

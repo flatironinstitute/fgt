@@ -69,7 +69,7 @@ c
 c
 c
 c
-      subroutine fgtpwterms(bsize,delta,eps,pmax,npw)
+      subroutine fgtpwterms(bsize,delta,eps,iperiod,pmax,npw)
 c      
 c     Determine the number of terms in the plane wave expansions 
 c     for boxes with side length = bsize
@@ -116,19 +116,25 @@ c
       real*8 delta, bsize
 c
       pi = 4.0d0*atan(1.0d0)
-      rmax = bsize/sqrt(delta)
 
-      d = sqrt(log(1.0d0/eps))
+      if (iperiod.eq.0) then
+         rmax = bsize/sqrt(delta)
+
+         d = sqrt(log(1.0d0/eps))
 cccc      print *, 'in fgtpwterms, rmax/d=',rmax/d
-      pmax = 2.0d0*d
+         pmax = 2.0d0*d
 
-      h = 2*pi/(rmax+d)
+         h = 2*pi/(rmax+d)
 
-cccc      npw = int(pmax/h)+1
-      npw = int(pmax/h)
+cccc         npw = int(pmax/h)+1
+         npw = int(pmax/h)
 
-      npw = 2*npw
-cccc      print *, h, pmax, pmax/h, npw
+         npw = 2*npw
+cccc         print *, h, pmax, pmax/h, npw
+      else
+         npw = 2*(int(bsize*sqrt(log(1.0d0/eps)/delta)/pi)+1)+1
+
+      endif
       
       return
       end 
@@ -160,6 +166,38 @@ c
       do j =-npw2,npw2-1
          ts(j) = (j+0.5d0)*h
          ws(j) = w*dexp(-ts(j)*ts(j)/4)
+      enddo
+c
+      return
+      end
+C
+C
+c
+C
+
+      
+c*********************************************************************
+C
+C get plane wave approximation nodes and weights for periodic Green's function
+C
+C*********************************************************************
+      subroutine get_periodic_pwnodes(bsize0,delta,eps,npw,ws,ts)
+C
+C     Get planewave exp weights,nodes for periodic Green's function
+C
+      implicit real *8 (a-h,o-z)
+      real *8 ws(-npw/2:npw/2),ts(-npw/2:npw/2)
+
+      pi = 4.0d0*datan(1.0d0)
+      npw2=npw/2
+      
+      h = 2*pi/bsize0
+      w = sqrt(pi*delta)/bsize0
+
+      hw=h*sqrt(delta)/2
+      do j =-npw2,npw2
+         ts(j) = j*h
+         ws(j) = w*dexp(-(hw*j)**2)
       enddo
 c
       return

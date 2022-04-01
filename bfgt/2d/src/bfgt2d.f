@@ -13,7 +13,7 @@ c
 c    $Date$
 c    $Revision$
 
-      subroutine bfgt2d(nd,delta,eps,nboxes,nlevels,ltree,
+      subroutine bfgt2d(nd,delta,eps,iperiod,nboxes,nlevels,ltree,
      1   itree,iptr,norder,ncbox,ttype,fvals,centers,boxsize,npbox,
      2   pot,timeinfo,tprecomp)
 
@@ -122,7 +122,7 @@ c     compute the length of plane wave expansion
       npw=0
       if (npwlevel.ge.0.and.npwlevel.le.nlevels) then
          bsize=2*boxsize(npwlevel)
-         call fgtpwterms(bsize,delta,eps,pmax,npw)
+         call fgtpwterms(bsize,delta,eps,iperiod,pmax,npw)
       endif
       call prinf(' npw =*',npw,1)
 c       

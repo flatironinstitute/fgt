@@ -410,6 +410,16 @@ c
          fval(ind)=dd
       enddo
 
+c      do ind=1,nd
+c         dd=0
+c         do j=1,norder
+c         do k=1,norder
+c            dd=dd+fcoefs(ind,k,j)*px(k)*py(j)
+c         enddo
+c         enddo
+c         fval(ind)=dd
+c      enddo
+
       return
       end
 c

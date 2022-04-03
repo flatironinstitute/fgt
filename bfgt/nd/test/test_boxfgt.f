@@ -61,7 +61,7 @@ c
 c      initialize function parameters
 c
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 1d-6
+      delta = 1d-7
       
       boxlen = 1.0d0
       

@@ -484,18 +484,10 @@ c     values, used in direct evaluation
 
       nnodes=50
       do ilev = 0,min(npwlevel,nlevels)
-         call mk_loctab_coll(eps,ipoly,norder,nnodes,delta,
-     1       boxsize(ilev),tab_coll(1,1,-1,ilev),ind_coll(1,1,-1,ilev))
-      enddo
-
-      do ilev = 0,min(npwlevel,nlevels)
-         call mk_loctab_stob(eps,ipoly,norder,nnodes,delta,
-     1       boxsize(ilev),tab_stob(1,1,1,ilev),ind_stob(1,1,1,ilev))
-      enddo
-
-      do ilev = 0,min(npwlevel,nlevels)
-         call mk_loctab_btos(eps,ipoly,norder,nnodes,delta,
-     1       boxsize(ilev),tab_btos(1,1,1,ilev),ind_btos(1,1,1,ilev))
+         call mk_loctab_all(eps,ipoly,norder,nnodes,delta,
+     1       boxsize(ilev),tab_coll(1,1,-1,ilev),ind_coll(1,1,-1,ilev),
+     2       tab_stob(1,1,1,ilev),ind_stob(1,1,1,ilev),
+     3       tab_btos(1,1,1,ilev),ind_btos(1,1,1,ilev))
       enddo
 
 c

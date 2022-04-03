@@ -61,7 +61,7 @@ c
 c      initialize function parameters
 c
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 1d-7
+      delta = 1d-5
       
       boxlen = 1.0d0
       
@@ -146,6 +146,15 @@ C$      t1 = omp_get_wtime()
       call cpu_time(t2)
 C$      t2 = omp_get_wtime()      
 
+c     compute the number of leaf boxes
+      nlfbox = 0
+      do ilevel=1,nlevels
+        do ibox=itree(2*ilevel+1),itree(2*ilevel+2)
+          if(itree(iptr(4)+ibox-1).eq.0) nlfbox = nlfbox+1
+        enddo
+      enddo
+      call prinf('nlfbox=*',nlfbox,1)
+
       call prin2('time taken to build tree=*',t2-t1,1)
       call prin2('speed in points per sec=*',
      1   (nboxes*npbox+0.0d0)/(t2-t1),1)
@@ -205,17 +214,7 @@ c     2   pot,timeinfo,tprecomp)
 
       call cpu_time(t2) 
       call prin2('time taken in fgt=*',t2-t1,1)
-
-c     compute the number of leaf boxes
-      nlfbox = 0
-      do ilevel=1,nlevels
-        do ibox=itree(2*ilevel+1),itree(2*ilevel+2)
-          if(itree(iptr(4)+ibox-1).eq.0) nlfbox = nlfbox+1
-        enddo
-      enddo
-      call prinf('nlfbox=*',nlfbox,1)
-      
-      call prin2('speed in pps with precomputation included=*',
+      call prin2('speed in pps=*',
      1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
 
       allocate(potex(nd,npbox,nboxes))

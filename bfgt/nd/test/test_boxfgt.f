@@ -61,7 +61,7 @@ c
 c      initialize function parameters
 c
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 1d-5
+      delta = 1d-6
       
       boxlen = 1.0d0
       
@@ -274,37 +274,23 @@ c
          call chebexps(itype,norder,xs,umat,vmat,ws)
       endif
       
-      itype=0
-      call cpu_time(t1) 
-C     $     t1 = omp_get_wtime()
-      call treedata_trans2d(nd,itype,nlevels,itree,iptr,boxsize,
-     1    norder,pot,coefs,umat,umat)
-      call treedata_coefs_p_to_g2d(nd,nlevels,itree,iptr,
-     1    boxsize,norder,coefs,coefsg,adiff)
-      
-      call cpu_time(t2) 
-C$     t2 = omp_get_wtime()      
-      call prin2('time on treedata_trans2d=*',t2-t1,1)
-      
-      call prin2('speed in pps=*',
-     1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
-
-c      call treedata_trans2d(nd,itype,nlevels,itree,iptr,boxsize,
-c     1    norder,coefs,pot,vmat,vmat)
       call treedata_derror(nd,nlevels,itree,iptr,
      1    npbox,potex,pot,abserrp,rnormp,nleaf)
+      call treedata_derror(nd*ndim,nlevels,itree,iptr,
+     1    npbox,gradex,grad,abserrg,rnormg,nleaf)
+      call treedata_derror(nd*nhess,nlevels,itree,iptr,
+     1    npbox,hessex,hess,abserrh,rnormh,nleaf)
       errp = abserrp/rnormp
+      errg = abserrg/rnormg
+      errh = abserrh/rnormh
       call prin2('relative pot l2 error=*',errp,1)
+      call prin2('relative grad l2 error=*',errg,1)
+      call prin2('relative hess l2 error=*',errh,1)
 
-c     compute exact solutions on arbitrary targets      
-      do j=1,ntarg
-         call exact(nd,delta,targs(1,j),dpars,potexe(1,j),
-     1       gradexe(1,1,j),hessexe(1,1,j))
-      enddo
 
 
 c     evaluate the gradient and hessian at tensor grids
-      call cpu_time(t1) 
+c      call cpu_time(t1) 
 C     $     t1 = omp_get_wtime()
 c      call treedata_evalg2d(nd,ipoly,nlevels,itree,iptr,boxsize,
 c     1    norder,coefs,grad)
@@ -314,24 +300,35 @@ c     1    norder,coefsg,grad,vmat,vmat)
       
 c      call treedata_evalh2d(nd,ipoly,nlevels,itree,iptr,boxsize,
 c     1    norder,coefs,hess)
-      call cpu_time(t2) 
+c      call cpu_time(t2) 
 C$     t2 = omp_get_wtime()      
 c      call prin2('time on calculating grad and hess=*',t2-t1,1)
       
 c      call prin2('speed in pps=*',
 c     1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
 
-      call treedata_derror(nd*ndim,nlevels,itree,iptr,
-     1    npbox,gradex,grad,abserrg,rnormg,nleaf)
-      call treedata_derror(nd*nhess,nlevels,itree,iptr,
-     1    npbox,hessex,hess,abserrh,rnormh,nleaf)
-      errg = abserrg/rnormg
-      errh = abserrh/rnormh
-      call prin2('relative grad l2 error=*',errg,1)
-      call prin2('relative hess l2 error=*',errh,1)
-
 c
+c     compute exact solutions on arbitrary targets      
+      do j=1,ntarg
+         call exact(nd,delta,targs(1,j),dpars,potexe(1,j),
+     1       gradexe(1,1,j),hessexe(1,1,j))
+      enddo
 c     
+      itype=0
+      call cpu_time(t1) 
+C     $     t1 = omp_get_wtime()
+      call treedata_trans2d(nd,itype,nlevels,itree,iptr,boxsize,
+     1    norder,pot,coefs,umat,umat)
+c      call treedata_coefs_p_to_g2d(nd,nlevels,itree,iptr,
+c     1    boxsize,norder,coefs,coefsg,adiff)
+      
+      call cpu_time(t2) 
+C$     t2 = omp_get_wtime()      
+      call prin2('time on treedata_trans2d=*',t2-t1,1)
+      
+      call prin2('speed in pps=*',
+     1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
+
       call cpu_time(t1) 
 C$     t1 = omp_get_wtime()      
 c     evaluate the potential, gradient and hessian at targets

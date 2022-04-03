@@ -379,14 +379,7 @@ c
       real *8, allocatable :: pyd(:)
 
       real *8, allocatable :: tab_loc(:,:,:,:)
-      real *8, allocatable :: tab_coll(:,:,:,:)
-      real *8, allocatable :: tab_stob(:,:,:,:)
-      real *8, allocatable :: tab_btos(:,:,:,:)
-
       integer, allocatable :: ind_loc(:,:,:,:)
-      integer, allocatable :: ind_coll(:,:,:,:)
-      integer, allocatable :: ind_stob(:,:,:,:)
-      integer, allocatable :: ind_btos(:,:,:,:)
       
       ifprint = 1
 
@@ -463,14 +456,6 @@ c     values, used in direct evaluation
       allocate(tab_loc(norder,norder,-6:6,0:nlevels))
       allocate(ind_loc(2,norder+1,-6:6,0:nlevels))
 
-      allocate(tab_coll(norder,norder,-1:1,0:nlevels))
-      allocate(tab_stob(norder,norder,4,0:nlevels))
-      allocate(tab_btos(norder,norder,4,0:nlevels))
-
-      allocate(ind_coll(2,norder+1,-1:1,0:nlevels))
-      allocate(ind_stob(2,norder+1,4,0:nlevels))
-      allocate(ind_btos(2,norder+1,4,0:nlevels))
-      
       allocate(hh(norder,norder))
       allocate(hh2(norder,norder))
       allocate(hh3(norder,norder))
@@ -489,11 +474,6 @@ c     values, used in direct evaluation
 
       nnodes=50
       do ilev = 0,min(npwlevel,nlevels)
-         call mk_loctab_all(eps,ipoly,norder,nnodes,delta,
-     1       boxsize(ilev),tab_coll(1,1,-1,ilev),ind_coll(1,1,-1,ilev),
-     2       tab_stob(1,1,1,ilev),ind_stob(1,1,1,ilev),
-     3       tab_btos(1,1,1,ilev),ind_btos(1,1,1,ilev))
-         
          call mk_loctab_all2(eps,ipoly,norder,nnodes,delta,
      1       boxsize(ilev),tab_loc(1,1,-6,ilev),ind_loc(1,1,-6,ilev))
       enddo
@@ -870,83 +850,6 @@ cccc                     print *, 'loc jlev=',jlev,'ix=',ix,'iy=',iy
      3                   tab_loc(1,1,iy,jlev),
      4                   ind_loc(1,1,ix,jlev),
      5                   ind_loc(1,1,iy,jlev))
-                  endif
-                  
-                  if (1.eq.2) then
-                  bs = boxsize(jlev)
-c     colleague
-                  if ((ilev .eq. jlev) .and.
-     1                ((iflocal(ibox).ne.1) .or. (jbox.ne.ibox))) then
-                     ix = (centers(1,jbox)-centers(1,ibox))/bs
-                     iy = (centers(2,jbox)-centers(2,ibox))/bs
-                     if (iperiod .eq. 1) then
-                        ixp1=ix-2**jlev
-                        ixm1=ix+2**jlev
-                        iyp1=iy-2**jlev
-                        iym1=iy+2**jlev
-                        if (abs(ix).gt.abs(ixp1)) ix=ixp1
-                        if (abs(ix).gt.abs(ixm1)) ix=ixm1
-                        if (abs(iy).gt.abs(iyp1)) iy=iyp1
-                        if (abs(iy).gt.abs(iym1)) iy=iym1
-                     endif
-
-                     print *, 'coll jlev=',jlev,'ix=',ix,'iy=',iy
-                     call gnd_tens_prod_to_potloc2(nd,norder,
-     1                   fvals(1,1,ibox),hh,pot(1,1,jbox),
-     2                   tab_coll(1,1,ix,jlev),
-     3                   tab_coll(1,1,iy,jlev),
-     4                   ind_coll(1,1,ix,jlev),
-     5                   ind_coll(1,1,iy,jlev))
-c                 big source box to small target box                     
-                  elseif (ilev .eq. jlev-1) then
-                     dx = (centers(1,jbox)-centers(1,ibox))/bs
-                     dy = (centers(2,jbox)-centers(2,ibox))/bs
-cccc                     print *, 'ilev=',ilev,'dx=',dx,'dy=',dy
-                     if (iperiod .eq. 1) then
-                        dxp1=dx-bs0/bs
-                        dxm1=dx+bs0/bs
-                        dyp1=dy-bs0/bs
-                        dym1=dy+bs0/bs
-                        if (abs(dx).gt.abs(dxp1)) dx=dxp1
-                        if (abs(dx).gt.abs(dxm1)) dx=dxm1
-                        if (abs(dy).gt.abs(dyp1)) dy=dyp1
-                        if (abs(dy).gt.abs(dym1)) dy=dym1
-                     endif
-                     ix=dx+2.55d0
-                     iy=dy+2.55d0
-cccc                     print *, 'btos jlev=',jlev,'ix=',ix,'iy=',iy
-
-                     call gnd_tens_prod_to_potloc2(nd,norder,
-     1                   fvals(1,1,ibox),hh,pot(1,1,jbox),
-     2                   tab_btos(1,1,ix,jlev),
-     3                   tab_btos(1,1,iy,jlev),
-     4                   ind_btos(1,1,ix,jlev),
-     5                   ind_btos(1,1,iy,jlev))
-c                 small source box to big target box 
-                  elseif (ilev .eq. jlev+1) then
-                     dx = (centers(1,jbox)-centers(1,ibox))/bs
-                     dy = (centers(2,jbox)-centers(2,ibox))/bs
-
-                     if (iperiod .eq. 1) then
-                        dxp1=dx-bs0/bs
-                        dxm1=dx+bs0/bs
-                        dyp1=dy-bs0/bs
-                        dym1=dy+bs0/bs
-                        if (abs(dx).gt.abs(dxp1)) dx=dxp1
-                        if (abs(dx).gt.abs(dxm1)) dx=dxm1
-                        if (abs(dy).gt.abs(dyp1)) dy=dyp1
-                        if (abs(dy).gt.abs(dym1)) dy=dym1
-                     endif
-                     ix=dx*2+2.55d0
-                     iy=dy*2+2.55d0
-cccc                     print *, 'stob jlev=',jlev,'ix=',ix,'iy=',iy
-                     call gnd_tens_prod_to_potloc2(nd,norder,
-     1                   fvals(1,1,ibox),hh,pot(1,1,jbox),
-     2                   tab_stob(1,1,ix,jlev),
-     3                   tab_stob(1,1,iy,jlev),
-     4                   ind_stob(1,1,ix,jlev),
-     5                   ind_stob(1,1,iy,jlev))
-                  endif
                   endif
                enddo
             endif

@@ -347,7 +347,6 @@ c
 
       integer ndirect
       
-      real *8, allocatable :: fcoefs(:,:,:)
       real *8, allocatable :: xq(:),wts(:),umat(:,:),vmat(:,:)
 
       real *8 timelev(0:200)
@@ -396,7 +395,7 @@ c
 c
 c       compute coefs
 c
-      allocate(fcoefs(npbox,nd,nboxes),xq(norder),umat(norder,norder),
+      allocate(xq(norder),umat(norder,norder),
      1   vmat(norder,norder),wts(norder))
      
       itype = 2
@@ -407,23 +406,6 @@ c
      $     call prinf('=== STEP 0 (precomputation) =====*',i,0)
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
-      
-      do ilev = 0,nlevels
-        do ibox = itree(2*ilev+1),itree(2*ilev+2)
-          nchild = itree(iptr(4) + ibox-1)
-          if(nchild.eq.0) then
-             do ind=1,nd
-                do i=1,npbox
-                   fcoefs(i,ind,ibox)=fvals(ind,i,ibox)
-c                   if (abs(fvals(ind,i,ibox)).lt.1d-16) 
-c     1                 fcoefs(i,ind,ibox)=0
-                enddo
-             enddo
-c     1        call tens_prod_trans_nd(nd,norder,fvals(1,1,ibox),
-c     2        fcoefs(1,1,ibox),umat)
-          endif
-        enddo
-      enddo
 c      
       nlevend=nlevels
       if (npwlevel.lt.nlevels) nlevend=npwlevel
@@ -464,17 +446,15 @@ c
 c       compute list info
 c
       isep = 1
-      call compute_mnlist1(ndim,nlevels,nboxes,itree(iptr(1)),boxsize,
-     1    centers,itree(iptr(3)),itree(iptr(4)),itree(iptr(5)),
+      call compute_mnlist1(ndim,nboxes,nlevels,itree(iptr(1)),centers,
+     1    boxsize,itree(iptr(3)),itree(iptr(4)),itree(iptr(5)),
      2    isep,itree(iptr(6)),itree(iptr(7)),iperiod,mnlist1)
       
       allocate(list1(mnlist1,nboxes),nlist1(nboxes))
 
 c     modified list1 for direct evaluation
-      call compute_modified_list1(ndim,nlevels,npwlevel,
-     1  nboxes,itree,ltree,iptr,
-     2  centers,boxsize,
-     3  iperiod,mnlist1,nlist1,list1)
+      call compute_modified_list1(ndim,npwlevel,nboxes,nlevels,
+     1    ltree,itree,iptr,centers,boxsize,iperiod,mnlist1,nlist1,list1)
 
 c     compute the tables converting Legendre polynomial expansion to potential
 c     values, used in direct evaluation
@@ -494,7 +474,7 @@ c     values, used in direct evaluation
       allocate(tabfx(norder,norder))
       allocate(tabfxx(norder,norder))
 
-      allocate(lgcoefs(norder,norder,nd))
+      allocate(lgcoefs(nd,norder,norder))
       allocate(px(norder+1))
       allocate(py(norder+1))
       allocate(pxd(norder+1))
@@ -645,7 +625,7 @@ C$OMP$SCHEDULE(DYNAMIC)
 c              Check if current box is a leaf box            
                if(nchild.eq.0) then
 c                 form PW expansion directly
-                  call gnd_tens_prod_to_pw(nd,norder,fcoefs(1,1,ibox),
+                  call gnd_tens_prod_to_pw(nd,norder,fvals(1,1,ibox),
      1                npw,ff,
      2                tab_poly2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
                endif
@@ -884,7 +864,7 @@ c                 colleague
 
 cccc                     print *, 'coll jlev=',jlev,'ix=',ix,'iy=',iy
                      call gnd_tens_prod_to_potloc2(nd,norder,
-     1                   fcoefs(1,1,ibox),hh,pot(1,1,jbox),
+     1                   fvals(1,1,ibox),hh,pot(1,1,jbox),
      2                   tab_coll(1,1,ix,jlev),
      3                   tab_coll(1,1,iy,jlev),
      4                   ind_coll(1,1,ix,jlev),
@@ -911,7 +891,7 @@ cccc                     print *, 'ilev=',ilev,'dx=',dx,'dy=',dy
 cccc                     print *, 'btos jlev=',jlev,'ix=',ix,'iy=',iy
 
                      call gnd_tens_prod_to_potloc2(nd,norder,
-     1                   fcoefs(1,1,ibox),hh,pot(1,1,jbox),
+     1                   fvals(1,1,ibox),hh,pot(1,1,jbox),
      2                   tab_btos(1,1,ix,jlev),
      3                   tab_btos(1,1,iy,jlev),
      4                   ind_btos(1,1,ix,jlev),
@@ -935,7 +915,7 @@ c                 small source box to big target box
                      iy=dy*2+2.55d0
 cccc                     print *, 'stob jlev=',jlev,'ix=',ix,'iy=',iy
                      call gnd_tens_prod_to_potloc2(nd,norder,
-     1                   fcoefs(1,1,ibox),hh,pot(1,1,jbox),
+     1                   fvals(1,1,ibox),hh,pot(1,1,jbox),
      2                   tab_stob(1,1,ix,jlev),
      3                   tab_stob(1,1,iy,jlev),
      4                   ind_stob(1,1,ix,jlev),
@@ -979,7 +959,7 @@ C$OMP END PARALLEL DO
 C$    time2=omp_get_wtime()  
       timeinfo(7) = time2-time1
 
-      if(ifprint.eq.1) call prin2('timeinfo=*',timeinfo,6)
+      if(ifprint.eq.1) call prin2('timeinfo=*',timeinfo,7)
 
       d= 0
       do i = 1,7
@@ -1085,7 +1065,6 @@ c
       real *8 rmlexp(*)
       real *8 timeinfo(*)
 c
-      real *8, allocatable :: fcoefs(:,:,:)
       real *8, allocatable :: xq(:),wts(:),umat(:,:),vmat(:,:)
 
       real *8 timelev(0:200)
@@ -1104,35 +1083,12 @@ c
 c
 c       compute coefs
 c
-      allocate(fcoefs(npbox,nd,nboxes),xq(norder),umat(norder,norder),
+      allocate(xq(norder),umat(norder,norder),
      1   vmat(norder,norder),wts(norder))
      
       itype = 2
       if (ipoly.eq.0) call legeexps(itype,norder,xq,umat,vmat,wts)
       if (ipoly.eq.1) call chebexps(itype,norder,xq,umat,vmat,wts)
-
-      do ilev = 0,nlevels
-        do ibox = itree(2*ilev+1),itree(2*ilev+2)
-          nchild = itree(iptr(4) + ibox-1)
-          if(nchild.eq.0) then
-             do ind=1,nd
-                do i=1,npbox
-                   fcoefs(i,ind,ibox)=fvals(ind,i,ibox)
-                   if (abs(fvals(ind,i,ibox)).lt.1d-16) 
-     1                 fcoefs(i,ind,ibox)=0
-                enddo
-             enddo
-          endif
-        enddo
-      enddo
-
-      do i=1,6
-         timeinfo(i)=0
-      enddo
-
-      do i=0,nlevels
-         timelev(i) = 0
-      enddo
 
 c
 c     get planewave nodes and weights
@@ -1191,7 +1147,7 @@ C$OMP$SCHEDULE(DYNAMIC)
 c           Check if current box is a leaf box            
             if(nchild.eq.0) then
 c              form PW expansion directly
-               call gnd_tens_prod_to_pw(nd,norder,fcoefs(1,1,ibox),npw,
+               call gnd_tens_prod_to_pw(nd,norder,fvals(1,1,ibox),npw,
      1             ff,tab_poly2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
             endif
          enddo

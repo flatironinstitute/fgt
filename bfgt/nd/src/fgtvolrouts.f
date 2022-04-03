@@ -73,37 +73,21 @@ C*********************************************************************C
       subroutine mk_leg2pw_tables(n,npw,nnodes,ws,ts,delta,boxdim,
      1    tab_leg2pw)
 C*********************************************************************C
-c     Use half-order Bessel J function to construct the table.
+c     Use spherical Bessel functions to construct the table.
 c
 c     tab_leg2pw(n,j) = ws(j)*(D/2) * 
 c            int_{-1}^1 P_n(x) exp(- i ts(j)Dx/(2 \sqrt{delta})) dx
 c      
 c     it is known that
 c      
-c     int_{-1}^1 P_n(x) exp(- i a x) dx = 1/i^n *sqrt(2pi/a) J_{n+1/2)(a),
+c     int_{-1}^1 P_n(x) exp(- i a x) dx = 1/i^n *sqrt(2pi/a) J_{n+1/2)(a)
+c                                       = 2/i^n j_n(a),
 c      
-c     where i^2=-1, J_{n+1/2) is the Bessel J function of half integer order.
-c
-c      
-c     we use the package TOMS 644 to evaluate J_{n+1/2}. James Bremer also has 
-c     a package for the evaluation of J_{nu}, but it requires reading  
-c     tables, evaluates J_{n+1/2} and Y_{n+1/2} at the same time,
-c     and does the evaluate for each n one at a time. TOMS 644 evaluates
-c     J functions only, and does the evaluation for a sequence of n at the
-c     same time.
+c     where i^2=-1, J_{n+1/2) is the Bessel J function of half integer order
+c     and j_n(z)=sqrt(pi/(2z))J_{n+1/2}(z) is the spherical Bessel function
+c     of order n.
 c      
 c     Here D is the box dimension at current level in the tree hierarchy.
-c
-c     Since a could be large, reaching about 100 for high accuracy,
-c     the quadrature scheme will need to set nnodes very large,
-c     leading to an inefficient scheme.
-c      
-c     That is, 
-c     tab_leg2pw(n,j) is the Fourier transform of P_n at a specific
-c     frequency. These can be expressed in terms of half-order Bessel
-c     functions. A faster scheme would be to compute the top two 
-c     coefficients and then use a downward recurrence to get the rest.
-c     There are also analytic formulae for these Fourier transforms.
 c
 c     INPUT:
 c     n        dimension of coeff array
@@ -181,19 +165,16 @@ C*********************************************************************C
       subroutine mk_cheb2pw_tables(n,npw,nnodes,ws,ts,delta,boxdim,
      1    tab_cheb2pw)
 C*********************************************************************C
-c     Use half-order Bessel J function to construct the table.
+c     Use spherical Bessel functions to construct the table.
 c
 c     tab_cheb2pw(n,j) = ws(j)*(D/2) * 
-c              int_{-1}^1 P_n(x) exp(- i ts(j)Dx/(2 \sqrt{delta})) dx
+c              int_{-1}^1 T_n(x) exp(- i ts(j)Dx/(2 \sqrt{delta})) dx
 c              where D is the box dimension at current level in
 c              tree hierarchy.
 c
 c     That is, 
-c     tab_cheb2pw(n,j) is the Fourier transform of P_n at a specific
-c     frequency. These can be expressed in terms of half-order Bessel
-c     functions. A faster scheme would be to compute the top two 
-c     coefficients and then use a downward recurrence to get the rest.
-c     There are also analytic formulae for these Fourier transforms.
+c     tab_cheb2pw(n,j) is the Fourier transform of T_n at a specific
+c     frequency. 
 c
 c     INPUT:
 c     n        dimension of coeff array
@@ -501,9 +482,9 @@ c     target points
                enddo
             else
                if (ipoly .eq. 0) then
-                  call mk_legetab_recur(n,xim1,lambda,dmax,boxdim,fint)
+                  call mk_legetab_recur(n,xim1,lambda,boxdim,fint)
                elseif (ipoly .eq. 1) then
-                  call mk_chebtab_recur(n,xim1,lambda,dmax,boxdim,fint)
+                  call mk_chebtab_recur(n,xim1,lambda,boxdim,fint)
                endif
                do m=1,n
                   tabtmpm1(m,j)  = fint(m)
@@ -567,9 +548,9 @@ c
          do j=1,n/2
             xi = xnodest(j)
             if (ipoly.eq.0) then
-               call mk_legetab_recur(n,xi,lambda,dmax,boxdim,fint)
+               call mk_legetab_recur(n,xi,lambda,boxdim,fint)
             elseif (ipoly.eq.1) then
-               call mk_chebtab_recur(n,xi,lambda,dmax,boxdim,fint)
+               call mk_chebtab_recur(n,xi,lambda,boxdim,fint)
             endif
             do m=1,n
                tabtmp0(m,j)  = fint(m)
@@ -653,7 +634,7 @@ C*********************************************************************C
 C*********************************************************************C
 c     This routine is an optimized table generator.
 c
-c     tab_colleague(n,j,k) = 
+c     tab_stob(n,j,k) = 
 c              int_{source box} P_n(x) exp( -(\xi_j -x)^2/delta)
 c              where boxdim is the box dimension of TARGET BOX 
 c              at current level in tree hierarchy and 
@@ -727,10 +708,10 @@ c     target points
                enddo
             else
                if (ipoly.eq.0) then
-                  call mk_legetab_recur(n,xi1,lambda,dmax,
+                  call mk_legetab_recur(n,xi1,lambda,
      1                boxdim/2,fint)
                elseif (ipoly.eq.1) then
-                  call mk_chebtab_recur(n,xi1,lambda,dmax,
+                  call mk_chebtab_recur(n,xi1,lambda,
      1                boxdim/2,fint)
                endif
                do m=1,n
@@ -748,10 +729,10 @@ c     target points
                enddo
             else
                if (ipoly.eq.0) then
-                  call mk_legetab_recur(n,xi2,lambda,dmax,
+                  call mk_legetab_recur(n,xi2,lambda,
      1                boxdim/2,fint)
                elseif (ipoly.eq.1) then
-                  call mk_chebtab_recur(n,xi2,lambda,dmax,
+                  call mk_chebtab_recur(n,xi2,lambda,
      1                boxdim/2,fint)
                endif
                do m=1,n
@@ -856,9 +837,9 @@ c
          do j=n/2+1,n
             xi2 = xnodest(j) - 1.0d0
             if (ipoly.eq.0) then
-               call mk_legetab_recur(n,xi2,lambda,dmax,boxdim/2,fint)
+               call mk_legetab_recur(n,xi2,lambda,boxdim/2,fint)
             elseif (ipoly.eq.1) then
-               call mk_chebtab_recur(n,xi2,lambda,dmax,boxdim/2,fint)
+               call mk_chebtab_recur(n,xi2,lambda,boxdim/2,fint)
             endif
             do m=1,n
                tabtmp2(m,j)  = fint(m)
@@ -934,18 +915,17 @@ c     use symmetry to construct the tables 3 and 4
       end subroutine
 c
 c
-
 c
 c
 C*********************************************************************C
       subroutine mk_loctab_btos(eps,ipoly,n,nnodes,delta,boxdim,
      1    tab_btos,indc_btos)
 C*********************************************************************C
-c     This routine is a correct but not optimized table generator.
+c     This routine is an optimized table generator.
 c
-c     tab_colleague(n,j,k) = 
+c     tab_btos(n,j,k) = 
 c              int_{source box} P_n(x) exp( -(\xi_j -x)^2/delta)
-c              where boxdim is the box dimension of TARGET BOX 
+c              where boxdim is the box dimension of the TARGET BOX 
 c              at current level in tree hierarchy and 
 c              \xi_j is either on 
 c              [-2D,-D]    -> tab_btos(n,n,1)
@@ -977,184 +957,75 @@ c
 c     OUTPUT:
 c     tab_btos
 c----------------------------------------------------------------------c
-      implicit real *8 (a-h,o-z)
-      real *8 xi,xi1,xi2,xi3,xi4
+      implicit none
       real *8 tab_btos(n,n,4)
       integer indc_btos(2,n+1,4)
-      real *8 xnodest(100),fint(100),lambda
+
+      real *8 eps,delta,boxdim
+      real *8 btosscale,utmp,vtmp
+      real *8 btoscen(2)
+      real *8, allocatable :: tnodes(:), ws(:) 
+      real *8, allocatable :: xnodes(:), wts(:) 
+      real *8, allocatable :: umat(:,:),vmat(:,:)
+      real *8, allocatable :: ptmp(:)
       real *8, allocatable :: polyv(:,:)
-      real *8, allocatable :: whts(:), xnodes(:)
-      real *8, allocatable :: wexp(:,:)
-      real *8, allocatable :: ws(:),u(:,:),v(:,:)
-      real *8, allocatable :: tabtmp1(:,:),tabtmp2(:,:)
+      real *8, allocatable :: btos(:,:)
+      real *8, allocatable :: btosx(:,:)
+      real *8, allocatable :: btosxx(:,:)
+      integer itype,nquad,i,j,k,m,ipoly,n,ifzero,nnodes
 c
-      allocate(ws(n),u(n,n),v(n,n))
-      allocate(tabtmp1(n,n),tabtmp2(n,n))
-c
+      allocate(btos(n,n))
+      allocate(btosx(n,n))
+      allocate(btosxx(n,n))
+
+c     target nodes
+      allocate(tnodes(n),ws(n),umat(n,n),vmat(n,n))
       itype = 2
-      if (ipoly.eq.0) call legeexps(itype,n,xnodest,u,v,ws)
-      if (ipoly.eq.1) call chebexps(itype,n,xnodest,u,v,ws)
+      if (ipoly.eq.0) call legeexps(itype,n,tnodes,umat,vmat,ws)
+      if (ipoly.eq.1) call chebexps(itype,n,tnodes,umat,vmat,ws)
 
-      do i=1,n
-         xnodest(i) = xnodest(i)/2
-      enddo
+c     quadrature nodes and weights
+      nquad = 50
+      allocate(xnodes(nquad),wts(nquad))
+      allocate(ptmp(n),polyv(nquad,n))
 
-      sigma = delta/boxdim**2
-      lambda = sqrt(sigma)
-cccc      print *, 'lambda=', lambda
-      
-      reps=2d-16
-      dmax=sqrt(log(1/reps)*sigma)
-cccc      print *, 'dmax=',dmax
-c
-c     btos table 1, the scaled target interval is on [-2,-1], the scaled
-c     source interval is on [-1,1]. Use the same quadrature nodes for all
-c     target points
-c
-      if (lambda.le.0.125d0) then
-         do j=1,n
-            dx=0.5d0-xnodest(j)
-            if (dx.gt.dmax) then
-               do m=1,n
-                  tabtmp1(m,j) = 0
-               enddo
-            else
-               xi1 = xnodest(j) - 1.5d0
-               if (ipoly.eq.0) then
-                  call mk_legetab_recur(n,xi1,lambda,dmax,
-     1                boxdim*2,fint)
-               elseif (ipoly.eq.1) then
-                  call mk_chebtab_recur(n,xi1,lambda,dmax,
-     1                boxdim*2,fint)
-               endif
-               do m=1,n
-                  tabtmp1(m,j)  = fint(m)
-               enddo
-            endif
-         enddo
-      else
-         nquad = 50
-         allocate(polyv(n,nquad))
-         allocate(whts(nquad))
-         allocate(xnodes(nquad))
-         allocate(wexp(nquad,n))
-         itype=1
-         call legeexps(itype,nquad,xnodes,utmp,vtmp,whts)
-         do i=1,nquad
-            whts(i) = whts(i)*boxdim
-         enddo
-
+      itype=1
+      call legeexps(itype,nquad,xnodes,utmp,vtmp,wts)
+c     polynomial values at quadrature nodes
+      do i = 1,nquad
          if (ipoly.eq.0) then
-            do i = 1,nquad
-               call legepols(xnodes(i),n-1,polyv(1,i))
-            enddo
+            call legepols(xnodes(i),n-1,ptmp)
          elseif (ipoly.eq.1) then
-            do i = 1,nquad
-               call chebpols(xnodes(i),n-1,polyv(1,i))
-            enddo
+            call chebpols(xnodes(i),n-1,ptmp)
          endif
-         
          do j=1,n
-            xi1 = xnodest(j) - 1.5d0
-            do i=1,nquad
-               dx = xnodes(i) - xi1
-               if (dx.lt.dmax) then
-                  wexp(i,j)=exp(-dx*dx/sigma)*whts(i)
-               else
-                  wexp(i,j)=0
-               endif
-            enddo
+            polyv(i,j)=ptmp(j)
          enddo
-         do j = 1,n
-            dx=0.5d0-xnodest(j)
-            if (dx.gt.dmax) then
-               do m=1,n
-                  tabtmp1(m,j)  = 0
-               enddo
-            else
-               do m = 1,n
-                  rsum1 = 0.0d0
-                  do i = 1,nquad
-                     rsum1 = rsum1 + polyv(m,i)*wexp(i,j)
-                  enddo
-                  tabtmp1(m,j) = rsum1
-               enddo
-            endif
-         enddo
-      endif
-      
-c     btos table 2, the scaled target interval is on [-1,0], the scaled source
-c     interval is on [-1, 1]. Use different quadrature nodes for each target
-c     to ensure accuracy when dmax is small.
+      enddo
+c     scale is the ratio of the source box size to the target box size.
+c     big source to small target 
+      btosscale = 2.0d0
+c     The scaled source interval is always [-1,1].
+c     btos table 1, the scaled target interval is [-2,-1], centered at -1.5
+c     btos table 2, the scaled target interval is [-1, 0], centered at -0.5
+c     btos table 3, the scaled target interval is [0,1],   centered at  0.5
+c     btos table 4, the scaled target interval is [1, 2],  centered at  1.5
+      btoscen(1) = -1.5d0
+      btoscen(2) = -0.5d0
 
-      if (lambda.le.0.125d0) then
-         do j=1,n
-            xi2 = xnodest(j) - 0.5d0
-            if (ipoly.eq.0) then
-               call mk_legetab_recur(n,xi2,lambda,dmax,boxdim*2,fint)
-            elseif (ipoly.eq.1) then
-               call mk_chebtab_recur(n,xi2,lambda,dmax,boxdim*2,fint)
-            endif
-            do m=1,n
-               tabtmp2(m,j)  = fint(m)
-            enddo
-         enddo
-      else
-         do j=1,n
-            xi2 = xnodest(j) - 0.5d0
-            do i=1,nquad
-               dx = xnodes(i) - xi2
-               if (abs(dx).lt.dmax) then
-                  wexp(i,j)=exp(-dx*dx/sigma)*whts(i)
-               else
-                  wexp(i,j)=0
-               endif
-            enddo
-         enddo
-
-         do j = 1,n
-            do m = 1,n
-               rsum1 = 0.0d0
-               do i = 1,nquad
-                  rsum1 = rsum1 + polyv(m,i)*wexp(i,j)
-               enddo
-               tabtmp2(m,j) = rsum1
-            enddo
-         enddo
-      endif
-         
-c     multiply by u to obtain the tables acting on values
-      do j=1,n
-      do m=1,n
-         dd=0
-         do k=1,n
-            dd=dd+tabtmp1(k,j)*u(k,m)
-         enddo
-         tab_btos(m,j,1)=dd
+      do i=1,2
+         call mk_loctab(ipoly,n,delta,n,tnodes,boxdim,btoscen(i),
+     1       btosscale,btos,btosx,btosxx,
+     2       nquad,xnodes,wts,polyv)
+c        multiply by u to obtain the tables acting on values
+         call dgemm_f77('t','n',n,n,n,1.0d0,umat,n,btos,n,
+     1       0.0d0,tab_btos(1,1,i),n)
       enddo
-      enddo
-      
-      do j=1,n
-      do m=1,n
-         dd=0
-         do k=1,n
-            dd=dd+tabtmp2(k,j)*u(k,m)
-         enddo
-         tab_btos(m,j,2)=dd
-      enddo
-      enddo
-      
-      
       
 c     use symmetry to construct tables 3 and 4
       do j=1,n
          do m=1,n
             tab_btos(m,j,3) = tab_btos(n-m+1,n-j+1,2)
-         enddo
-      enddo
-      
-      do j=1,n
-         do m=1,n
             tab_btos(m,j,4) = tab_btos(n-m+1,n-j+1,1)
          enddo
       enddo
@@ -1169,8 +1040,166 @@ c     use symmetry to construct tables 3 and 4
 c
 c
 c
+C*********************************************************************C
+      subroutine mk_loctab(ipoly,n,delta,nt,tnodes,tboxdim,
+     1    tboxcen,scale,tab,tabx,tabxx,
+     2    nquad,xnodes,wts,polyv)
+C*********************************************************************C
+c     This routine is the table generator workhorse.
 c
-      subroutine mk_legetab_recur(m,targ,lambda,dmax,boxdim,fint)
+c     tab(n,j) = 
+c              int_{source box} p_n(x) exp( -(targ_j -x)^2/delta) dx
+c              
+c     Here we assume that the source box is always centered at the origin.        
+c              
+c              
+c     INPUT:
+c     n         polynomial approximation order
+c     ipoly     polynomial type
+c               0: Legendre polynomial      
+c               1: Chebshev polynomial
+c     delta     Gaussian variance
+c     nt        number of targets
+c     tnodes    shifted and scaled target nodes on [-1,1]
+c     tboxdim   size of the TARGET box 
+c     tboxcen   center of the scaled TARGET box, relative to the 
+c               scaled source box at [-1,1] 
+c     scale     ratio of the source box size to the target box size
+c     nquad     number of quadrature nodes on the source box
+c     xnodes    quadrature nodes on [-1,1]
+c     wts       quadrature weights on [-1,1]
+c     polyv     [n,nquad] polynomial values at quadrature nodes
+c
+c     OUTPUT:
+c     tab       the table for compute the potential 
+c     tabx      the table for compute the first derivative of the potential 
+c     tabxx     the table for compute the second derivative of the potential 
+c----------------------------------------------------------------------c
+      implicit none
+      integer ipoly,n,nt,nquad
+      real *8 delta,tboxdim,tboxcen,scale
+      real *8 tab(n,nt),tabx(n,nt),tabxx(n,nt)
+      real *8 tnodes(n),fint(100),lambda
+      real *8 xnodes(nquad),wts(nquad), polyv(nquad,n)
+      integer i,j,m
+      real *8 bs,bsh,reps,dmax,targ,dis,dx,sigma
+      real *8 rsum
+      real *8, allocatable :: targs(:)
+      real *8, allocatable :: wexp(:,:)
+c
+      allocate(targs(n))
+c     target position relative to the standard source box [-1,1]
+      do i=1,nt
+         targs(i) = tnodes(i)/scale + tboxcen
+      enddo
+
+c     size of the source box
+      bs = tboxdim*scale
+      
+      sigma = 4*delta/bs**2
+      lambda = sqrt(sigma)
+cccc      print *, 'lambda=', lambda
+      
+      reps=1d-16
+      dmax=sqrt(log(1/reps)*sigma)
+cccc      print *, 'dmax=',dmax
+c
+c
+      if (lambda.le.0.125d0) then
+         do j=1,nt
+            targ = targs(j)
+c           distance between the target point and the source box
+            dis=0
+            if (targ .lt. -1) dis = -1-targ
+            if (targ .gt.  1) dis = targ-1
+            if (dis.gt.dmax) then
+               do m=1,n
+                  tab(m,j) = 0
+               enddo
+            else
+               call mk_polytab_recur(ipoly,n,targ,lambda,
+     1             bs,fint)
+               do m=1,n
+                  tab(m,j) = fint(m)
+               enddo
+            endif
+         enddo
+      else
+         allocate(wexp(nquad,nt))
+c        compute exponentials only once
+         do j=1,nt
+            targ = targs(j)
+            do i=1,nquad
+c              distance between targ and quadrature source nodes
+               dx = targ-xnodes(i)
+               if (abs(dx) .lt. dmax) then
+                  wexp(i,j)=exp(-dx*dx/sigma)*wts(i)
+               else
+                  wexp(i,j)=0
+               endif
+            enddo
+         enddo
+c     
+         bsh = bs/2
+         do j = 1,nt
+            targ = targs(j)
+c           distance between the target point and the source box
+            dis=0
+            if (targ .lt. -1) dis = -1-targ
+            if (targ .gt.  1) dis = targ-1
+            if (dis.gt.dmax) then
+               do m=1,n
+                  tab(m,j)  = 0
+               enddo
+            else
+               do m = 1,n
+                  rsum = 0.0d0
+                  do i = 1,nquad
+                     rsum = rsum + polyv(i,m)*wexp(i,j)
+                  enddo
+                  tab(m,j) = rsum*bsh
+               enddo
+            endif
+         enddo
+      endif
+
+
+      return
+      end subroutine
+c
+c
+c
+c
+      subroutine mk_polytab_recur(ipoly,m,targ,lambda,boxdim,fint)
+c     calculate the values of the integral
+c
+c     \frac{1}{\lambda}\int_{-1}^1 p_n(x) e^{-(targ-x)^2/\lambda^2}dx
+c
+c     for n=0,1,...,m-1.
+c      
+c     p is either the Legendre polynomial or the Chebyshev polynomial.
+c      
+c     Algorithm: use the five term recurrence formula
+c     
+c     Assumption: lambda<=1/8
+c
+      implicit none
+      integer ipoly,m
+      real *8 fint(m),lambda,boxdim,targ
+
+      if (ipoly.eq.0) call
+     1    mk_legetab_recur(m,targ,lambda,boxdim,fint)
+      
+      if (ipoly.eq.1) call
+     1    mk_chebtab_recur(m,targ,lambda,boxdim,fint)
+
+      return
+      end subroutine
+c
+c
+c
+c
+      subroutine mk_legetab_recur(m,targ,lambda,boxdim,fint)
       implicit real *8 (a-h,o-z)
 cccc      sqrtpih=sqrt(4.0d0*atan(1.0d0))/2
       data sqrtpih/0.886226925452757940959713778283913d0/
@@ -1227,11 +1256,11 @@ c     for the source box
       enddo
 
       return
-      end
+      end subroutine
 c
 c
 c
-      subroutine mk_chebtab_recur(m,targ,lambda,dmax,boxdim,fint)
+      subroutine mk_chebtab_recur(m,targ,lambda,boxdim,fint)
       implicit real *8 (a-h,o-z)
 cccc      sqrtpih=sqrt(4.0d0*atan(1.0d0))/2
       data sqrtpih/0.886226925452757940959713778283913d0/
@@ -1290,10 +1319,12 @@ c     for the source box
       enddo
 
       return
-      end
+      end subroutine
 c
 c
 c
+C*********************************************************************C
+c      
       subroutine compute_sparse_pattern(eps,m,n,a,indc,ifzero)
 c     given an mxn matrix a, determine its sparse pattern
 c      
@@ -1372,5 +1403,5 @@ cccc      print *, 'matrix infinity norm=', dmax
 cccc      call prinf('indc=*',indc,2*(n+1))
       
       return
-      end
+      end subroutine
       

@@ -5,13 +5,9 @@
       integer, allocatable :: itree(:)
       real *8, allocatable :: fvals(:,:,:),centers(:,:),boxsize(:)
       real *8, allocatable :: xref(:,:)
-      real *8 xyztmp(3),rintl(0:200),wts
-      real *8 targs(2,1000 000)
-      real *8 pote(1000 000)
-      real *8 grade(2,1000 000)
-      real *8 hesse(3,1000 000)
+      real *8 rintl(0:200),wts
 c
-      real *8 timeinfo(10),tprecomp(3)
+      real *8 timeinfo(10)
       complex *16 zpars
 
       real *8, allocatable :: pot(:,:,:), potex(:,:,:)
@@ -22,13 +18,16 @@ c
       real *8, allocatable :: coefsg(:,:,:,:)
       real *8, allocatable :: adiff(:,:)
       
-      real *8, allocatable :: potexe(:,:),fxvalsexe(:,:),fxvalse(:,:)
-      real *8, allocatable :: uxexe(:,:)
+      real *8, allocatable :: targs(:,:)
+
+      real *8, allocatable :: pote(:,:)
+      real *8, allocatable :: grade(:,:,:)
+      real *8, allocatable :: hesse(:,:,:)
+
+      real *8, allocatable :: potexe(:,:)
       real *8, allocatable :: gradexe(:,:,:)
       real *8, allocatable :: hessexe(:,:,:)
 
-      real *8, allocatable :: fxvalsex(:,:,:)
-      real *8, allocatable :: fxcoefs(:,:,:)
       complex *16 ima,zz,ztmp,zk
 
       real *8 xs(100),ws(100),umat(2000),vmat(2000)
@@ -39,7 +38,7 @@ c
       real *8 alpha,beta
       character *9 fname1,fname3
       character *8 fname2
-      real *8 src(2),targ(2)
+      real *8, allocatable :: targ(:)
 
       character *1 type
       data ima/(0.0d0,1.0d0)/
@@ -47,8 +46,10 @@ c
       external fgaussn,fgaussnx
 
       ndim=2
-      ipoly=1
+      ipoly=0
 
+      allocate(targ(ndim))
+      
       call prini(6,13)
 cccc  call prini_off()
 
@@ -60,7 +61,7 @@ c
 c      initialize function parameters
 c
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 4d-3
+      delta = 1d-6
       
       boxlen = 1.0d0
       
@@ -112,9 +113,13 @@ c     polynomial expansion order for each leaf box
       iptype = 0
       eta = 1.0d0
 
-      npbox = norder*norder
+      npbox = norder**ndim
 
       ntarg = 1 000 000
+      nhess = ndim*(ndim+1)/2
+      allocate(targs(ndim,ntarg),pote(nd,ntarg))
+      allocate(grade(nd,ndim,ntarg),hesse(nd,nhess,ntarg))
+
       do i=1,ntarg
          do j=1,2
             targs(j,i) = hkrand(0)-0.5d0
@@ -131,7 +136,7 @@ C$      t1 = omp_get_wtime()
       call prinf('nboxes=*',nboxes,1)
       call prinf('nlevels=*',nlevels,1)
 
-      allocate(fvals(nd,npbox,nboxes),centers(2,nboxes))
+      allocate(fvals(nd,npbox,nboxes),centers(ndim,nboxes))
       allocate(boxsize(0:nlevels),itree(ltree))
 
       call vol_tree_build(ndim,ipoly,eps,zk,boxlen,norder,iptype,eta,
@@ -143,7 +148,7 @@ C$      t2 = omp_get_wtime()
 
       call prin2('time taken to build tree=*',t2-t1,1)
       call prin2('speed in points per sec=*',
-     1   (nboxes*norder**2+0.0d0)/(t2-t1),1)
+     1   (nboxes*npbox+0.0d0)/(t2-t1),1)
 
 c     plot the tree
 c      fname1 = 'tree.data'
@@ -156,25 +161,26 @@ c      call print_tree_matlab(itree,ltree,nboxes,centers,boxsize,nlevels,
 c     1   iptr,ns,src,nt,targ,fname1,fname2,fname3)
       
 c     allocate memory and initialization
-      npols = norder*norder
+      npols = norder**ndim
 
       allocate(pot(nd,npbox,nboxes))
-      allocate(grad(nd,2,npbox,nboxes))
-      allocate(hess(nd,3,npbox,nboxes))
+      allocate(grad(nd,ndim,npbox,nboxes))
+      allocate(hess(nd,nhess,npbox,nboxes))
 
       allocate(potexe(nd,ntarg))
-      allocate(gradexe(nd,2,ntarg))
-      allocate(hessexe(nd,3,ntarg))
+      allocate(gradexe(nd,ndim,ntarg))
+      allocate(hessexe(nd,nhess,ntarg))
 
       do i=1,nboxes
         do j=1,npbox
            do ind=1,nd
               pot(ind,j,i) = 0
-              grad(ind,1,j,i) = 0
-              grad(ind,2,j,i) = 0
-              hess(ind,1,j,i) = 0
-              hess(ind,2,j,i) = 0
-              hess(ind,3,j,i) = 0
+              do k=1,ndim
+                 grad(ind,k,j,i) = 0
+              enddo
+              do k=1,nhess
+                 hess(ind,k,j,i) = 0
+              enddo
            enddo
         enddo
       enddo
@@ -213,11 +219,11 @@ c     compute the number of leaf boxes
      1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
 
       allocate(potex(nd,npbox,nboxes))
-      allocate(gradex(nd,2,npbox,nboxes))
-      allocate(hessex(nd,3,npbox,nboxes))
+      allocate(gradex(nd,ndim,npbox,nboxes))
+      allocate(hessex(nd,nhess,npbox,nboxes))
 
 c     compute exact solutions on tensor grid
-      allocate(xref(2,npbox))
+      allocate(xref(ndim,npbox))
       itype = 0
       call polytens_exps_2d(ipoly,itype,norder,type,xref,
      1    umat,1,vmat,1,wts)
@@ -227,15 +233,13 @@ c     compute exact solutions on tensor grid
         bs = boxsize(ilevel)/2.0d0
         do ibox=itree(2*ilevel+1),itree(2*ilevel+2)
           if(itree(iptr(4)+ibox-1).eq.0) then
-            do j=1,npbox
-              targ(1)=centers(1,ibox) + xref(1,j)*bs
-              targ(2)=centers(2,ibox) + xref(2,j)*bs
+             do j=1,npbox
+              do k=1,ndim
+                 targ(k)=centers(k,ibox) + xref(k,j)*bs
+              enddo
 
               call exact(nd,delta,targ,dpars,potex(1,j,ibox),
      1            gradex(1,1,j,ibox),hessex(1,1,j,ibox))
-
-              write(33,*) targ(1), targ(2), potex(1,j,ibox),
-     1            pot(1,j,ibox)
            enddo
           endif
         enddo
@@ -244,7 +248,7 @@ c
 c     convert potential values to expansion coefs
 c
       allocate(coefs(nd,npbox,nboxes))
-      allocate(coefsg(nd,2,npbox,nboxes))
+      allocate(coefsg(nd,ndim,npbox,nboxes))
       
 c     construct 1D differentiation matrix
       allocate(adiff(norder,norder))
@@ -286,8 +290,8 @@ C$     t2 = omp_get_wtime()
       call prin2('speed in pps=*',
      1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
 
-      call treedata_trans2d(nd,itype,nlevels,itree,iptr,boxsize,
-     1    norder,coefs,pot,vmat,vmat)
+c      call treedata_trans2d(nd,itype,nlevels,itree,iptr,boxsize,
+c     1    norder,coefs,pot,vmat,vmat)
       call treedata_derror(nd,nlevels,itree,iptr,
      1    npbox,potex,pot,abserrp,rnormp,nleaf)
       errp = abserrp/rnormp
@@ -313,14 +317,14 @@ c      call treedata_evalh2d(nd,ipoly,nlevels,itree,iptr,boxsize,
 c     1    norder,coefs,hess)
       call cpu_time(t2) 
 C$     t2 = omp_get_wtime()      
-      call prin2('time on calculating grad and hess=*',t2-t1,1)
+c      call prin2('time on calculating grad and hess=*',t2-t1,1)
       
-      call prin2('speed in pps=*',
-     1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
+c      call prin2('speed in pps=*',
+c     1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
 
-      call treedata_derror(nd*2,nlevels,itree,iptr,
+      call treedata_derror(nd*ndim,nlevels,itree,iptr,
      1    npbox,gradex,grad,abserrg,rnormg,nleaf)
-      call treedata_derror(nd*3,nlevels,itree,iptr,
+      call treedata_derror(nd*nhess,nlevels,itree,iptr,
      1    npbox,hessex,hess,abserrh,rnormh,nleaf)
       errg = abserrg/rnormg
       errh = abserrh/rnormh
@@ -349,10 +353,6 @@ c     evaluate the potential, gradient and hessian at targets
 C$     t2 = omp_get_wtime()      
       call prin2('time on extra targ pot eval=*',t2-t1,1)
       call prin2('speed in pps=*',(ntarg+0.0d0)/(t2-t1),1)
-
-      do i=1,ntarg
-         write(34,*) targs(1,i), targs(2,i), potexe(1,i), pote(i)
-      enddo
       
 c     compute relative error
       if (ifpghtarg.ge.1) then
@@ -361,11 +361,11 @@ c         call derr(uxexe,pote,nd*ntarg,errpe)
          call prin2('relative pottarg l2 error=*',errpe,1)
       endif
       if (ifpghtarg.ge.2) then
-         call derr(gradexe,grade,nd*2*ntarg,errge)
+         call derr(gradexe,grade,nd*ndim*ntarg,errge)
          call prin2('relative gradtarg l2 error=*',errge,1)
       endif
       if (ifpghtarg.ge.3) then
-         call derr(hessexe,hesse,nd*3*ntarg,errhe)
+         call derr(hessexe,hesse,nd*nhess*ntarg,errhe)
          call prin2('relative hesstarg l2 error=*',errhe,1)
       endif
 

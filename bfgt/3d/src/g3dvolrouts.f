@@ -343,45 +343,6 @@ cccc                  fvals(ind,k1,k2,k3)=dreal(cd)*2
          enddo
 c
       enddo
-
-c     test whether the solution is accurate if we use polynomials
-c     of total degree <= n-1
-c     conclusion is yes if we do it in both this routine and leg3d_potloc
-c     that is, part of the solution may contain high frequency mode
-c     but the whole solution is accurate to the desired precision
-      
-cccc      itype=2
-cccc      call legeexps(itype,n,xs,u,v,ws)
-cccc
-cccc      call legval2coefs_3d(nd,n,fvals,fcoefs,u)
-cccc      do ind=1,nd
-cccc         kkk=0
-cccc      do j3=1,n
-cccc         do j2=1,n
-cccc            do j1=1,n
-cccc               if (j1+j2+j3.gt.n+2) then
-cccc                  fcoefs(ind,j1,j2,j3)=0
-cccc               else
-cccc                  kkk=kkk+1
-cccc               endif
-cccc            enddo
-cccc         enddo
-cccc      enddo
-cccc      print *, kkk
-cccc      pause
-cccc      enddo
-cccc
-cccc      call legval2coefs_3d(nd,n,fcoefs,fvals,v)
-cccc      do ind=1,nd
-cccc      do j3=1,n
-cccc         do j2=1,n
-cccc            do j1=1,n
-cccc               pot(ind,j1,j2,j3)=pot(ind,j1,j2,j3)+fvals(ind,j1,j2,j3)
-cccc            enddo
-cccc         enddo
-cccc      enddo
-cccc      enddo
-      
       
       return
       end subroutine
@@ -621,33 +582,6 @@ cccc                  fvals(ind,k1,k2,k3)=cd
 c     end of the ind loop
       enddo
 
-cccc      itype=2
-cccc      call legeexps(itype,n,xs,u,v,ws)
-cccc
-cccc      call legval2coefs_3d(nd,n,fvals,fcoefs,u)
-cccc      do ind=1,nd
-cccc      do j3=1,n
-cccc         do j2=1,n
-cccc            do j1=1,n
-cccc               if (j1+j2+j3.gt.n+2) then
-cccc                  fcoefs(ind,j1,j2,j3)=0
-cccc               endif
-cccc            enddo
-cccc         enddo
-cccc      enddo
-cccc      enddo
-cccc
-cccc      call legval2coefs_3d(nd,n,fcoefs,fvals,v)
-cccc      do ind=1,nd
-cccc      do j3=1,n
-cccc         do j2=1,n
-cccc            do j1=1,n
-cccc               pot(ind,j1,j2,j3)=pot(ind,j1,j2,j3)+fvals(ind,j1,j2,j3)
-cccc            enddo
-cccc         enddo
-cccc      enddo
-cccc      enddo
-      
       return
       end subroutine
 c

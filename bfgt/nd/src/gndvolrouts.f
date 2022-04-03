@@ -40,7 +40,7 @@ c
 c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,norder,norder)
-      real *8 fcoefs(norder,norder,nd),umat(norder,norder)
+      real *8 fcoefs(nd,norder,norder),umat(norder,norder)
       real *8, allocatable:: fcv(:,:,:)
 
       allocate(fcv(nd,norder,norder))
@@ -64,7 +64,7 @@ c     transform in y
                do i1=1,norder
                   dd=dd+umat(i,i1)*fcv(ind,k,i1)
                enddo
-               fcoefs(k,i,ind)=dd
+               fcoefs(ind,k,i)=dd
             enddo
          enddo
       enddo
@@ -99,7 +99,7 @@ c     OUTPUT:
 c     pwexp    plane wave expansion
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
-      real *8 coeff(n,n,nd)
+      real *8 coeff(nd,n,n)
       complex *16 ff(n,npw/2),tab_leg2pw(n,npw)
       complex *16 pwexp(npw,npw/2,nd),cd
 c
@@ -108,7 +108,7 @@ c
             do k2 = 1,npw/2
                cd = 0.0d0
                do m2 = 1,n
-                  cd = cd+tab_leg2pw(m2,k2)*coeff(m1,m2,ind)
+                  cd = cd+tab_leg2pw(m2,k2)*coeff(ind,m1,m2)
                enddo
                ff(m1,k2) = cd
             enddo
@@ -253,7 +253,7 @@ c     OUTPUT:
 c     pot         output on tensor product grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
-      real *8 coeff(n,n,nd),pot(nd,n,n)
+      real *8 coeff(nd,n,n),pot(nd,n,n)
       real *8 ff(n,n),tabx(n,n),taby(n,n)
 c
       do ind = 1,nd
@@ -262,7 +262,7 @@ c        transform in x
             do k1=1,n
                cd=0
                do j1=1,n
-                  cd=cd+tabx(j1,k1)*coeff(j1,j2,ind)
+                  cd=cd+tabx(j1,k1)*coeff(ind,j1,j2)
                enddo
                ff(k1,j2)=cd
             enddo
@@ -351,7 +351,7 @@ c     OUTPUT:
 c     pot         output on tensor product grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
-      real *8 coeff(n,n,nd),pot(nd,n,n)
+      real *8 coeff(nd,n,n),pot(nd,n,n)
       real *8 ff(n,n),tabx(n,n),taby(n,n)
       integer indx(2,n+1),indy(2,n+1)
 c
@@ -368,7 +368,7 @@ c        transform in x
             do k1=indx(1,n+1),indx(2,n+1)
                cd=0
                do j1=indx(1,k1),indx(2,k1)
-                  cd=cd+tabx(j1,k1)*coeff(j1,j2,ind)
+                  cd=cd+tabx(j1,k1)*coeff(ind,j1,j2)
                enddo
                ff(k1,j2)=cd
             enddo
@@ -392,7 +392,7 @@ c        transform in y
             do j1=1,n
                cd=0
                do j2=indy(1,k2),indy(2,k2)
-                  cd=cd+taby(j2,k2)*coeff(j1,j2,ind)
+                  cd=cd+taby(j2,k2)*coeff(ind,j1,j2)
                enddo
                ff(j1,k2)=cd
             enddo
@@ -572,10 +572,9 @@ C
 
 C
       do ind=1,nd
-         do j=1,nexp
-            pwexp2(j,ind) = pwexp2(j,ind)
-     1          +pwexp1(j,ind)*wshift(j)
-         enddo
+      do j=1,nexp
+         pwexp2(j,ind) = pwexp2(j,ind) + pwexp1(j,ind)*wshift(j)
+      enddo
       enddo
 c
       return
@@ -611,10 +610,9 @@ C
 
 C
       do ind=1,nd
-         do j=1,nexp
-            pwexp2(j,ind) = 
-     1          pwexp1(j,ind)*wshift(j)
-         enddo
+      do j=1,nexp
+         pwexp2(j,ind) = pwexp1(j,ind)*wshift(j)
+      enddo
       enddo
 c
       return
@@ -646,9 +644,9 @@ C
 
 C
       do ind=1,nd
-         do j=1,nexp
-            pwexp2(j,ind) = pwexp1(j,ind)
-         enddo
+      do j=1,nexp
+         pwexp2(j,ind) = pwexp1(j,ind)
+      enddo
       enddo
 c
       return
@@ -673,13 +671,13 @@ c     OUTPUT:
 c
 c     pwexp  :   coeffs for the expansion set to zero.
 C---------------------------------------------------------------------
-      integer nd,nexp,n,ii
+      integer nd,nexp,n,ind
       complex *16 pwexp(nexp,nd)
 c
-      do ii=1,nd
-         do n=1,nexp
-            pwexp(n,ii)=0.0d0
-         enddo
+      do ind=1,nd
+      do n=1,nexp
+         pwexp(n,ind)=0.0d0
+      enddo
       enddo
       
       return
@@ -884,7 +882,7 @@ c     OUTPUT:
 c     grad        output on tensor product grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
-      real *8 coeff(n,n,nd)
+      real *8 coeff(nd,n,n)
       real *8 grad(nd,2,n,n)
       real *8 ff2(n,n)
       real *8 ff(n,n),tabf(n,n)
@@ -898,8 +896,8 @@ c        transform in x
                cd=0
                cdx=0
                do j1=1,n
-                  cd=cd+tabf(j1,k1)*coeff(j1,j2,ind)
-                  cdx=cdx+tabfx(j1,k1)*coeff(j1,j2,ind)
+                  cd=cd+tabf(j1,k1)*coeff(ind,j1,j2)
+                  cdx=cdx+tabfx(j1,k1)*coeff(ind,j1,j2)
                enddo
                ff(j2,k1)=cd
                ff2(j2,k1)=cdx
@@ -957,7 +955,7 @@ c     grad        output on tensor product grid
 c     hess        output on tensor product grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
-      real *8 coeff(n,n,nd)
+      real *8 coeff(nd,n,n)
       real *8 grad(nd,2,n,n)
       real *8 hess(nd,3,n,n)
       real *8 ff3(n,n)
@@ -974,9 +972,9 @@ c        transform in x
                cdx=0
                cdxx=0
                do j1=1,n
-                  cd=cd+tabf(j1,k1)*coeff(j1,j2,ind)
-                  cdx=cdx+tabfx(j1,k1)*coeff(j1,j2,ind)
-                  cdxx=cdxx+tabfxx(j1,k1)*coeff(j1,j2,ind)
+                  cd=cd+tabf(j1,k1)*coeff(ind,j1,j2)
+                  cdx=cdx+tabfx(j1,k1)*coeff(ind,j1,j2)
+                  cdxx=cdxx+tabfxx(j1,k1)*coeff(ind,j1,j2)
                enddo
                ff(j2,k1)=cd
                ff2(j2,k1)=cdx

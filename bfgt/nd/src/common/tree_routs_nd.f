@@ -500,9 +500,9 @@ c
 c
 c
 c
-      subroutine compute_mnlist1(ndim,nlevels,nboxes,laddr,boxsize,
-     1                   centers,iparent,nchild,
-     2                   ichild,isep,nnbors,nbors,iper,mnlist1)
+      subroutine compute_mnlist1(ndim,nboxes,nlevels,laddr,
+     1    centers,boxsize,iparent,nchild,
+     2    ichild,isep,nnbors,nbors,iper,mnlist1)
 c     Compute max nuber of boxes in list1
       implicit none
       integer ndim,nlevels,nboxes
@@ -612,9 +612,8 @@ c
 c      
 c      
 c      
-      subroutine compute_modified_list1(ndim,nlevels,npwlevel,nboxes,
-     1            itree,ltree,iptr,centers,
-     2            boxsize,iper,mnlist1,nlist1,list1)
+      subroutine compute_modified_list1(ndim,npwlevel,nboxes,nlevels,
+     1    ltree,itree,iptr,centers,boxsize,iper,mnlist1,nlist1,list1)
 c
 c
 c     This subroutine computes the modified list1 of a given tree

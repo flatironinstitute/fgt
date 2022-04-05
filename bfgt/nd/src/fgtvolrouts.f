@@ -421,8 +421,8 @@ c
 c
 c
 C*********************************************************************C
-      subroutine mk_loctab_all2(eps,ipoly,n,nnodes,delta,boxdim,
-     1    tab_loc,ind_loc)
+      subroutine mk_loctab_all(eps,ipoly,n,nnodes,delta,boxdim,
+     1    tab_loc,tabx_loc,tabxx_loc,ind_loc)
 C*********************************************************************C
 c     This routine is an optimized table generator that generates
 c     all 1D local interaction tables
@@ -489,16 +489,23 @@ c     |_____|_____|____|
 c                          
 c
 c     INPUT:
+c     ipoly    polynomial type
+c              0: Legendre polynomials
+c              1: Chebyshev polynomials
 c     n        dimension of coeff array
 c     nnodes   number of nodes used in numerical quadrature
 c     delta    Gaussian variance
 c     boxdim   target box dimension at current level
 c
 c     OUTPUT:
-c     tab_loc  tables for all local interactions
+c     tab_loc  tables for computing potential values
+c     tabx_loc  tables for computing gradient values
+c     tabxx_loc  tables for computing hessian values
 c----------------------------------------------------------------------c
       implicit none
       real *8 tab_loc(n,n,-6:6)
+      real *8 tabx_loc(n,n,-6:6)
+      real *8 tabxx_loc(n,n,-6:6)
       integer ind_loc(2,n+1,-6:6)
 
       real *8 eps,delta,boxdim
@@ -629,7 +636,7 @@ c
 c
 c
 C*********************************************************************C
-      subroutine mk_loctab_all(eps,ipoly,n,nnodes,delta,boxdim,
+      subroutine mk_loctab_all_old(eps,ipoly,n,nnodes,delta,boxdim,
      1    tab_coll,ind_coll,
      2    tab_stob,ind_stob,
      3    tab_btos,ind_btos)

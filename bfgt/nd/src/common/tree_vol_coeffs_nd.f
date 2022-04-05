@@ -754,16 +754,8 @@ C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,erra)
 
         ibox = ifirstbox + i-1
 
-        if (ndim.eq.1) then
-           call poly_val2coefs_1d(nd,norder,fvals(1,1,ibox),
-     1         fcoefs(1,1,i),umat)
-        elseif (ndim.eq.2) then
-           call poly_val2coefs_2d(nd,norder,fvals(1,1,ibox),
-     1         fcoefs(1,1,i),umat)
-        elseif (ndim.eq.3) then
-           call poly_val2coefs_3d(nd,norder,fvals(1,1,ibox),
-     1         fcoefs(1,1,i),umat)
-        endif
+        call tens_prod_trans_nd(ndim,nd,norder,fvals(1,1,ibox),
+     1      fcoefs(1,1,i),umat)
         
         call fun_err(nd,npols,fcoefs(1,1,i),rmask,
      1     iptype,rscale2,erra)
@@ -1675,8 +1667,8 @@ c     Temporary variables
       mc=2**ndim
       
       allocate(tilevel(nboxes),tiparent(nboxes),tnchild(nboxes))
-      allocate(tichild(4,nboxes),tiflag(nboxes),iboxtocurbox(nboxes))
-      allocate(tfvals(nd,npbox,nboxes),tcenters(2,nboxes))
+      allocate(tichild(mc,nboxes),tiflag(nboxes),iboxtocurbox(nboxes))
+      allocate(tfvals(nd,npbox,nboxes),tcenters(ndim,nboxes))
 
       do ilev = 0,nlevels
          tladdr(1,ilev) = laddr(1,ilev)

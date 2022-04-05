@@ -45,7 +45,7 @@ c
 
       external fgaussn,fgaussnx
 
-      ndim=2
+      ndim=3
       ipoly=0
 
       allocate(targ(ndim))
@@ -61,7 +61,7 @@ c
 c      initialize function parameters
 c
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 1d-5
+      delta = 1d-3
       
       boxlen = 1.0d0
       
@@ -74,45 +74,44 @@ c     first gaussian
 c     centers
       dpars(1) = 0.64d0
       dpars(2) = 0.55d0
+      dpars(3) = 0.44d0
 c     variance
-      dpars(3) = rsig
+      dpars(4) = rsig
 c     strength
-      dpars(4) = 1/pi/rsig
+      dpars(5) = 1/pi/rsig
 
 c     second gaussian
-      dpars(5) = 0.36d0
-      dpars(6) = 0.45d0
+      dpars(6) = 0.36d0
+      dpars(7) = 0.45d0
+      dpars(8) = 0.25d0
 
-      dpars(7) = rsig
-      dpars(8) = -0.5d0/pi/rsig
+      dpars(9) = rsig
+      dpars(10) = -0.5d0/pi/rsig
 
       
 c     third gaussian
-      dpars(9) = 0.678d0
-      dpars(10) = 0.4d0
+      dpars(11) = 0.678d0
+      dpars(12) = 0.4d0
+      dpars(13) = 0.534d0
 
-      dpars(11) = rsig/4.5d0
-      dpars(12) = 1.0d0/pi/rsig
+      dpars(14) = rsig/4.5d0
+      dpars(15) = 1.0d0/pi/rsig
       
 c     fourth gaussian
-      dpars(13) = 0.412d0
-      dpars(14) = 0.8d0
+      dpars(16) = 0.412d0
+      dpars(17) = 0.8d0
+      dpars(18) = 0.67d0
 
-      dpars(15) = rsig/1.2d0
-      dpars(16) = 1/pi/dpars(15)
-      
-c     fifth gaussian
-      dpars(17) = 0.12d0
-      dpars(18) = 0.45d0
-
-      dpars(19) = rsig/3.3d0
-      dpars(20) = 0.5d0/pi/rsig
+      dpars(19) = rsig/1.2d0
+      dpars(20) = 1/pi/dpars(15)
 
 c     polynomial expansion order for each leaf box
       norder = 16
       iptype = 0
       eta = 1.0d0
 
+      ipars = ndim
+      
       npbox = norder**ndim
 
       ntarg = 1 000 000
@@ -126,7 +125,7 @@ c     polynomial expansion order for each leaf box
          enddo
       enddo
       
-      eps = 0.5d-12
+      eps = 0.5d-6
       call cpu_time(t1)
 C$      t1 = omp_get_wtime()
 
@@ -195,7 +194,7 @@ c     allocate memory and initialization
       enddo
 
       type = 'f'
-      ifpgh= 3
+      ifpgh= 1
       ifpghtarg=3
 
 c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
@@ -224,7 +223,7 @@ c     2   pot,timeinfo,tprecomp)
 c     compute exact solutions on tensor grid
       allocate(xref(ndim,npbox))
       itype = 0
-      call polytens_exps_2d(ipoly,itype,norder,type,xref,
+      call polytens_exps_nd(ndim,ipoly,itype,norder,type,xref,
      1    umat,1,vmat,1,wts)
 
       
@@ -237,7 +236,7 @@ c     compute exact solutions on tensor grid
                  targ(k)=centers(k,ibox) + xref(k,j)*bs
               enddo
 
-              call exact(nd,delta,targ,dpars,potex(1,j,ibox),
+              call uexact(ndim,nd,delta,targ,dpars,potex(1,j,ibox),
      1            gradex(1,1,j,ibox),hessex(1,1,j,ibox))
            enddo
           endif
@@ -310,7 +309,7 @@ c     1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
 c
 c     compute exact solutions on arbitrary targets      
       do j=1,ntarg
-         call exact(nd,delta,targs(1,j),dpars,potexe(1,j),
+         call uexact(ndim,nd,delta,targs(1,j),dpars,potexe(1,j),
      1       gradexe(1,1,j),hessexe(1,1,j))
       enddo
 c     
@@ -371,27 +370,29 @@ c
 c
 c
 c 
-      subroutine fgaussn(nd,xy,dpars,zpars,ipars,f)
+      subroutine fgaussn(nd,xyz,dpars,zpars,ndim,f)
 c     right-hand-side function
 c       consisting of several gaussians, their
-c       centers are given in dpars(1:3*nd), and their 
-c       variances in dpars(3*nd+1:4*nd)
+c       centers are given in dpars(1:3), their 
+c       variances in dpars(4), and their strength in dpars(5)
 c
       implicit real *8 (a-h,o-z)
-      integer nd,ipars
+      integer nd,ndim
       complex *16 zpars
-      real *8 dpars(*),f(nd),xy(2)
-c     number of Gaussians, at most 5
+      real *8 dpars(*),f(nd),xyz(ndim)
+c     number of Gaussians, at most 4
       ng=2
-
+      
       do ind=1,nd
          f(ind)=0
          do i=1,ng
-            idp = (i-1)*4
-            rr = (xy(1)+0.5d0 - dpars(idp+1))**2 + 
-     1          (xy(2)+0.5d0 - dpars(idp+2))**2
-            sigma = dpars(idp+3)
-            f(ind) = f(ind)+dpars(idp+4)*exp(-rr/sigma)
+            idp = (i-1)*5
+            rr=0
+            do k=1,ndim
+               rr = rr + ( xyz(k) - (dpars(idp+k)-0.5d0) )**2  
+            enddo
+            sigma = dpars(idp+4)
+            f(ind) = f(ind)+dpars(idp+5)*exp(-rr/sigma)
          enddo
       enddo
 
@@ -404,69 +405,35 @@ c
 c
 c
 c
-      subroutine fgaussnx(nd,xy,dpars,zpars,ipars,f)
-c     right-hand-side function
-c       consisting of x-derivative of several gaussians, their
-c       centers are given in dpars(1:3*nd), and their 
-c       variances in dpars(3*nd+1:4*nd)
-c
-      implicit real *8 (a-h,o-z)
-      integer nd,ipars
-      complex *16 zpars
-      real *8 dpars(*),f(nd),xy(2)
-c     number of Gaussians, at most 5
-      ng=2
-
-      do ind=1,nd
-         f(ind)=0
-         do i=1,ng
-            idp = (i-1)*4
-            rr = (xy(1)+0.5d0 - dpars(idp+1))**2 + 
-     1          (xy(2)+0.5d0 - dpars(idp+2))**2
-            sigma = dpars(idp+3)
-            dx = -2*(xy(1)+0.5d0 - dpars(idp+1))/sigma
-            f(ind) = f(ind)+dpars(idp+4)*exp(-rr/sigma)*dx
-         enddo
-      enddo
-
-      return
-      end
-
-c
-c
-c
-c
-c
-c 
-      subroutine exact(nd,delta,targ,dpars,pot,grad,hess)
-
+      subroutine uexact(ndim,nd,delta,targ,dpars,pot,grad,hess)
       implicit real*8 (a-h,o-z)
-      real*8 targ(2),pot(nd),grad(nd,2),hess(nd,3)
-      real*8 gf(2),gfp(2),dpars(*)
-      real*8 gfpp(2)
+      real*8 targ(ndim),pot(nd),grad(nd,ndim),hess(nd,ndim*(ndim+1)/2)
+      real*8 gf(ndim),gfp(ndim),dpars(*)
+      real*8 gfpp(ndim)
 c
       one=1.0d0
       pi=4*atan(one)
 
 c-----------------------
       do ind=1,nd
-        pot(ind)=0.0d0
-        grad(ind,1)=0.0d0
-        grad(ind,2)=0.0d0
-        hess(ind,1)=0.0d0
-        hess(ind,2)=0.0d0
-        hess(ind,3)=0.0d0
+         pot(ind)=0.0d0
+         do k=1,ndim
+            grad(ind,k)=0.0d0
+         enddo
+         do k=1,ndim*(ndim+1)/2
+            hess(ind,k)=0.0d0
+         enddo
       enddo
 c-----------------------
       ng=2
       do ind=1,nd
          do i=1,ng
-            idp = (i-1)*4
-            sigma = dpars(idp+3)
+            idp = (i-1)*5
+            sigma = dpars(idp+4)
             dc = sigma
             d = delta
          
-            do k=1,2
+            do k=1,ndim
                c=dpars(idp+k)
                x=targ(k)+0.5d0
 c
@@ -500,14 +467,36 @@ c
      2             *(-dexp(-arg1*arg1) +dexp(-arg2*arg2))*
      3             darg*(2.0d0/sqrt(pi))/dsqrt(((dc+d)/d/dc)))
             enddo
-            pot(ind)=pot(ind)+dpars(idp+4)*gf(1)*gf(2)
 
-            grad(ind,1)=grad(ind,1)+dpars(idp+4)*gfp(1)*gf(2)
-            grad(ind,2)=grad(ind,2)+dpars(idp+4)*gf(1)*gfp(2)
+            str=dpars(idp+5)
+            if (ndim.eq.1) then
+               pot(ind)=pot(ind)+str*gf(1)
+               grad(ind,1)=grad(ind,1)+str*gfp(1)
+               hess(ind,1)=hess(ind,1)+str*gfpp(1)
+            elseif (ndim.eq.2) then
+               pot(ind)=pot(ind)+str*gf(1)*gf(2)
 
-            hess(ind,1)=hess(ind,1)+dpars(idp+4)*gfpp(1)*gf(2)
-            hess(ind,2)=hess(ind,2)+dpars(idp+4)*gfp(1)*gfp(2)
-            hess(ind,3)=hess(ind,3)+dpars(idp+4)*gf(1)*gfpp(2)
+               grad(ind,1)=grad(ind,1)+str*gfp(1)*gf(2)
+               grad(ind,2)=grad(ind,2)+str*gf(1)*gfp(2)
+
+               hess(ind,1)=hess(ind,1)+str*gfpp(1)*gf(2)
+               hess(ind,2)=hess(ind,2)+str*gfp(1)*gfp(2)
+               hess(ind,3)=hess(ind,3)+str*gf(1)*gfpp(2)
+            elseif (ndim.eq.3) then
+               pot(ind)=pot(ind)+str*gf(1)*gf(2)*gf(3)
+
+               grad(ind,1)=grad(ind,1)+str*gfp(1)*gf(2)*gf(3)       
+               grad(ind,2)=grad(ind,2)+str*gf(1)*gfp(2)*gf(3)
+               grad(ind,3)=grad(ind,3)+str*gf(1)*gf(2)*gfp(3)
+
+               hess(ind,1)=hess(ind,1)+str*gfpp(1)*gf(2)*gf(3)
+               hess(ind,2)=hess(ind,2)+str*gf(1)*gfpp(2)*gf(3)
+               hess(ind,3)=hess(ind,3)+str*gf(1)*gf(2)*gfpp(3)
+
+               hess(ind,4)=hess(ind,4)+str*gfp(1)*gfp(2)*gf(3)
+               hess(ind,5)=hess(ind,5)+str*gfp(1)*gf(2)*gfp(3)
+               hess(ind,6)=hess(ind,6)+str*gf(1)*gfp(2)*gfp(3)
+            endif
          enddo
       enddo
       return

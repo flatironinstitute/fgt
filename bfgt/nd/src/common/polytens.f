@@ -283,6 +283,42 @@ c
       end
 c
 c
+      subroutine polytens_exps_nd(ndim,ipoly,itype,n,type,x,
+     1    u,ldu,v,ldv,w)
+c                 input parameters:
+c
+c  itype - the type of the calculation to be performed
+c          itype=0 means that only the gaussian nodes are 
+c                  to be constructed. 
+c          itype=1 means that only the nodes and the weights 
+c                  are to be constructed
+c          itype=2 means that the nodes, the weights, and
+c                  the matrices u, v are to be constructed
+c          itype=3 only construct u
+c          itype=4 only construct v
+      
+      implicit none
+      integer ndim,ipoly, itype, n, ldu, ldv
+      character type
+      real *8 x(ndim,*),w(*)
+      real *8 u(ldu,*), v(ldv,*)
+
+      if (ndim.eq.1) then
+         if (ipoly.eq.0) then
+            call legeexps(itype,n,x,u,v,w)
+         elseif (ipoly.eq.1) then
+            call chebexps(itype,n,x,u,v,w)
+         endif
+      elseif (ndim.eq.2) then
+         call polytens_exps_2d(ipoly,itype,n,type,x,u,ldu,v,ldv,w)
+      elseif (ndim.eq.3) then
+         call polytens_exps_3d(ipoly,itype,n,type,x,u,ldu,v,ldv,w)
+      endif
+      
+      return
+      end
+c
+c
       subroutine polytens_exps_2d(ipoly,itype,n,type,x,u,ldu,v,ldv,w)
 c                 input parameters:
 c
@@ -1379,10 +1415,33 @@ c
 c
 c
 c
-      subroutine poly_val2coefs_1d(nd,norder,fvals,fcoefs,umat)
+      subroutine tens_prod_trans_nd(ndim,nd,norder,fvals,fcoefs,umat)
 c
-c     converts function values at 2d Legendre tensor product grid
-c     to Legendre expansion coefficients
+c     user interface for tensor product transformation in n dimensions
+c
+c
+c
+      implicit real *8 (a-h,o-z)
+      real *8 fvals(nd,norder**ndim)
+      real *8 fcoefs(nd,norder**ndim),umat(norder,norder)
+
+      if (ndim.eq.1) then
+         call tens_prod_trans_1d(nd,norder,fvals,fcoefs,umat)
+      elseif (ndim.eq.2) then
+         call tens_prod_trans_2d(nd,norder,fvals,fcoefs,umat)
+      elseif (ndim.eq.3) then
+         call tens_prod_trans_3d(nd,norder,fvals,fcoefs,umat)
+      endif
+      
+      return
+      end
+c
+c
+c
+c
+      subroutine tens_prod_trans_1d(nd,norder,fvals,fcoefs,umat)
+c
+c     1D tensor product transformation
 c
 c
       implicit real *8 (a-h,o-z)
@@ -1405,10 +1464,9 @@ c
 c
 c
 c
-      subroutine poly_val2coefs_2d(nd,norder,fvals,fcoefs,umat)
+      subroutine tens_prod_trans_2d(nd,norder,fvals,fcoefs,umat)
 c
-c     converts function values at 2d Legendre tensor product grid
-c     to Legendre expansion coefficients
+c     2D tensor product transformation
 c
 c
       implicit real *8 (a-h,o-z)
@@ -1448,9 +1506,9 @@ c
 c
 c
 c
-      subroutine poly_val2coefs_3d(nd,norder,fvals,fcoefs,umat)
+      subroutine tens_prod_trans_3d(nd,norder,fvals,fcoefs,umat)
 c
-c   convert a 3d legendre expansion at collection of points 
+c     3D tensor product transformation
 c
 c
 c

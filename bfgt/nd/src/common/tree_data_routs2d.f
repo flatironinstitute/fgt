@@ -772,6 +772,8 @@ c
                    abserr=abserr+(fex(ind,j,ibox)-fcomp(ind,j,ibox))**2
                 enddo
              enddo
+c             call prin2('fex=*',fex(1,1,ibox),nd*npbox)
+c             call prin2('fcomp=*',fcomp(1,1,ibox),nd*npbox)
           endif
         enddo
       enddo

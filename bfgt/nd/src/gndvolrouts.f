@@ -1300,7 +1300,7 @@ C
 C*********************************************************************C
       subroutine gnd_tens_prod_to_pghloc(ndim,nd,n,fvals,
      1    ifpgh,pot,grad,hess,
-     1    tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
+     2    tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
 C*********************************************************************C
 c     This routine computes the volume Gauss transform in general n dimensions
 c     over a single box source distribution given as function values on a
@@ -1805,6 +1805,7 @@ c        transfrom in y
 
                cdx=cdx+tab_loc(j2,k2,iy)*ffx(k1,j2)
                cdxy=cdxy+tabx_loc(j2,k2,iy)*ffx(k1,j2)
+
                cdxx=cdxx+tab_loc(j2,k2,iy)*ffxx(k1,j2)
             enddo
             pot(ind,k1,k2)=pot(ind,k1,k2)+cd

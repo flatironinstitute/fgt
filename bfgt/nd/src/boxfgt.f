@@ -758,7 +758,7 @@ cccc              jbox is the target box
      1                ((iflocal(ibox).ne.1) .or. (jbox.ne.ibox))) then
                      call gnd_find_loctab_ind(ndim,iperiod,
      1                   centers(1,jbox),centers(1,ibox),
-     2                   bs,bs0,ixyz)                     
+     2                   bs,bs0,ixyz)
                      call gnd_tens_prod_to_pghloc(ndim,nd,norder,
      1                   fvals(1,1,ibox),ifpgh,pot(1,1,jbox),
      2                   grad(1,1,1,jbox),hess(1,1,1,jbox),
@@ -772,6 +772,7 @@ cccc              jbox is the target box
 C$OMP END PARALLEL DO         
  2000 continue
 c
+      if (1.eq.2) then
       call mk_poly_tables(norder,xq,tabf,tabfx,tabfxx)
       allocate(lgcoefs(nd,norder**ndim))
 
@@ -799,7 +800,8 @@ c        ibox is the source box
 C$OMP END PARALLEL DO         
  3000 continue
  3001 continue
-
+      endif
+      
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(7) = time2-time1

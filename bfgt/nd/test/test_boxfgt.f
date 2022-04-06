@@ -45,7 +45,7 @@ c
 
       external fgaussn,fgaussnx
 
-      ndim=3
+      ndim=2
       ipoly=0
 
       allocate(targ(ndim))
@@ -61,13 +61,14 @@ c
 c      initialize function parameters
 c
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 1d-3
+      delta = 1d-5
       
       boxlen = 1.0d0
       
       rsig = 1.0d0/4000.0d0
       rsig = 0.00025d0
       rsig = 1.0d-4
+      rsign=(rsig*delta)**(ndim/2.0d0)
       
       nd = 1
 c     first gaussian
@@ -78,7 +79,7 @@ c     centers
 c     variance
       dpars(4) = rsig
 c     strength
-      dpars(5) = 1/pi/rsig
+      dpars(5) = 1/pi/rsign
 
 c     second gaussian
       dpars(6) = 0.36d0
@@ -86,7 +87,7 @@ c     second gaussian
       dpars(8) = 0.25d0
 
       dpars(9) = rsig
-      dpars(10) = -0.5d0/pi/rsig
+      dpars(10) = -0.5d0/pi/rsign
 
       
 c     third gaussian
@@ -95,7 +96,7 @@ c     third gaussian
       dpars(13) = 0.534d0
 
       dpars(14) = rsig/4.5d0
-      dpars(15) = 1.0d0/pi/rsig
+      dpars(15) = 1.0d0/pi/rsign
       
 c     fourth gaussian
       dpars(16) = 0.412d0
@@ -103,7 +104,7 @@ c     fourth gaussian
       dpars(18) = 0.67d0
 
       dpars(19) = rsig/1.2d0
-      dpars(20) = 1/pi/dpars(15)
+      dpars(20) = 1/pi/rsign
 
 c     polynomial expansion order for each leaf box
       norder = 16
@@ -125,7 +126,7 @@ c     polynomial expansion order for each leaf box
          enddo
       enddo
       
-      eps = 0.5d-6
+      eps = 0.5d-12
       call cpu_time(t1)
 C$      t1 = omp_get_wtime()
 
@@ -194,7 +195,7 @@ c     allocate memory and initialization
       enddo
 
       type = 'f'
-      ifpgh= 1
+      ifpgh= 3
       ifpghtarg=3
 
 c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials

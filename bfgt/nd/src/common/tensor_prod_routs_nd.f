@@ -813,9 +813,6 @@ c
 
       real *8 polyv(norder,ndim)
 
-      x=targ(1)
-      y=targ(2)
-      
       if (ipoly .eq. 0) then
          do i=1,ndim
             call legepols(targ(i),norder-1,polyv(1,i))

@@ -65,8 +65,8 @@ SOURCES =  test_boxfgt.f \
   $(SRC)/common/dlaran.f \
   $(SRC)/common/voltab2d.f \
   $(SRC)/common/voltab3d.f \
-  $(SRC)/common/tree_data_routs2d.f \
-  $(SRC)/common/tensor_prod_routs2d.f \
+  $(SRC)/common/tree_data_routs_nd.f \
+  $(SRC)/common/tensor_prod_routs_nd.f \
   $(SRC)/common/fmmcommon2d.f \
   $(SRC)/common/pts_tree_nd.f \
   $(SRC)/common/lapack_f77.f \

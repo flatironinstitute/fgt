@@ -661,7 +661,7 @@ C$OMP END PARALLEL DO
       end
 c
 c
-      subroutine sort_pts_to_children(ndim,ibox,nboxes,centers,
+      subroutine sort_pts_to_children_old(ndim,ibox,nboxes,centers,
      1   ichild,src,ns,isrc,isrcse)
       implicit real *8 (a-h,o-z)
       integer nboxes
@@ -669,6 +669,7 @@ c
       integer ns, isrc(ns),isrcse(2,nboxes)
       integer ichild(2**ndim,nboxes)
 
+      
       if (ndim.eq.1) then
          call sort_pts_to_children_1d(ibox,nboxes,centers,
      1       ichild,src,ns,isrc,isrcse)
@@ -871,7 +872,6 @@ c           6     x>0,y<0,z>0
 c           7     x<0,y>0,z>0
 c           8     x>0,y>0,z>0
 c
-
       i1234 = isrcse(1,ibox)-1
       i5678 = 0
       npts = isrcse(2,ibox)-isrcse(1,ibox)+1
@@ -963,7 +963,7 @@ c
         isrc(isrcse(1,ibox)+nsc(1)+i-1) = isrctmp(i)
       enddo
 c
-c    sort intow boxes 3,4 
+c    sort into boxes 3,4 
 c 
       do iss=i12+1,i1234
         if(src(1,isrc(iss))-centers(1,ibox).lt.0) then
@@ -1017,8 +1017,6 @@ c
       enddo
 c
 c   End of sorting sources into boxes 5 and 6
-
-
       istart = isrcse(1,ibox)
       do i=1,8
         jbox = ichild(i,ibox)
@@ -1035,6 +1033,90 @@ c
 c       
 c
 c       
+c
+      subroutine sort_pts_to_children(ndim,ibox,nboxes,centers,
+     1   ichild,src,ns,isrc,isrcse)
+      implicit double precision (a-h,o-z)
+      integer nboxes
+      double precision centers(ndim,nboxes),src(ndim,ns)
+      integer ns, isrc(ns),isrcse(2,nboxes)
+      integer ichild(2**ndim,nboxes)
+      integer iss, nsrc(2**ndim),ip(2**ndim+1)
+      integer, allocatable :: isrcbox(:),isrctmp(:)
+
+      npts = isrcse(2,ibox)-isrcse(1,ibox)+1
+      allocate(isrcbox(npts))
+      allocate(isrctmp(npts))
+
+      mc=2**ndim
+      do i=1,mc
+         nsrc(i)=0
+      enddo
+
+      istart=isrcse(1,ibox)
+      do iss=isrcse(1,ibox),isrcse(2,ibox)
+         call find_childbox_ind(ndim,src(1,isrc(iss)),centers(1,ibox),k)
+         isrcbox(iss-istart+1)=k
+         nsrc(k)=nsrc(k)+1
+      enddo
+
+      ip(1)=0
+      call cumsum(mc,nsrc,ip(2))
+
+      do i=1,mc
+         jbox = ichild(i,ibox)
+         isrcse(1,jbox) = istart+ip(i)
+         isrcse(2,jbox) = istart+ip(i+1)-1
+      enddo
+
+      do iss=isrcse(1,ibox),isrcse(2,ibox)
+         ic=isrcbox(iss-istart+1)
+         ip(ic)=ip(ic)+1
+         isrctmp(ip(ic))=isrc(iss)
+      enddo
+
+      do iss=isrcse(1,ibox),isrcse(2,ibox)
+         isrc(iss)=isrctmp(iss-istart+1)
+      enddo
+c
+c
+
+      return
+      end
+c       
+c
+c       
+c
+      subroutine find_childbox_ind(ndim,src,cen,k)
+C
+C     This subroutine returns the child box index of a given point
+c      
+C     INPUT
+C     ndim - dimension of the underlysing space
+c     src - xyz coordinates of the point
+C     cen - box center
+C
+C     OUTPUT:
+C
+C     k - child box index
+C
+      implicit real *8 (a-h,o-z)
+      real *8 src(ndim),cen(ndim)
+      integer k, i
+
+C
+      k=1
+      inc=1
+      do i=1,ndim
+         dx = src(i)-cen(i)
+         if (dx.ge.0) k=k+inc
+         inc=inc*2
+      enddo
+c
+      return
+      end
+c
+C
 c
 c-------------------------------------------------------------      
       subroutine pts_tree_fix_lr(ndim,centers,nlevels,nboxes,
@@ -1549,7 +1631,7 @@ c
       implicit none
       double precision pos(ndim,npts)
       double precision center(ndim)
-      double precision subcenters(ndim,8)
+      double precision subcenters(ndim,2**ndim)
       double precision boxsize,bsh
       integer ndim,npts
       integer isorted(*)

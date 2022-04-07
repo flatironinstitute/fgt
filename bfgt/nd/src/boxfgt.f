@@ -351,6 +351,7 @@ c
       integer ixyz(ndim)
       
       real *8, allocatable :: xq(:),wts(:),umat(:,:),vmat(:,:)
+      real *8, allocatable :: umat_nd(:,:,:)
 
       real *8 ws(100),ts(100)
       
@@ -370,6 +371,10 @@ c
       real *8, allocatable :: tabfxx(:,:)
       real *8, allocatable :: lgcoefs(:,:)
 
+      real *8, allocatable :: coefsp(:,:,:)
+      real *8, allocatable :: coefsg(:,:,:,:)
+      real *8, allocatable :: coefsh(:,:,:,:)
+
       real *8, allocatable :: tab_loc(:,:,:,:)
       real *8, allocatable :: tabx_loc(:,:,:,:)
       real *8, allocatable :: tabxx_loc(:,:,:,:)
@@ -383,6 +388,7 @@ c
       bs0 = boxsize(0)
       mc = 2**ndim
       mnbors=3**ndim
+      nhess=ndim*(ndim+1)/2
 c
 c
       if(ifprint .ge. 1)
@@ -742,7 +748,7 @@ cc
 C$    time1=omp_get_wtime()  
       do 2000 ilev = 0,nlevend
 C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,jbox,nl1,bs,dx,dy,ix,iy,iz,jlev)
+C$OMP$PRIVATE(ibox,jbox,nl1,bs,ixyz,jlev)
 C$OMP$SCHEDULE(DYNAMIC)  
          bs = boxsize(ilev)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
@@ -806,10 +812,79 @@ C$OMP END PARALLEL DO
 C$    time2=omp_get_wtime()  
       timeinfo(7) = time2-time1
 
+
+      if(ifprint .ge. 1)
+     $     call prinf('=== STEP 7 (extra targets) =====*',i,0)
+c
+cc
+      call cpu_time(time1)
+C$    time1=omp_get_wtime()
+      allocate(umat_nd(norder,norder,ndim))
+      norder2=norder**2
+      do i=1,ndim
+         call dcopy_f77(norder2,umat,1,umat_nd(1,1,i),1)
+      enddo
+
+      allocate(coefsp(nd,npbox,nboxes))
+      allocate(coefsg(nd,ndim,npbox,nboxes))
+      allocate(coefsh(nd,nhess,npbox,nboxes))
+c     compute expansion coefficients for potential, gradient, and hessian
+      itype=0
+      if (ifpghtarg.ge.1) then
+         call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
+     1       iptr,boxsize,norder,pot,coefsp,umat_nd)
+      endif
+
+      iffast=1
+      if (iffast.eq.0) then
+      if (ifpghtarg.ge.1) then
+         call treedata_evalt_nd(ndim,nd,ipoly,norder,nboxes,nlevels,
+     1       ltree,itree,iptr,centers,boxsize,coefsp,
+     2       ntarg,targs,pote)
+      endif
+      if (ifpghtarg.ge.2) then
+         call treedata_trans_nd(ndim,nd*ndim,itype,nlevels,itree,
+     1       iptr,boxsize,norder,grad,coefsg,umat_nd)
+         call treedata_evalt_nd(ndim,nd*ndim,ipoly,norder,nboxes,
+     1       nlevels,ltree,itree,iptr,centers,boxsize,coefsg,
+     2       ntarg,targs,grade)
+      endif
+      if (ifpghtarg.ge.3) then
+         call treedata_trans_nd(ndim,nd*nhess,itype,nlevels,itree,
+     1       iptr,boxsize,norder,hess,coefsh,umat_nd)
+         call treedata_evalt_nd(ndim,nd*nhess,ipoly,norder,nboxes,
+     1       nlevels,ltree,itree,iptr,centers,boxsize,coefsh,
+     2       ntarg,targs,hesse)
+      endif
+      endif
+
+      if (iffast.eq.1) then
+c     evaluate the potential, gradient and hessian at targets
+c     using coefficients for potential only
+      if (ifpghtarg.eq.1) then
+         call treedata_evalt_nd(ndim,nd,ipoly,norder,nboxes,nlevels,
+     1       ltree,itree,iptr,centers,boxsize,coefsp,
+     2       ntarg,targs,pote)
+      elseif (ifpghtarg.eq.2) then
+         call treedata_evalpgt_nd(ndim,nd,ipoly,norder,nboxes,nlevels,
+     1       ltree,itree,iptr,centers,boxsize,coefsp,
+     2       ntarg,targs,pote,grade)
+      elseif (ifpghtarg.eq.3) then
+         call treedata_evalpght_nd(ndim,nd,ipoly,norder,nboxes,nlevels,
+     1       ltree,itree,iptr,centers,boxsize,coefsp,
+     2       ntarg,targs,pote,grade,hesse)
+      endif
+      endif
+      
+      call cpu_time(time2)
+C$    time2=omp_get_wtime()  
+      timeinfo(8) = time2-time1
+      
+      
       if(ifprint.eq.1) then 
-         call prin2('timeinfo=*',timeinfo,7)
+         call prin2('timeinfo=*',timeinfo,8)
          d= 0
-         do i = 1,7
+         do i = 1,8
             d = d + timeinfo(i)
          enddo
          call prin2('sum(timeinfo)=*',d,1)

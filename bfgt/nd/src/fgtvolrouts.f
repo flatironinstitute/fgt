@@ -861,7 +861,7 @@ c     fint(n) = I_n(targ)/lambda
      1    -(0.4d0-4*lambda2)*fint(2)
       fint(4) = 5.0d0*fint(4)/8
       
-      do k=5,m+3
+      do k=5,m
          n=k-3
          fint(k)=targ*(fint(k-1)-fint(k-3))
      1       + (2*n+1)*(lambda2/2 + 1.0d0/((2*n+3)*(2*n-1)))*fint(k-2) 
@@ -872,14 +872,14 @@ c     fint(n) = I_n(targ)/lambda
 c     fp(n) = \int_{-1}^1 G(targ-x) P'_n(x)dx
       fp(1)=0
       fp(2)=fint(1)*lambda
-      do k=3,m+1
+      do k=3,m
          fp(k)=fp(k-2)+(2*k-3)*fint(k-1)*lambda
       enddo
 
 c     fpp(n) = \int_{-1}^1 G(targ-x) P''_n(x)dx
       fpp(1)=0
       fpp(2)=0
-      do k=3,m+1
+      do k=3,m
          fpp(k)=fpp(k-2)+(2*k-3)*fp(k-1)
       enddo
 
@@ -956,7 +956,7 @@ c     fint(n) = I_n(targ)/lambda
      1    -(1-4*lambda2)*fint(2)
 
       isign=1
-      do k=5,m+3
+      do k=5,m
          if (isign.eq.1)  dc = d2
          if (isign.eq.-1) dc = d1
          n=k-1
@@ -972,7 +972,7 @@ c     fp(n) = \int_{-1}^1 G(targ-x) T'_n(x)dx
       fp(1)=0
       fp(2)=fint(1)*lambda
       fp(3)=4*fint(2)*lambda
-      do k=4,m+1
+      do k=4,m
          fp(k)=(fp(k-2)/(k-3)+2*fint(k-1)*lambda)*(k-1)
       enddo
 
@@ -980,7 +980,7 @@ c     fpp(n) = \int_{-1}^1 G(targ-x) T''_n(x)dx
       fpp(1)=0
       fpp(2)=0
       fpp(3)=4*fint(1)*lambda
-      do k=4,m+1
+      do k=4,m
          fpp(k)=(fpp(k-2)/(k-3)+2*fp(k-1))*(k-1)
       enddo
 
@@ -1093,7 +1093,7 @@ cccc      print *, 'matrix infinity norm=', dmax
          endif
       enddo
       
-cccc      call prinf('indc=*',indc,2*(n+1))
+c      call prinf('indc=*',indc,2*(n+1))
       
       return
       end subroutine

@@ -2094,10 +2094,12 @@ c        transform in x
          do j3=1,n
          do j2=1,n
          do k1=ind_loc(1,n+1,ix),ind_loc(2,n+1,ix)
+c         do k1=1,n
             cd=0
             cdx=0.0d0
             cdxx=0.0d0
             do j1=ind_loc(1,k1,ix),ind_loc(2,k1,ix)
+c            do j1=1,n
                cd=cd+tab_loc(j1,k1,ix)*fvals(ind,j1,j2,j3)
                cdx=cdx+tabx_loc(j1,k1,ix)*fvals(ind,j1,j2,j3)
                cdxx=cdxx+tabxx_loc(j1,k1,ix)*fvals(ind,j1,j2,j3)
@@ -2113,6 +2115,8 @@ c        transform in y
          do j3=1,n
          do k2=ind_loc(1,n+1,iy),ind_loc(2,n+1,iy)
          do k1=ind_loc(1,n+1,ix),ind_loc(2,n+1,ix)
+c         do k2=1,n
+c         do k1=1,n
             cd=0
             cdx = 0.0d0
             cdy = 0.0d0
@@ -2120,6 +2124,7 @@ c        transform in y
             cdxy = 0.0d0
             cdyy = 0.0d0
             do j2=ind_loc(1,k2,iy),ind_loc(2,k2,iy)
+c            do j2=1,n
                cd   = cd   +   tab_loc(j2,k2,iy)*ff(k1,j2,j3)
                cdy  = cdy  +  tabx_loc(j2,k2,iy)*ff(k1,j2,j3)
                cdyy = cdyy + tabxx_loc(j2,k2,iy)*ff(k1,j2,j3)
@@ -2143,6 +2148,9 @@ c        transform in z
          do k3=ind_loc(1,n+1,iz),ind_loc(2,n+1,iz)
          do k2=ind_loc(1,n+1,iy),ind_loc(2,n+1,iy)
          do k1=ind_loc(1,n+1,ix),ind_loc(2,n+1,ix)
+c         do k3=1,n
+c         do k2=1,n
+c         do k1=1,n
             cd=0
             cdx = 0.0d0
             cdy = 0.0d0
@@ -2154,6 +2162,7 @@ c        transform in z
             cdxz = 0.0d0
             cdyz = 0.0d0
             do j3=ind_loc(1,k3,iz),ind_loc(2,k3,iz)
+c            do j3=1,n
                cd   = cd   +   tab_loc(j3,k3,iz)*ff2(k1,k2,j3)
                cdz  = cdz  +  tabx_loc(j3,k3,iz)*ff2(k1,k2,j3)
                cdzz = cdzz + tabxx_loc(j3,k3,iz)*ff2(k1,k2,j3)

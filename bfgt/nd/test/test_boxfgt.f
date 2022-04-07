@@ -30,11 +30,12 @@ c
 
       complex *16 ima,zz,ztmp,zk
 
-      real *8 xs(100),ws(100),umat(2000),vmat(2000)
+      real *8 xs(100),ws(100),vmat(2000)
       real *8 vpmat(2000),vppmat(2000)
       real *8 ainte(2000),endinter(1000),work(10000)
       real *8 polin(100),polout(100)
-      
+
+      real *8, allocatable :: umat(:,:),umat_nd(:,:,:)
       real *8 alpha,beta
       character *9 fname1,fname3
       character *8 fname2
@@ -45,9 +46,25 @@ c
 
       external fgaussn,fgaussnx
 
-      ndim=2
+c     dimension of the underlying space
+      ndim=3
+      eps = 0.5d-6
+c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
       ipoly=0
+c     polynomial expansion order for each leaf box
+      norder = 16
 
+      iptype = 0
+      eta = 1.0d0
+      ipars = ndim
+      npbox = norder**ndim
+
+      type = 'f'
+      ifpgh= 3
+      ifpghtarg=3
+
+      iperiod=0
+      
       allocate(targ(ndim))
       
       call prini(6,13)
@@ -61,7 +78,7 @@ c
 c      initialize function parameters
 c
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 1d-5
+      delta = 1d-3
       
       boxlen = 1.0d0
       
@@ -106,14 +123,6 @@ c     fourth gaussian
       dpars(19) = rsig/1.2d0
       dpars(20) = 1/pi/rsign
 
-c     polynomial expansion order for each leaf box
-      norder = 16
-      iptype = 0
-      eta = 1.0d0
-
-      ipars = ndim
-      
-      npbox = norder**ndim
 
       ntarg = 1 000 000
       nhess = ndim*(ndim+1)/2
@@ -121,12 +130,11 @@ c     polynomial expansion order for each leaf box
       allocate(grade(nd,ndim,ntarg),hesse(nd,nhess,ntarg))
 
       do i=1,ntarg
-         do j=1,2
+         do j=1,ndim
             targs(j,i) = hkrand(0)-0.5d0
          enddo
       enddo
       
-      eps = 0.5d-12
       call cpu_time(t1)
 C$      t1 = omp_get_wtime()
 
@@ -170,7 +178,6 @@ c      call print_tree_matlab(itree,ltree,nboxes,centers,boxsize,nlevels,
 c     1   iptr,ns,src,nt,targ,fname1,fname2,fname3)
       
 c     allocate memory and initialization
-      npols = norder**ndim
 
       allocate(pot(nd,npbox,nboxes))
       allocate(grad(nd,ndim,npbox,nboxes))
@@ -194,12 +201,6 @@ c     allocate memory and initialization
         enddo
       enddo
 
-      type = 'f'
-      ifpgh= 3
-      ifpghtarg=3
-
-c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
-      iperiod=0
       call cpu_time(t1) 
 C$     t1 = omp_get_wtime()      
 c     call main box FGT routine
@@ -207,15 +208,12 @@ c     call main box FGT routine
      1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
      2    ifpgh,pot,grad,hess,ntarg,targs,ifpghtarg,pote,grade,hesse,
      3    timeinfo)
-      
-c      call bfgt2d(nd,delta,eps,iperiod,nboxes,nlevels,ltree,itree,
-c     1   iptr,norder,npols,type,fvals,centers,boxsize,npbox,
-c     2   pot,timeinfo,tprecomp)
 
       call cpu_time(t2) 
+C$     t2 = omp_get_wtime()      
       call prin2('time taken in fgt=*',t2-t1,1)
       call prin2('speed in pps=*',
-     1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
+     1    (npbox*nlfbox+ntarg+0.0d0)/(t2-t1),1)
 
       allocate(potex(nd,npbox,nboxes))
       allocate(gradex(nd,ndim,npbox,nboxes))
@@ -225,7 +223,7 @@ c     compute exact solutions on tensor grid
       allocate(xref(ndim,npbox))
       itype = 0
       call polytens_exps_nd(ndim,ipoly,itype,norder,type,xref,
-     1    umat,1,vmat,1,wts)
+     1    utmp,1,vtmp,1,wts)
 
       
       do ilevel=1,nlevels
@@ -248,6 +246,7 @@ c     convert potential values to expansion coefs
 c
       allocate(coefs(nd,npbox,nboxes))
       allocate(coefsg(nd,ndim,npbox,nboxes))
+
       
 c     construct 1D differentiation matrix
       allocate(adiff(norder,norder))
@@ -268,6 +267,8 @@ c
  2600 continue
 
       itype=2
+      allocate(umat(norder,norder))
+      allocate(umat_nd(norder,norder,ndim))
       if (ipoly.eq.0) then
          call legeexps(itype,norder,xs,umat,vmat,ws)
       elseif (ipoly.eq.1) then
@@ -313,42 +314,35 @@ c     compute exact solutions on arbitrary targets
          call uexact(ndim,nd,delta,targs(1,j),dpars,potexe(1,j),
      1       gradexe(1,1,j),hessexe(1,1,j))
       enddo
-c     
+c
+      norder2=norder**2
+      do i=1,ndim
+         call dcopy_f77(norder2,umat,1,umat_nd(1,1,i),1)
+      enddo
+      
       itype=0
       call cpu_time(t1) 
-C     $     t1 = omp_get_wtime()
-      call treedata_trans2d(nd,itype,nlevels,itree,iptr,boxsize,
-     1    norder,pot,coefs,umat,umat)
+C$     t1 = omp_get_wtime()
+      call treedata_trans_nd(ndim,nd,itype,nlevels,itree,iptr,boxsize,
+     1    norder,pot,coefs,umat_nd)
 c      call treedata_coefs_p_to_g2d(nd,nlevels,itree,iptr,
 c     1    boxsize,norder,coefs,coefsg,adiff)
       
       call cpu_time(t2) 
 C$     t2 = omp_get_wtime()      
-      call prin2('time on treedata_trans2d=*',t2-t1,1)
+      call prin2('time on treedata_trans_nd=*',t2-t1,1)
       
       call prin2('speed in pps=*',
      1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
 
+      if (1.eq.2) then
       call cpu_time(t1) 
 C$     t1 = omp_get_wtime()      
-c     evaluate the potential, gradient and hessian at targets
-      if (ifpghtarg.eq.1) then
-         call treedata_evalt2d(nd,ipoly,itree,ltree,nboxes,nlevels,
-     1       iptr,centers,boxsize,norder,coefs,
-     2       ntarg,targs,pote)
-      elseif (ifpghtarg.eq.2) then
-         call treedata_evalpgt2d(nd,ipoly,itree,ltree,nboxes,nlevels,
-     1       iptr,centers,boxsize,norder,coefs,
-     2       ntarg,targs,pote,grade)
-      elseif (ifpghtarg.eq.3) then
-         call treedata_evalpght2d(nd,ipoly,itree,ltree,nboxes,nlevels,
-     1       iptr,centers,boxsize,norder,coefs,
-     2       ntarg,targs,pote,grade,hesse)
-      endif
       call cpu_time(t2) 
 C$     t2 = omp_get_wtime()      
       call prin2('time on extra targ pot eval=*',t2-t1,1)
       call prin2('speed in pps=*',(ntarg+0.0d0)/(t2-t1),1)
+      endif
       
 c     compute relative error
       if (ifpghtarg.ge.1) then

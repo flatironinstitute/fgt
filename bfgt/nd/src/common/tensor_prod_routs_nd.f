@@ -347,8 +347,8 @@ c     nd - number of input data
 c     norder - order of polynomial expansion
 c     coefs - orthogonal polynomial expansion coefficients for the potential
 c     sc - scaling factor for the derivative
-c     vmat - matrix converting coefficient into function values
-c     vpmat - matrix converting coefficient into values of the first derivative
+c     vmat - matrix converting coefficients into function values
+c     vpmat - matrix converting coefficients into values of the first derivative
 c      
 c     output:
 c     grad - value of the gradient
@@ -553,9 +553,9 @@ c     nd - number of input data
 c     norder - order of polynomial expansion
 c     coefs - orthogonal polynomial expansion coefficients for the potential
 c     sc - scaling factor for the derivative
-c     vmat - matrix converting coefficient into function values
-c     vpmat - matrix converting coefficient into values of the first derivative
-c     vppmat - matrix converting coefficient into values of the second derivative
+c     vmat - matrix converting coefficients into function values
+c     vpmat - matrix converting coefficients into values of the first derivative
+c     vppmat - matrix converting coefficients into values of the second derivative
 c
 c     output:
 c     hess - value of the hessian
@@ -1936,3 +1936,44 @@ c
 c
 c
 c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c
+c     make 1D tables for computing function values and its derivatives
+c     from its expansion coefficients
+c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      subroutine ortho_eval_tables(ipoly,n,vmat,vpmat,vppmat)
+c
+c     makes tables for computing function values and its derivatives
+c     on interpolation nodes
+c
+c     input:
+c     ipoly - ipoly=0 Legendre polynomials
+c                   1 Chebyshev polynomials
+c     n - order of polynomial expansion
+c      
+c     output:
+c     vmat - nxn matrix converting expansion coefficients to function values
+c     vpmat - nxn matrix converting expansion coefficients to first derivatives
+c     vppmat - nxn matrix converting expansion coefficients to second derivatives
+c
+      implicit real *8 (a-h,o-z)
+      real *8 vmat(n,n)
+      real *8 vpmat(n,n)
+      real *8 vppmat(n,n)
+      real *8 xs(n),umat(n,n),ws(n)
+
+      itype=2
+      if (ipoly.eq.0) then
+         call legeexps2(itype,n,xs,umat,vmat,ws,vpmat,vppmat)
+      elseif (ipoly.eq.1) then
+         call chebexps2(itype,n,xs,umat,vmat,ws,vpmat,vppmat)
+      endif
+      
+      return
+      end
+c
+c
+c
+c
+      

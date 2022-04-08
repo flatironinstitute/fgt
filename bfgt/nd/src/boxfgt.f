@@ -363,14 +363,6 @@ c
       complex *16, allocatable :: tab_pw2der(:,:,:)
       complex *16, allocatable :: tab_pw2dxx(:,:,:)
 
-      real *8, allocatable :: hh(:,:)
-      real *8, allocatable :: hh2(:,:)
-      real *8, allocatable :: hh3(:,:)
-      real *8, allocatable :: tabf(:,:)
-      real *8, allocatable :: tabfx(:,:)
-      real *8, allocatable :: tabfxx(:,:)
-      real *8, allocatable :: lgcoefs(:,:)
-
       real *8, allocatable :: coefsp(:,:,:)
       real *8, allocatable :: coefsg(:,:,:,:)
       real *8, allocatable :: coefsh(:,:,:,:)
@@ -452,14 +444,6 @@ c     values, used in direct evaluation
       allocate(tabx_loc(norder,norder,-6:6,0:nlevels))
       allocate(tabxx_loc(norder,norder,-6:6,0:nlevels))
       allocate(ind_loc(2,norder+1,-6:6,0:nlevels))
-
-      allocate(hh(norder,norder))
-      allocate(hh2(norder,norder))
-      allocate(hh3(norder,norder))
-
-      allocate(tabf(norder,norder))
-      allocate(tabfx(norder,norder))
-      allocate(tabfxx(norder,norder))
 
       nnodes=50
       do ilev = 0,min(npwlevel,nlevels)
@@ -778,36 +762,6 @@ cccc              jbox is the target box
 C$OMP END PARALLEL DO         
  2000 continue
 c
-      if (1.eq.2) then
-      call mk_poly_tables(norder,xq,tabf,tabfx,tabfxx)
-      allocate(lgcoefs(nd,norder**ndim))
-
-      do 3000 ilev = 0,nlevend
-C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox)
-C$OMP$SCHEDULE(DYNAMIC)  
-         do ibox = itree(2*ilev+1),itree(2*ilev+2)
-c        ibox is the source box            
-            if (ifhung(ibox) .eq. 1) then
-               call tens_prod_trans_nd(ndim,nd,norder,pot(1,1,ibox),
-     1             lgcoefs,umat)
-               if (ifpgh.eq.2) then
-                  call ortho_to_g(nd,norder,lgcoefs,hh,hh2,
-     1                grad(1,1,1,ibox),
-     1                tabf,tabfx,boxsize(ilev))
-                endif
-               if (ifpgh.eq.3) then
-                  call ortho_to_gh(nd,norder,lgcoefs,hh,hh2,hh3,
-     1                grad(1,1,1,ibox),hess(1,1,1,ibox),
-     1                tabf,tabfx,tabfxx,boxsize(ilev))
-                endif
-            endif
-         enddo
-C$OMP END PARALLEL DO         
- 3000 continue
- 3001 continue
-      endif
-      
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(7) = time2-time1
@@ -819,15 +773,17 @@ c
 cc
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
-      allocate(umat_nd(norder,norder,ndim))
-      norder2=norder**2
-      do i=1,ndim
-         call dcopy_f77(norder2,umat,1,umat_nd(1,1,i),1)
-      enddo
 
       allocate(coefsp(nd,npbox,nboxes))
       allocate(coefsg(nd,ndim,npbox,nboxes))
       allocate(coefsh(nd,nhess,npbox,nboxes))
+
+      allocate(umat_nd(norder,norder,ndim))
+      norder2=norder*norder
+      do i=1,ndim
+         call dcopy_f77(norder2,umat,1,umat_nd(1,1,i),1)
+      enddo
+      
 c     compute expansion coefficients for potential, gradient, and hessian
       itype=0
       if (ifpghtarg.ge.1) then

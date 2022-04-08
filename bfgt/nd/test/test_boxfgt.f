@@ -53,7 +53,7 @@ c     dimension of the underlying space
 c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
       ipoly=0
 c     polynomial expansion order for each leaf box
-      norder = 16
+      norder = 8
 
       iptype = 0
       eta = 1.0d0
@@ -66,7 +66,6 @@ c     polynomial expansion order for each leaf box
 
       iperiod=0
       
-      allocate(targ(ndim))
       
       call prini(6,13)
 cccc  call prini_off()
@@ -79,7 +78,7 @@ c
 c      initialize function parameters
 c
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 1d-5
+      delta = 4d-3
       
       boxlen = 1.0d0
       
@@ -204,7 +203,7 @@ c     allocate memory and initialization
 
       call cpu_time(t1) 
 C$     t1 = omp_get_wtime()      
-c     call main box FGT routine
+
       call boxfgt(nd,ndim,delta,eps,ipoly,iperiod,norder,npbox,
      1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
      2    ifpgh,pot,grad,hess,ntarg,targs,ifpghtarg,pote,grade,hesse,
@@ -225,8 +224,8 @@ c     compute exact solutions on tensor grid
       itype = 0
       call polytens_exps_nd(ndim,ipoly,itype,norder,type,xref,
      1    utmp,1,vtmp,1,wts)
-
       
+      allocate(targ(ndim))
       do ilevel=1,nlevels
         bs = boxsize(ilevel)/2.0d0
         do ibox=itree(2*ilevel+1),itree(2*ilevel+2)
@@ -242,12 +241,6 @@ c     compute exact solutions on tensor grid
           endif
         enddo
       enddo
-c
-c     convert potential values to expansion coefs
-c
-      allocate(coefs(nd,npbox,nboxes))
-      allocate(coefsg(nd,ndim,npbox,nboxes))
-
       
 c     construct 1D differentiation matrix
       allocate(adiff(norder,norder))
@@ -266,15 +259,6 @@ c
  2400    continue
 c 
  2600 continue
-
-      itype=2
-      allocate(umat(norder,norder))
-      allocate(umat_nd(norder,norder,ndim))
-      if (ipoly.eq.0) then
-         call legeexps(itype,norder,xs,umat,vmat,ws)
-      elseif (ipoly.eq.1) then
-         call chebexps(itype,norder,xs,umat,vmat,ws)
-      endif
       
       call treedata_derror(nd,nlevels,itree,iptr,
      1    npbox,potex,pot,abserrp,rnormp,nleaf)
@@ -288,27 +272,6 @@ c
       call prin2('relative pot l2 error=*',errp,1)
       call prin2('relative grad l2 error=*',errg,1)
       call prin2('relative hess l2 error=*',errh,1)
-
-
-
-c     evaluate the gradient and hessian at tensor grids
-c      call cpu_time(t1) 
-C     $     t1 = omp_get_wtime()
-c      call treedata_evalg2d(nd,ipoly,nlevels,itree,iptr,boxsize,
-c     1    norder,coefs,grad)
-
-c      call treedata_trans2d(nd*2,itype,nlevels,itree,iptr,boxsize,
-c     1    norder,coefsg,grad,vmat,vmat)
-      
-c      call treedata_evalh2d(nd,ipoly,nlevels,itree,iptr,boxsize,
-c     1    norder,coefs,hess)
-c      call cpu_time(t2) 
-C$     t2 = omp_get_wtime()      
-c      call prin2('time on calculating grad and hess=*',t2-t1,1)
-      
-c      call prin2('speed in pps=*',
-c     1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
-
 c
 c     compute exact solutions on arbitrary targets      
       do j=1,ntarg
@@ -316,39 +279,9 @@ c     compute exact solutions on arbitrary targets
      1       gradexe(1,1,j),hessexe(1,1,j))
       enddo
 c
-      norder2=norder**2
-      do i=1,ndim
-         call dcopy_f77(norder2,umat,1,umat_nd(1,1,i),1)
-      enddo
-      
-      itype=0
-      call cpu_time(t1) 
-C$     t1 = omp_get_wtime()
-      call treedata_trans_nd(ndim,nd,itype,nlevels,itree,iptr,boxsize,
-     1    norder,pot,coefs,umat_nd)
-c      call treedata_coefs_p_to_g2d(nd,nlevels,itree,iptr,
-c     1    boxsize,norder,coefs,coefsg,adiff)
-      
-      call cpu_time(t2) 
-C$     t2 = omp_get_wtime()      
-      call prin2('time on treedata_trans_nd=*',t2-t1,1)
-      
-      call prin2('speed in pps=*',
-     1    (npbox*nlfbox+0.0d0)/(t2-t1),1)
-
-      if (1.eq.2) then
-      call cpu_time(t1) 
-C$     t1 = omp_get_wtime()      
-      call cpu_time(t2) 
-C$     t2 = omp_get_wtime()      
-      call prin2('time on extra targ pot eval=*',t2-t1,1)
-      call prin2('speed in pps=*',(ntarg+0.0d0)/(t2-t1),1)
-      endif
-      
 c     compute relative error
       if (ifpghtarg.ge.1) then
          call derr(potexe,pote,nd*ntarg,errpe)
-c         call derr(uxexe,pote,nd*ntarg,errpe)
          call prin2('relative pottarg l2 error=*',errpe,1)
       endif
       if (ifpghtarg.ge.2) then

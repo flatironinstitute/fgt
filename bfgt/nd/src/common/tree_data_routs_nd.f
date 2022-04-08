@@ -135,19 +135,12 @@ c
       real *8 grad(nd,ndim,norder**ndim,*)
 
       real *8, allocatable :: vmat(:,:),vpmat(:,:),vppmat(:,:)
-      real *8, allocatable :: xs(:),ws(:),umat(:,:)
 
-      allocate(xs(norder),ws(norder),umat(norder,norder))
       allocate(vmat(norder,norder))
       allocate(vpmat(norder,norder))
       allocate(vppmat(norder,norder))
 
-      itype=2
-      if (ipoly.eq.0) then
-         call legeexps2(itype,norder,xs,umat,vmat,ws,vpmat,vppmat)
-      elseif (ipoly.eq.1) then
-         call chebexps2(itype,norder,xs,umat,vmat,ws,vpmat,vppmat)
-      endif
+      call ortho_eval_tables(ipoly,norder,vmat,vpmat,vppmat)
 
       do ilev = 0,nlevels
         sc = 2.0d0/boxsize(ilev)
@@ -214,19 +207,12 @@ c            and uxx,uyy,uzz,uxy,uxz,uyz in 3d. nhess=ndim*(ndim+1)/2
       real *8 hess(nd,ndim*(ndim+1)/2,norder**ndim,*)
 
       real *8, allocatable :: vmat(:,:),vpmat(:,:),vppmat(:,:)
-      real *8, allocatable :: xs(:),ws(:),umat(:,:)
 
-      allocate(xs(norder),ws(norder),umat(norder,norder))
       allocate(vmat(norder,norder))
       allocate(vpmat(norder,norder))
       allocate(vppmat(norder,norder))
 
-      itype=2
-      if (ipoly.eq.0) then
-         call legeexps2(itype,norder,xs,umat,vmat,ws,vpmat,vppmat)
-      elseif (ipoly.eq.1) then
-         call chebexps2(itype,norder,xs,umat,vmat,ws,vpmat,vppmat)
-      endif
+      call ortho_eval_tables(ipoly,norder,vmat,vpmat,vppmat)
       
       do ilev = 0,nlevels
         sc = 2.0d0/boxsize(ilev)

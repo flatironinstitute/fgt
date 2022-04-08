@@ -47,8 +47,9 @@ c
       external fgaussn,fgaussnx
 
 c     dimension of the underlying space
-      ndim=3
-      eps = 0.5d-6
+      ndim=2
+      eps = 0.5d-12
+      if (ndim.eq.3) eps=0.5d-6
 c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
       ipoly=0
 c     polynomial expansion order for each leaf box
@@ -78,7 +79,7 @@ c
 c      initialize function parameters
 c
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 1d-3
+      delta = 1d-5
       
       boxlen = 1.0d0
       

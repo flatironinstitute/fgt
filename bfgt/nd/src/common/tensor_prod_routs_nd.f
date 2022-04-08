@@ -18,7 +18,7 @@ c
 c     general transform (val2coef,coef2val,ceof2der, etc.)
 c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      subroutine orth_trans_nd(ndim,nd,itype,norder,fin,fout,umat)
+      subroutine ortho_trans_nd(ndim,nd,itype,norder,fin,fout,umat)
 c
 c     this subroutine transform the input data given on a tensor product grid
 c     to the output data. Depending on the 1d transformation matrix umat, it can
@@ -48,11 +48,11 @@ c
       real *8 umat(norder,norder,ndim)
 
       if (ndim.eq.1) then
-         call orth_trans_1d(nd,itype,norder,fin,fout,umat)
+         call ortho_trans_1d(nd,itype,norder,fin,fout,umat)
       elseif (ndim.eq.2) then
-         call orth_trans_2d(nd,itype,norder,fin,fout,umat)
+         call ortho_trans_2d(nd,itype,norder,fin,fout,umat)
       elseif (ndim.eq.3) then
-         call orth_trans_3d(nd,itype,norder,fin,fout,umat)
+         call ortho_trans_3d(nd,itype,norder,fin,fout,umat)
       endif
       
       return
@@ -61,7 +61,7 @@ c
 c
 c
 c
-      subroutine orth_trans_1d(nd,itype,norder,fin,fout,umat)
+      subroutine ortho_trans_1d(nd,itype,norder,fin,fout,umat)
 c
 c     this subroutine transform the input data given on a tensor product grid
 c     to the output data. Depending on the 1d transformation matrix umat, it can
@@ -100,7 +100,7 @@ c
 c
 c
 c
-      subroutine orth_trans_2d(nd,itype,norder,fin,fout,umat)
+      subroutine ortho_trans_2d(nd,itype,norder,fin,fout,umat)
 c
 c     this subroutine transform the input data given on a tensor product grid
 c     to the output data. Depending on the 1d transformation matrix umat, it can
@@ -199,7 +199,7 @@ c
 c
 c
 c
-      subroutine orth_trans_3d(nd,itype,norder,fin,fout,umat)
+      subroutine ortho_trans_3d(nd,itype,norder,fin,fout,umat)
 c
 c     this subroutine transform the input data given on a tensor product grid
 c     to the output data. Depending on the 1d transformation matrix umat, it can
@@ -337,7 +337,7 @@ c     evaluate gradient at tensor grid given potential coefficients
 c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c
-      subroutine orth_evalg_nd(ndim,nd,norder,coefs,sc,
+      subroutine ortho_evalg_nd(ndim,nd,norder,coefs,sc,
      1    grad,vmat,vpmat)
 c
 c     this subroutine evaluates the gradient at the tensor grid
@@ -360,28 +360,13 @@ c
       real *8 vmat(norder,norder)
       real *8 vpmat(norder,norder)
 
-      real *8, allocatable :: grad1(:,:),umat(:,:,:)
-
-      allocate(umat(norder,norder,ndim))
-      allocate(grad1(nd,norder**ndim))
-
-      itype=0
-      do i=1,ndim
-         do j=1,ndim
-            if (j.ne.i) then
-               call dcopy_f77(norder**2,vmat,1,umat(1,1,j),1)
-            else
-               call dcopy_f77(norder**2,vpmat,1,umat(1,1,j),1)
-            endif
-         enddo
-         call orth_trans_nd(ndim,nd,itype,norder,coefs,grad1,umat)
-
-         do k=1,norder**ndim
-         do ind=1,nd
-            grad(ind,i,k)=grad1(ind,k)*sc
-         enddo
-         enddo
-      enddo
+      if (ndim.eq.1) then
+         call ortho_evalg_1d(nd,norder,coefs,sc,grad,vmat,vpmat)
+      elseif (ndim.eq.2) then
+         call ortho_evalg_2d(nd,norder,coefs,sc,grad,vmat,vpmat)
+      elseif (ndim.eq.3) then
+         call ortho_evalg_3d(nd,norder,coefs,sc,grad,vmat,vpmat)
+      endif
       
       return
       end
@@ -389,12 +374,176 @@ c
 c
 c
 c
+C*********************************************************************C
+      subroutine ortho_evalg_1d(nd,n,fcoefs,sc,grad,
+     1    vmat,vpmat)
+C*********************************************************************C
+      implicit real *8 (a-h,o-z)
+      real *8 fcoefs(nd,n),grad(nd,n)
+      real *8 vmat(n,n)
+      real *8 vpmat(n,n)
+c
+      
+      do ind = 1,nd
+c        transform in x
+         do k1=1,n
+c            cd=0
+            cdx=0
+            do j1=1,n
+c               cd=cd+vmat(j1,k1)*fcoefs(ind,j1)
+               cdx=cdx+vpmat(j1,k1)*fcoefs(ind,j1)
+            enddo
+c            pot(ind,k1)=pot(ind,k1)+cd
+            grad(ind,k1)=grad(ind,k1)+cdx*sc
+         enddo
+      enddo
+      
+      return
+      end subroutine
+c
+c
+C
+c
+C*********************************************************************C
+      subroutine ortho_evalg_2d(nd,n,fcoefs,sc,grad,
+     1    vmat,vpmat)
+C*********************************************************************C
+      implicit real *8 (a-h,o-z)
+      real *8 fcoefs(nd,n,n),pot(nd,n,n),grad(nd,2,n,n)
+      real *8 vmat(n,n)
+      real *8 vpmat(n,n)
+      real *8 ff(n,n)
+      real *8 ffx(n,n)
+c
+      do ind = 1,nd
+c        transform in x
+         do j2=1,n
+         do k1=1,n
+            cd=0
+            cdx=0
+            do j1=1,n
+               cd=cd+vmat(j1,k1)*fcoefs(ind,j1,j2)
+               cdx=cdx+vpmat(j1,k1)*fcoefs(ind,j1,j2)
+            enddo
+            ff(k1,j2)=cd
+            ffx(k1,j2)=cdx
+         enddo
+         enddo
+c        transfrom in y
+         do k2=1,n
+         do k1=1,n
+c            cd=0
+            cdx = 0.0d0
+            cdy = 0.0d0
+            do j2=1,n
+c               cd=cd+vmat(j2,k2)*ff(k1,j2)
+               cdy=cdy+vpmat(j2,k2)*ff(k1,j2)
+               cdx=cdx+vmat(j2,k2)*ffx(k1,j2)
+            enddo
+c            pot(ind,k1,k2)=pot(ind,k1,k2)+cd
+            grad(ind,1,k1,k2)=grad(ind,1,k1,k2)+cdx*sc
+            grad(ind,2,k1,k2)=grad(ind,2,k1,k2)+cdy*sc
+         enddo
+         enddo
+c     end of the ind loop
+      enddo
+      
+      return
+      end subroutine
+c
+c
+C
+c
+C*********************************************************************C
+      subroutine ortho_evalg_3d(nd,n,fcoefs,sc,grad,
+     1    vmat,vpmat)
+C*********************************************************************C
+c----------------------------------------------------------------------c
+      implicit real *8 (a-h,o-z)
+      real *8 fcoefs(nd,n,n,n)
+      real *8 grad(nd,3,n,n,n)
+      real *8 vmat(n,n)
+      real *8 vpmat(n,n)
+
+      real *8 ff(n,n,n),ff2(n,n,n)
+      real *8 ffx(n,n,n),ff2x(n,n,n)
+      real *8 ff2y(n,n,n)
+c
+      
+      do ind = 1,nd
+c        transform in x
+         do j3=1,n
+         do j2=1,n
+         do k1=1,n
+            cd=0
+            cdx=0.0d0
+            do j1=1,n
+               cd=cd+vmat(j1,k1)*fcoefs(ind,j1,j2,j3)
+               cdx=cdx+vpmat(j1,k1)*fcoefs(ind,j1,j2,j3)
+            enddo
+            ff(k1,j2,j3)=cd
+            ffx(k1,j2,j3)=cdx
+         enddo
+         enddo
+         enddo
+
+c        transform in y
+         do j3=1,n
+         do k2=1,n
+         do k1=1,n
+            cd=0
+            cdx = 0.0d0
+            cdy = 0.0d0
+            do j2=1,n
+               cd=cd+vmat(j2,k2)*ff(k1,j2,j3)
+               cdy=cdy+vpmat(j2,k2)*ff(k1,j2,j3)
+               
+               cdx=cdx+vmat(j2,k2)*ffx(k1,j2,j3)
+            enddo
+            ff2(k1,k2,j3)=cd
+            ff2x(k1,k2,j3)=cdx
+            ff2y(k1,k2,j3)=cdy
+         enddo
+         enddo
+         enddo
+
+c        transform in z
+         do k3=1,n
+         do k2=1,n
+         do k1=1,n
+c            cd=0
+            cdx = 0.0d0
+            cdy = 0.0d0
+            cdz = 0.0d0
+            do j3=1,n
+c               cd=cd+vmat(j3,k3)*ff2(k1,k2,j3)
+               cdz=cdz+vpmat(j3,k3)*ff2(k1,k2,j3)
+               
+               cdx=cdx+vmat(j3,k3)*ff2x(k1,k2,j3)
+               cdy=cdy+vmat(j3,k3)*ff2y(k1,k2,j3)
+            enddo
+c            pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+cd
+            grad(ind,1,k1,k2,k3)=grad(ind,1,k1,k2,k3)+cdx*sc
+            grad(ind,2,k1,k2,k3)=grad(ind,2,k1,k2,k3)+cdy*sc
+            grad(ind,3,k1,k2,k3)=grad(ind,3,k1,k2,k3)+cdz*sc
+         enddo
+         enddo
+         enddo
+c     end of the ind loop
+      enddo
+      
+      return
+      end subroutine
+c
+c
+c
+c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c
-c     evaluate hessian at tensor grid given potential coefficients
+c     evaluate gradient and hessian at tensor grid given potential coefficients
 c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      subroutine orth_evalh_nd(nd,norder,coefs,sc,
+      subroutine ortho_evalgh_nd(ndim,nd,norder,coefs,sc,grad
      1    hess,vmat,vpmat,vppmat)
 c
 c     this subroutine evaluates the hessian at the tensor grid
@@ -413,76 +562,23 @@ c     hess - value of the hessian
 c
       implicit real *8 (a-h,o-z)
       real *8 coefs(nd,norder**ndim)
+      real *8 grad(nd,ndim,norder**ndim)
       real *8 hess(nd,ndim*(ndim+1)/2,norder**ndim)
 
       real *8 vmat(norder,norder)
       real *8 vpmat(norder,norder)
       real *8 vppmat(norder,norder)
 
-      real *8, allocatable :: hess1(:,:),umat(:,:)
-
-      allocate(umat(norder**2,ndim))
-      allocate(hess1(nd,norder**ndim))
-
-      itype=0
-      sc2=sc*sc
-      nhess=ndim*(ndim+1)/2
-      norder2=norder**2
-
-      do i=1,nhess
-         if (ndim.eq.1) then
-            call dcopy_f77(norder2,vppmat,1,umat(1,ndim),1)
-         endif
-
-         if (ndim.eq.2) then
-            if (i.eq.1) then
-               call dcopy_f77(norder2,vppmat,1,umat(1,1),1)
-               call dcopy_f77(norder2,  vmat,1,umat(1,2),1)
-            elseif (i.eq.2) then      
-               call dcopy_f77(norder2, vpmat,1,umat(1,1),1)
-               call dcopy_f77(norder2, vpmat,1,umat(1,2),1)
-            elseif (i.eq.3) then      
-               call dcopy_f77(norder2,  vmat,1,umat(1,1),1)
-               call dcopy_f77(norder2,vppmat,1,umat(1,2),1)
-            endif
-         endif
-
-         if (ndim.eq.3) then
-            if (i.eq.1) then
-               call dcopy_f77(norder2,vppmat,1,umat(1,1),1)
-               call dcopy_f77(norder2,  vmat,1,umat(1,2),1)
-               call dcopy_f77(norder2,  vmat,1,umat(1,3),1)
-            elseif (i.eq.2) then      
-               call dcopy_f77(norder2,  vmat,1,umat(1,1),1)
-               call dcopy_f77(norder2,vppmat,1,umat(1,2),1)
-               call dcopy_f77(norder2,  vmat,1,umat(1,3),1)
-            elseif (i.eq.3) then      
-               call dcopy_f77(norder2,  vmat,1,umat(1,1),1)
-               call dcopy_f77(norder2,  vmat,1,umat(1,2),1)
-               call dcopy_f77(norder2,vppmat,1,umat(1,3),1)
-            elseif (i.eq.4) then      
-               call dcopy_f77(norder2, vpmat,1,umat(1,1),1)
-               call dcopy_f77(norder2, vpmat,1,umat(1,2),1)
-               call dcopy_f77(norder2,  vmat,1,umat(1,3),1)
-            elseif (i.eq.5) then      
-               call dcopy_f77(norder2, vpmat,1,umat(1,1),1)
-               call dcopy_f77(norder2,  vmat,1,umat(1,2),1)
-               call dcopy_f77(norder2, vpmat,1,umat(1,3),1)
-            elseif (i.eq.6) then      
-               call dcopy_f77(norder2,  vmat,1,umat(1,1),1)
-               call dcopy_f77(norder2, vpmat,1,umat(1,2),1)
-               call dcopy_f77(norder2, vpmat,1,umat(1,3),1)
-            endif
-         endif
-
-         call orth_trans_nd(ndim,nd,itype,norder,coefs,hess1,umat)
-         
-         do j=1,norder**ndim
-         do ind=1,nd
-            hess(ind,i,j)=hess1(ind,j)*sc2
-         enddo
-         enddo
-      enddo
+      if (ndim.eq.1) then
+         call ortho_evalgh_1d(nd,norder,coefs,sc,grad,hess,vmat,
+     1       vpmat,vppmat)
+      elseif (ndim.eq.2) then
+         call ortho_evalgh_2d(nd,norder,coefs,sc,grad,hess,vmat,
+     1       vpmat,vppmat)
+      elseif (ndim.eq.3) then
+         call ortho_evalgh_3d(nd,norder,coefs,sc,grad,hess,vmat,
+     1       vpmat,vppmat)
+      endif
       
       return
       end
@@ -490,13 +586,244 @@ c
 c
 c
 c
+C*********************************************************************C
+      subroutine ortho_evalgh_1d(nd,n,fcoefs,sc,grad,hess,
+     1    vmat,vpmat,vppmat)
+C*********************************************************************C
+      implicit real *8 (a-h,o-z)
+      real *8 fcoefs(nd,n),grad(nd,n),hess(nd,n)
+      real *8 vmat(n,n)
+      real *8 vpmat(n,n)
+      real *8 vppmat(n,n)
+c
+      sc2=sc*sc
       
+      do ind = 1,nd
+c        transform in x
+         do k1=1,n
+c            cd=0
+            cdx=0
+            cdxx=0
+            do j1=1,n
+c               cd=cd+vmat(j1,k1)*fcoefs(ind,j1)
+               cdx=cdx+vpmat(j1,k1)*fcoefs(ind,j1)
+               cdxx=cdxx+vppmat(j1,k1)*fcoefs(ind,j1)
+            enddo
+c            pot(ind,k1)=pot(ind,k1)+cd
+            grad(ind,k1)=grad(ind,k1)+cdx*sc
+            hess(ind,k1)=hess(ind,k1)+cdxx*sc2
+         enddo
+      enddo
+      
+      return
+      end subroutine
+c
+c
+C
+c
+      subroutine ortho_evalgh_2d(nd,n,fcoefs,sc,grad,hess,
+     1    vmat,vpmat,vppmat)
+      implicit real *8 (a-h,o-z)
+      real *8 fcoefs(nd,n,n),grad(nd,2,n,n),hess(nd,3,n,n)
+      real *8 vmat(n,n)
+      real *8 vpmat(n,n)
+      real *8 vppmat(n,n)
+
+      real *8 ff(n,n)
+      real *8 ffx(n,n)
+      real *8 ffxx(n,n)
+c
+      sc2=sc*sc
+      
+      do ind = 1,nd
+c        transform in x
+         do j2=1,n
+         do k1=1,n
+            cd=0
+            cdx=0
+            cdxx=0
+            do j1=1,n
+               cd=cd+vmat(j1,k1)*fcoefs(ind,j1,j2)
+               cdx=cdx+vpmat(j1,k1)*fcoefs(ind,j1,j2)
+               cdxx=cdxx+vppmat(j1,k1)*fcoefs(ind,j1,j2)
+            enddo
+            ff(k1,j2)=cd
+            ffx(k1,j2)=cdx
+            ffxx(k1,j2)=cdxx
+         enddo
+         enddo
+c        transfrom in y
+         do k2=1,n
+         do k1=1,n
+c            cd = 0.0d0
+            cdx = 0.0d0
+            cdy = 0.0d0
+            cdxx = 0.0d0
+            cdxy = 0.0d0
+            cdyy = 0.0d0
+            do j2=1,n
+c               cd=cd+vmat(j2,k2)*ff(k1,j2)
+               cdy=cdy+vpmat(j2,k2)*ff(k1,j2)
+               cdyy=cdyy+vppmat(j2,k2)*ff(k1,j2)
+
+               cdx=cdx+vmat(j2,k2)*ffx(k1,j2)
+               cdxy=cdxy+vpmat(j2,k2)*ffx(k1,j2)
+
+               cdxx=cdxx+vmat(j2,k2)*ffxx(k1,j2)
+            enddo
+c            pot(ind,k1,k2)=pot(ind,k1,k2)+cd
+            grad(ind,1,k1,k2)=grad(ind,1,k1,k2)+cdx*sc
+            grad(ind,2,k1,k2)=grad(ind,2,k1,k2)+cdy*sc
+
+            hess(ind,1,k1,k2)=hess(ind,1,k1,k2)+cdxx*sc2
+            hess(ind,2,k1,k2)=hess(ind,2,k1,k2)+cdxy*sc2
+            hess(ind,3,k1,k2)=hess(ind,3,k1,k2)+cdyy*sc2
+         enddo
+         enddo
+c     end of the ind loop
+      enddo
+      
+      return
+      end subroutine
+c
+c
+C
+c
+      subroutine ortho_evalgh_3d(nd,n,fcoefs,sc,grad,hess,
+     1    vmat,vpmat,vppmat)
+C*********************************************************************C
+      implicit real *8 (a-h,o-z)
+      real *8 fcoefs(nd,n,n,n)
+c      real *8 pot(nd,n,n,n)
+      real *8 grad(nd,3,n,n,n)
+      real *8 hess(nd,6,n,n,n)
+
+      real *8 vmat(n,n)
+      real *8 vpmat(n,n)
+      real *8 vppmat(n,n)
+
+      real *8 ff(n,n,n)
+      real *8 ffx(n,n,n)
+      real *8 ffxx(n,n,n)
+      
+      real *8 ff2(n,n,n)
+      real *8 ff2x(n,n,n)
+      real *8 ff2xy(n,n,n)
+      real *8 ff2xx(n,n,n)
+      
+      real *8 ff2y(n,n,n)
+      real *8 ff2yy(n,n,n)
+c
+      sc2=sc*sc
+      
+      do ind = 1,nd
+c        transform in x
+         do j3=1,n
+         do j2=1,n
+         do k1=1,n
+            cd=0
+            cdx=0.0d0
+            cdxx=0.0d0
+            do j1=1,n
+               cd=cd+vmat(j1,k1)*fcoefs(ind,j1,j2,j3)
+               cdx=cdx+vpmat(j1,k1)*fcoefs(ind,j1,j2,j3)
+               cdxx=cdxx+vppmat(j1,k1)*fcoefs(ind,j1,j2,j3)
+            enddo
+            ff(k1,j2,j3)=cd
+            ffx(k1,j2,j3)=cdx
+            ffxx(k1,j2,j3)=cdxx
+         enddo
+         enddo
+         enddo
+
+c        transform in y
+         do j3=1,n
+         do k2=1,n
+         do k1=1,n
+            cd=0
+            cdx = 0.0d0
+            cdy = 0.0d0
+            cdxx = 0.0d0
+            cdxy = 0.0d0
+            cdyy = 0.0d0
+            do j2=1,n
+               cd   = cd   +   vmat(j2,k2)*ff(k1,j2,j3)
+               cdy  = cdy  +  vpmat(j2,k2)*ff(k1,j2,j3)
+               cdyy = cdyy + vppmat(j2,k2)*ff(k1,j2,j3)
+
+               cdx  = cdx  +   vmat(j2,k2)*ffx(k1,j2,j3)
+               cdxy = cdxy +  vpmat(j2,k2)*ffx(k1,j2,j3)
+               
+               cdxx = cdxx +   vmat(j2,k2)*ffxx(k1,j2,j3)
+            enddo
+            ff2(k1,k2,j3)=cd
+            ff2x(k1,k2,j3)=cdx
+            ff2xx(k1,k2,j3)=cdxx
+            ff2y(k1,k2,j3)=cdy
+            ff2yy(k1,k2,j3)=cdyy
+            ff2xy(k1,k2,j3)=cdxy
+         enddo
+         enddo
+         enddo
+
+c        transform in z
+         do k3=1,n
+         do k2=1,n
+         do k1=1,n
+c            cd=0
+            cdx = 0.0d0
+            cdy = 0.0d0
+            cdz = 0.0d0
+            cdxx = 0.0d0
+            cdyy = 0.0d0
+            cdzz = 0.0d0
+            cdxy = 0.0d0
+            cdxz = 0.0d0
+            cdyz = 0.0d0
+            do j3=1,n
+c               cd   = cd   +   vmat(j3,k3)*ff2(k1,k2,j3)
+               cdz  = cdz  +  vpmat(j3,k3)*ff2(k1,k2,j3)
+               cdzz = cdzz + vppmat(j3,k3)*ff2(k1,k2,j3)
+
+               cdx  = cdx  +  vmat(j3,k3)*ff2x(k1,k2,j3)
+               cdxz = cdxz + vpmat(j3,k3)*ff2x(k1,k2,j3)
+
+               cdy  = cdy  +  vmat(j3,k3)*ff2y(k1,k2,j3)
+               cdyz = cdyz + vpmat(j3,k3)*ff2y(k1,k2,j3)
+               
+               cdxx = cdxx + vmat(j3,k3)*ff2xx(k1,k2,j3)
+               cdxy = cdxy + vmat(j3,k3)*ff2xy(k1,k2,j3)
+               cdyy = cdyy + vmat(j3,k3)*ff2yy(k1,k2,j3)
+            enddo
+c            pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+cd
+            grad(ind,1,k1,k2,k3)=grad(ind,1,k1,k2,k3)+cdx*sc
+            grad(ind,2,k1,k2,k3)=grad(ind,2,k1,k2,k3)+cdy*sc
+            grad(ind,3,k1,k2,k3)=grad(ind,3,k1,k2,k3)+cdz*sc
+
+            hess(ind,1,k1,k2,k3)=hess(ind,1,k1,k2,k3)+cdxx*sc2
+            hess(ind,2,k1,k2,k3)=hess(ind,2,k1,k2,k3)+cdyy*sc2
+            hess(ind,3,k1,k2,k3)=hess(ind,3,k1,k2,k3)+cdzz*sc2
+
+            hess(ind,4,k1,k2,k3)=hess(ind,4,k1,k2,k3)+cdxy*sc2
+            hess(ind,5,k1,k2,k3)=hess(ind,5,k1,k2,k3)+cdxz*sc2
+            hess(ind,6,k1,k2,k3)=hess(ind,6,k1,k2,k3)+cdyz*sc2
+         enddo
+         enddo
+         enddo
+c     end of the ind loop
+      enddo
+      
+      return
+      end subroutine
+c
+c      
+c      
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c
 c     potential coefficients to gradient coefficients
 c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      subroutine orth_coefsg_nd(ndim,nd,norder,coefsp,coefsg,umat)
+      subroutine ortho_coefsg_nd(ndim,nd,norder,coefsp,coefsg,umat)
 c
 c     this subroutine computes the expansion coefficients for the gradient
 c     given the expansion coefficients of the potential
@@ -516,11 +843,11 @@ c
       real *8 coefsg(nd,ndim,norder**ndim),umat(norder,norder)
 
       if (ndim.eq.1) then
-         call orth_coefsg_1d(nd,norder,coefsp,coefsg,umat)         
+         call ortho_coefsg_1d(nd,norder,coefsp,coefsg,umat)         
       elseif (ndim.eq.2) then
-         call orth_coefsg_2d(nd,norder,coefsp,coefsg,umat)         
+         call ortho_coefsg_2d(nd,norder,coefsp,coefsg,umat)         
       elseif (ndim.eq.3) then
-         call orth_coefsg_3d(nd,norder,coefsp,coefsg,umat)         
+         call ortho_coefsg_3d(nd,norder,coefsp,coefsg,umat)         
       endif
       
       return
@@ -529,7 +856,7 @@ c
 c
 c
 c
-      subroutine orth_coefsg_1d(nd,norder,coefsp,coefsg,umat)
+      subroutine ortho_coefsg_1d(nd,norder,coefsp,coefsg,umat)
 c
 c     this subroutine computes the expansion coefficients for the gradient
 c     given the expansion coefficients of the potential
@@ -565,7 +892,7 @@ c
 c
 c
 c
-      subroutine orth_coefsg_2d(nd,norder,coefsp,coefsg,umat)
+      subroutine ortho_coefsg_2d(nd,norder,coefsp,coefsg,umat)
 c
 c     this subroutine computes the expansion coefficients for the gradient
 c     given the expansion coefficients of the potential
@@ -616,7 +943,7 @@ c
 c
 c
 c
-      subroutine orth_coefsg_3d(nd,norder,coefsp,coefsg,umat)
+      subroutine ortho_coefsg_3d(nd,norder,coefsp,coefsg,umat)
 c
 c     this subroutine computes the expansion coefficients for the gradient
 c     given the expansion coefficients of the potential
@@ -692,7 +1019,7 @@ c
 c     potential coefficients 2 gradient and hessian coefficients
 c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      subroutine orth_coefsgh_2d(nd,norder,coefsp,coefsg,coefsh,umat)
+      subroutine ortho_coefsgh_2d(nd,norder,coefsp,coefsg,coefsh,umat)
 c
 c     this subroutine computes the expansion coefficients for the gradient
 c     and the hessian given the expansion coefficients of the potential
@@ -792,7 +1119,7 @@ c
 c     evaluate potential at arbitrary target 
 c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      subroutine orth_evalt_nd(ndim,nd,ipoly,norder,fcoefs,targ,fval)
+      subroutine ortho_evalt_nd(ndim,nd,ipoly,norder,coefs,targ,pot)
 c
 c     this subroutine evaluates the orthogonal polynomial expansion at the given target point
 c
@@ -801,73 +1128,180 @@ c     nd - number of input data
 c     ipoly - itype=0 Legendre polynomials
 c                   1 Chebyshev polynomials
 c     norder - order of polynomial expansion
-c     fcoefs - orthogonal polynomial expansion coefficients
+c     coefs - orthogonal polynomial expansion coefficients
 c     targ - xy coordinates of the target point
 c      
 c     output:
-c     fval - value of the function
+c     pot - value of the function at the target point
 c
       implicit real *8 (a-h,o-z)
-      real *8 fcoefs(nd,norder**ndim)
-      real *8 targ(ndim),fval(nd)
+      real *8 coefs(nd,norder**ndim)
+      real *8 targ(ndim),pot(nd)
 
-      real *8 polyv(norder,ndim)
+      if (ndim.eq.1) then
+         call ortho_evalt_1d(nd,ipoly,norder,coefs,targ,pot)
+      elseif (ndim.eq.2) then
+         call ortho_evalt_2d(nd,ipoly,norder,coefs,targ,pot)
+      elseif (ndim.eq.3) then
+         call ortho_evalt_3d(nd,ipoly,norder,coefs,targ,pot)
+      endif
+      
+      return
+      end
+c
+c
+c
+      subroutine ortho_evalt_1d(nd,ipoly,norder,coefs,
+     1    targ,pot)
+c
+c     this subroutine evaluates the potential at the given target point
+c
+c     input:
+c     nd - number of input data
+c     ipoly - ipoly=0 Legendre polynomials
+c                   1 Chebyshev polynomials
+c     norder - order of polynomial expansion
+c     coefs - orthogonal polynomial expansion coefficients for the potential
+c     targ - xy coordinates of the target point
+c      
+c     output:
+c     pot - value of the potential
+c
+      implicit real *8 (a-h,o-z)
+      real *8 coefs(nd,norder)
+      real *8 targ,pot(nd)
 
+      real *8 px(norder)
+      
+      x=targ
+      
       if (ipoly .eq. 0) then
-         do i=1,ndim
-            call legepols(targ(i),norder-1,polyv(1,i))
-         enddo
+         call legepols(x,norder-1,px)
       elseif (ipoly .eq. 1) then
-         do i=1,ndim
-            call chebpols(targ(i),norder-1,polyv(1,i))
-         enddo
+         call chebpols(x,norder-1,px)
       endif
 c     
-      if (ndim.eq.1) goto 1100
-      if (ndim.eq.2) goto 2200
-      if (ndim.eq.3) goto 3300
-
- 1100 continue
       do ind=1,nd
-         dd=0
-         do i=1,norder
-            dd=dd+fcoefs(ind,i)*polyv(i,1)
+         pp=0
+         do k=1,norder
+            pp=pp+coefs(ind,k)*px(k)
          enddo
-         fval(ind)=dd
+         pot(ind)=pp
       enddo
+
       return
+      end
+c
+c
+c
+c
+      subroutine ortho_evalt_2d(nd,ipoly,norder,coefs,
+     1    targ,pot)
+      implicit real *8 (a-h,o-z)
+      real *8 coefs(nd,norder,norder)
+      real *8 targ(2),pot(nd)
+
+      real *8 px(norder),py(norder)
       
- 2200 continue
-      do ind=1,nd
-         dd=0
-         n=0
-         do j=1,norder
-         do k=1,norder
-            n=n+1
-            dd=dd+fcoefs(ind,n)*polyv(k,1)*polyv(j,2)
-         enddo
-         enddo
-         fval(ind)=dd
-      enddo
-      return
+      real *8, allocatable :: tmp(:,:)
 
- 3300 continue
+      allocate(tmp(nd,norder))
+      
+      x=targ(1)
+      y=targ(2)
+      
+      if (ipoly .eq. 0) then
+         call legepols(x,norder-1,px)
+         call legepols(y,norder-1,py)
+      elseif (ipoly .eq. 1) then
+         call chebpols(x,norder-1,px)
+         call chebpols(y,norder-1,py)
+      endif
+c     
+      do j=1,norder
+         do ind=1,nd
+            pp=0
+            do k=1,norder
+               pp=pp+coefs(ind,k,j)*px(k)
+            enddo
+            tmp(ind,j)=pp
+         enddo
+      enddo
+c
       do ind=1,nd
-         dd=0
-         n=0
-         do i=1,norder
+         pp=0
          do j=1,norder
-         do k=1,norder
-            n=n+1
-            dd=dd+fcoefs(ind,n)*polyv(k,1)*polyv(j,2)*polyv(i,3)
+            pp=pp+tmp(ind,j)*py(j)
          enddo
+         pot(ind)=pp
+      enddo
+
+      return
+      end
+c
+c
+c
+c
+      subroutine ortho_evalt_3d(nd,ipoly,norder,coefs,
+     1    targ,pot)
+      implicit real *8 (a-h,o-z)
+      real *8 coefs(nd,norder,norder,norder)
+      real *8 targ(3),pot(nd)
+
+      real *8 px(norder),py(norder),pz(norder)
+      
+      real *8, allocatable :: tmp(:,:,:),tmp2(:,:)
+
+      allocate(tmp(nd,norder,norder))
+      allocate(tmp2(nd,norder))
+      
+      x=targ(1)
+      y=targ(2)
+      z=targ(3)
+      
+      if (ipoly .eq. 0) then
+         call legepols(x,norder-1,px)
+         call legepols(y,norder-1,py)
+         call legepols(z,norder-1,pz)
+      elseif (ipoly .eq. 1) then
+         call chebpols(x,norder-1,px)
+         call chebpols(y,norder-1,py)
+         call chebpols(z,norder-1,pz)
+      endif
+c     
+      do i=1,norder
+      do j=1,norder
+         do ind=1,nd
+            pp=0
+            do k=1,norder
+               pp=pp+coefs(ind,k,j,i)*px(k)
+            enddo
+            tmp(ind,j,i)=pp
          enddo
+      enddo
+      enddo
+c
+      do i=1,norder
+      do ind=1,nd
+         pp=0
+         do j=1,norder
+            pp=pp+tmp(ind,j,i)*py(j)
          enddo
-         fval(ind)=dd
+         tmp2(ind,i)=pp
+      enddo
+      enddo
+c
+      do ind=1,nd
+         pp=0
+         do j=1,norder
+            pp=pp+tmp2(ind,j)*pz(j)
+         enddo
+         pot(ind)=pp
       enddo
       
       return
       end
+c
 c
 c
 c
@@ -877,7 +1311,7 @@ c
 c     evaluate potential and gradient at arbitrary target 
 c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      subroutine orth_evalpgt_nd(ndim,nd,ipoly,norder,coefs,sc,
+      subroutine ortho_evalpgt_nd(ndim,nd,ipoly,norder,coefs,sc,
      1    targ,pot,grad)
 c
 c     this subroutine evaluates the potential and gradient at the given target point
@@ -900,13 +1334,13 @@ c
       real *8 targ(ndim),pot(nd),grad(nd,ndim)
 
       if (ndim.eq.1) then
-         call orth_evalpgt_1d(nd,ipoly,norder,coefs,sc,
+         call ortho_evalpgt_1d(nd,ipoly,norder,coefs,sc,
      1    targ,pot,grad)
       elseif (ndim.eq.2) then
-         call orth_evalpgt_2d(nd,ipoly,norder,coefs,sc,
+         call ortho_evalpgt_2d(nd,ipoly,norder,coefs,sc,
      1    targ,pot,grad)
       elseif (ndim.eq.3) then
-         call orth_evalpgt_3d(nd,ipoly,norder,coefs,sc,
+         call ortho_evalpgt_3d(nd,ipoly,norder,coefs,sc,
      1    targ,pot,grad)
       endif
       
@@ -916,7 +1350,7 @@ c
 c
 c
 c
-      subroutine orth_evalpgt_1d(nd,ipoly,norder,coefs,sc,
+      subroutine ortho_evalpgt_1d(nd,ipoly,norder,coefs,sc,
      1    targ,pot,grad)
 c
 c     this subroutine evaluates the potential and gradient at the given target point
@@ -940,10 +1374,6 @@ c
 
       real *8 px(norder)
       real *8 pxp(norder)
-      
-      real *8, allocatable :: tmp(:,:,:)
-
-      allocate(tmp(nd,2,norder))
       
       x=targ
       
@@ -973,7 +1403,7 @@ c
 c
 c
 c
-      subroutine orth_evalpgt_2d(nd,ipoly,norder,coefs,sc,
+      subroutine ortho_evalpgt_2d(nd,ipoly,norder,coefs,sc,
      1    targ,pot,grad)
 c
 c     this subroutine evaluates the potential and gradient at the given target point
@@ -1050,7 +1480,7 @@ c
 c
 c
 c
-      subroutine orth_evalpgt_3d(nd,ipoly,norder,coefs,sc,
+      subroutine ortho_evalpgt_3d(nd,ipoly,norder,coefs,sc,
      1    targ,pot,grad)
 c
 c     this subroutine evaluates the potential and gradient at the given target point
@@ -1159,7 +1589,7 @@ c
 c     evaluate potential, gradient, and hessian at arbitrary target
 c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      subroutine orth_evalpght_nd(ndim,nd,ipoly,norder,coefs,sc,
+      subroutine ortho_evalpght_nd(ndim,nd,ipoly,norder,coefs,sc,
      1    targ,pot,grad,hess)
 c
 c     this subroutine evaluates the potential and gradient at the given target point
@@ -1183,13 +1613,13 @@ c
       real *8 targ(ndim),pot(nd),grad(nd,ndim),hess(nd,ndim*(ndim+1)/2)
 
       if (ndim.eq.1) then
-         call orth_evalpght_1d(nd,ipoly,norder,coefs,sc,
+         call ortho_evalpght_1d(nd,ipoly,norder,coefs,sc,
      1    targ,pot,grad,hess)
       elseif (ndim.eq.2) then
-         call orth_evalpght_2d(nd,ipoly,norder,coefs,sc,
+         call ortho_evalpght_2d(nd,ipoly,norder,coefs,sc,
      1    targ,pot,grad,hess)
       elseif (ndim.eq.3) then
-         call orth_evalpght_3d(nd,ipoly,norder,coefs,sc,
+         call ortho_evalpght_3d(nd,ipoly,norder,coefs,sc,
      1    targ,pot,grad,hess)
       endif
       
@@ -1199,7 +1629,7 @@ c
 c
 c
 c
-      subroutine orth_evalpght_1d(nd,ipoly,norder,coefs,sc,
+      subroutine ortho_evalpght_1d(nd,ipoly,norder,coefs,sc,
      1    targ,pot,grad,hess)
 c
 c     this subroutine evaluates the potential, gradient and hessian at the given target point
@@ -1260,7 +1690,7 @@ c
 c
 c
 c
-      subroutine orth_evalpght_2d(nd,ipoly,norder,coefs,sc,
+      subroutine ortho_evalpght_2d(nd,ipoly,norder,coefs,sc,
      1    targ,pot,grad,hess)
 c
 c     this subroutine evaluates the potential, gradient and hessian at the given target point
@@ -1358,7 +1788,7 @@ c
 c
 c
 c
-      subroutine orth_evalpght_3d(nd,ipoly,norder,coefs,sc,
+      subroutine ortho_evalpght_3d(nd,ipoly,norder,coefs,sc,
      1    targ,pot,grad,hess)
 c
 c     this subroutine evaluates the potential, gradient and hessian at the given target point

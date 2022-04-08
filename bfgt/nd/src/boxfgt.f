@@ -578,7 +578,7 @@ c        step 1: convert function values to planewave expansions
 c
     
       if(ifprint.eq.1) 
-     $   call prinf("=== STEP 1 (values -> mp) ====*",i,0)
+     1   call prinf("=== STEP 1 (values -> mp) ====*",i,0)
       
       call cpu_time(time1)
 C$        time1=omp_get_wtime()
@@ -606,7 +606,7 @@ C$       time2 = omp_get_wtime()
 
       
       if(ifprint .ge. 1)
-     $      call prinf('=== STEP 2 (merge mp) ====*',i,0)
+     1      call prinf('=== STEP 2 (merge mp) ====*',i,0)
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
 c
@@ -638,7 +638,7 @@ C$    time2=omp_get_wtime()
 c
       
       if(ifprint.ge.1)
-     $    call prinf('=== Step 3 (mp to loc) ===*',i,0)
+     1    call prinf('=== Step 3 (mp to loc) ===*',i,0)
 c      ... step 3, convert multipole expansions into local
 c       expansions
 
@@ -673,7 +673,7 @@ C$    time2=omp_get_wtime()
 cccc      call prin2('timeinfo4=*',time2-time1,1)
 
       if(ifprint.ge.1)
-     $    call prinf('=== Step 4 (split loc) ===*',i,0)
+     1    call prinf('=== Step 4 (split loc) ===*',i,0)
 
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
@@ -704,7 +704,7 @@ C$    time2=omp_get_wtime()
       timeinfo(5) = time2-time1
       
       if(ifprint.ge.1)
-     $    call prinf('=== step 5 (eval loc) ===*',i,0)
+     1    call prinf('=== step 5 (eval loc) ===*',i,0)
 
 c     ... step 5, evaluate all local expansions
       call cpu_time(time1)
@@ -741,7 +741,7 @@ C$    time2 = omp_get_wtime()
  1800 continue
 
       if(ifprint .ge. 1)
-     $     call prinf('=== STEP 6 (direct) =====*',i,0)
+     1     call prinf('=== STEP 6 (direct) =====*',i,0)
 c
 cc
       call cpu_time(time1)

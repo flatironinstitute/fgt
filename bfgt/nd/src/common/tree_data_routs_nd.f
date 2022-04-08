@@ -74,7 +74,7 @@ c
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
-             call orth_trans_nd(ndim,nd,itype,norder,
+             call ortho_trans_nd(ndim,nd,itype,norder,
      1           fin(1,1,ibox),fout(1,1,ibox),umat)
 cccc             print *, fout(1,1,ibox), fout(1,npbox,ibox)
              if (itype.gt.0) then
@@ -100,14 +100,14 @@ c
 c     This code evaluates the gradient at the tensor grid on an adaptive tree
 c     given the orthogonal polynomial expansion coefficients at each leaf box.
 c 
-c       input
-c
-c         nd - integer,   number of functions
-c         nlevels - integer
+c     input:
+c     ndim - dimension of the underlying space
+c     nd - integer,   number of functions
+c     nlevels - integer
 c            number of levels
-c         itree - integer(ltree)
+c     itree - integer(ltree)
 c            array containing the tree structure
-c         iptr - integer(8)
+c     iptr - integer(8)
 c            pointer to various parts of the tree structure
 c           iptr(1) - laddr
 c           iptr(2) - ilevel
@@ -117,13 +117,13 @@ c           iptr(5) - ichild
 c           iptr(6) - ncoll
 c           iptr(7) - coll
 c           iptr(8) - ltree
-c         norder - integer
+c     norder - integer
 c           order of expansions for input coefficients array
-c         coefs - double (nd,norder**2,nboxes)
+c     coefs - double (nd,norder**2,nboxes)
 c           expansion coefficients on quad tree
 c
 c     output:
-c         grad - double precision (nd,2,norder**2,nboxes)
+c     grad - double precision (nd,2,norder**2,nboxes)
 c            gradient values on tensor grid on each leaf box
 c
       implicit real *8 (a-h,o-z)
@@ -154,7 +154,7 @@ c
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
-             call orth_evalg_nd(ndim,nd,norder,coefs(1,1,ibox),sc,
+             call ortho_evalg_nd(ndim,nd,norder,coefs(1,1,ibox),sc,
      1           grad(1,1,1,ibox),vmat,vpmat)             
           endif
         enddo
@@ -166,23 +166,23 @@ c
 c
 c
 c
-      subroutine treedata_evalh_nd(ndim,nd,ipoly,nlevels,itree,iptr,
-     1    boxsize,norder,coefs,hess)
+      subroutine treedata_evalgh_nd(ndim,nd,ipoly,nlevels,itree,iptr,
+     1    boxsize,norder,coefs,grad,hess)
 c
 c     This code evaluates and hessian at the tensor 
 c     grid on an adaptive tree given the orthogonal polynomial expansion coefficients 
 c     at each leaf box.
 c
-c       input
-c
-c         nd - integer,   number of functions
-c         ipoly - 0: Legendre polynomials
+c     input:
+c     ndim - dimension of the underlying space
+c     nd - integer,   number of functions
+c     ipoly - 0: Legendre polynomials
 c                 1: Chebyshev polynomials
-c         nlevels - integer
+c     nlevels - integer
 c            number of levels
-c         itree - integer(ltree)
+c     itree - integer(ltree)
 c            array containing the tree structure
-c         iptr - integer(8)
+c     iptr - integer(8)
 c            pointer to various parts of the tree structure
 c           iptr(1) - laddr
 c           iptr(2) - ilevel
@@ -192,22 +192,25 @@ c           iptr(5) - ichild
 c           iptr(6) - ncoll
 c           iptr(7) - coll
 c           iptr(8) - ltree
-c         norder - integer
+c     norder - integer
 c           order of expansions for input coefficients array
-c         coefs - double (nd,norder**2,nboxes)
+c     coefs - double (nd,norder**2,nboxes)
 c           expansion coefficients on quad tree
 c
 c     output:
-c         hess - double precision (nd,3,norder**2,nboxes)
+c     grad - double precision (nd,ndim,norder**ndim,nboxes)
+c            gradient values on tensor grid on each leaf box
+c     hess - double precision (nd,nhess,norder**ndim,nboxes)
 c            hessian values on tensor grid on each leaf box
-c            in the order of uxx, uxy, uyy
-c      
+c            in the order of uxx, uxy, uyy in 2d
+c            and uxx,uyy,uzz,uxy,uxz,uyz in 3d. nhess=ndim*(ndim+1)/2
       implicit real *8 (a-h,o-z)
       integer nd
       integer nlevels
       integer itree(*),iptr(8)
       real *8 boxsize(0:nlevels)
       real *8 coefs(nd,norder*norder,*)
+      real *8 grad(nd,ndim,norder**ndim,*)
       real *8 hess(nd,ndim*(ndim+1)/2,norder**ndim,*)
 
       real *8, allocatable :: vmat(:,:),vpmat(:,:),vppmat(:,:)
@@ -230,8 +233,8 @@ c
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
-             call orth_evalh_nd(ndim,nd,norder,coefs(1,1,ibox),sc,
-     1           hess(1,1,1,ibox),
+             call ortho_evalgh_nd(ndim,nd,norder,coefs(1,1,ibox),sc,
+     1           grad(1,1,1,ibox),hess(1,1,1,ibox),
      2           vmat,vpmat,vppmat)             
           endif
         enddo
@@ -289,7 +292,7 @@ c
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
-             call orth_coefsg_nd(ndim,nd,norder,coefsp(1,1,ibox),
+             call ortho_coefsg_nd(ndim,nd,norder,coefsp(1,1,ibox),
      1           coefsg(1,1,1,ibox),umat)
              do j=1,norder**ndim
                 do i=1,ndim
@@ -359,7 +362,7 @@ c
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
-             call orth_coefsgh_2d(nd,norder,coefsp(1,1,ibox),
+             call ortho_coefsgh_2d(nd,norder,coefsp(1,1,ibox),
      1           coefsg(1,1,1,ibox),coefsh(1,1,1,ibox),umat)
              do j=1,norder*norder
                 do ind=1,nd
@@ -469,7 +472,7 @@ c
                      do j=1,ndim
                         xyz(j) = (targsort(j,i)-cen(j))*sc
                      enddo
-                     call orth_evalt_nd(ndim,nd,ipoly,norder,
+                     call ortho_evalt_nd(ndim,nd,ipoly,norder,
      1                   fcoefs(1,1,ibox),xyz,potsort(1,i))
                   enddo
                endif
@@ -578,7 +581,7 @@ c
                      do j=1,ndim
                         xyz(j) = (targsort(j,i)-cen(j))*sc
                      enddo
-                     call orth_evalpgt_nd(ndim,nd,ipoly,norder,
+                     call ortho_evalpgt_nd(ndim,nd,ipoly,norder,
      1                   coefs(1,1,ibox),sc,xyz,
      2                   potsort(1,i),gradsort(1,1,i))
                   enddo
@@ -692,7 +695,7 @@ c
                      do j=1,ndim
                         xyz(j) = (targsort(j,i)-cen(j))*sc
                      enddo
-                     call orth_evalpght_nd(ndim,nd,ipoly,norder,
+                     call ortho_evalpght_nd(ndim,nd,ipoly,norder,
      1                   coefs(1,1,ibox),sc,xyz,
      2                   potsort(1,i),gradsort(1,1,i),hesssort(1,1,i))
                   enddo

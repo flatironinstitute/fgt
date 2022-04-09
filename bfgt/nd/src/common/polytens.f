@@ -769,6 +769,9 @@ c     local
          do j = 1,ndeg
             dmat(j,i) = polout(j)
          enddo
+         do j = ndeg+1,lddmat
+            dmat(j,i) = 0
+         enddo
       enddo
 
       return
@@ -797,6 +800,9 @@ c     local
          endif
          do j = 1,ndeg-1
             dmat(j,i) = polin(j)
+         enddo
+         do j = ndeg,lddmat
+            dmat(j,i) = 0
          enddo
       enddo
 

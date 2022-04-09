@@ -76,7 +76,6 @@ c
           if(nchild.eq.0) then
              call ortho_trans_nd(ndim,nd,itype,norder,
      1           fin(1,1,ibox),fout(1,1,ibox),umat)
-cccc             print *, fout(1,1,ibox), fout(1,npbox,ibox)
              if (itype.gt.0) then
                 do j=1,norder**ndim
                    do ind=1,nd
@@ -134,13 +133,12 @@ c
       real *8 coefs(nd,norder**ndim,*)
       real *8 grad(nd,ndim,norder**ndim,*)
 
-      real *8, allocatable :: vmat(:,:),vpmat(:,:),vppmat(:,:)
+      real *8 umat(norder,norder)
+      real *8 vmat(norder,norder)
+      real *8 vpmat(norder,norder)
+      real *8 vppmat(norder,norder)
 
-      allocate(vmat(norder,norder))
-      allocate(vpmat(norder,norder))
-      allocate(vppmat(norder,norder))
-
-      call ortho_eval_tables(ipoly,norder,vmat,vpmat,vppmat)
+      call ortho_eval_tables(ipoly,norder,umat,vmat,vpmat,vppmat)
 
       do ilev = 0,nlevels
         sc = 2.0d0/boxsize(ilev)
@@ -202,17 +200,16 @@ c            and uxx,uyy,uzz,uxy,uxz,uyz in 3d. nhess=ndim*(ndim+1)/2
       integer nlevels
       integer itree(*),iptr(8)
       real *8 boxsize(0:nlevels)
-      real *8 coefs(nd,norder*norder,*)
+      real *8 coefs(nd,norder**ndim,*)
       real *8 grad(nd,ndim,norder**ndim,*)
       real *8 hess(nd,ndim*(ndim+1)/2,norder**ndim,*)
 
-      real *8, allocatable :: vmat(:,:),vpmat(:,:),vppmat(:,:)
+      real *8 umat(norder,norder)
+      real *8 vmat(norder,norder)
+      real *8 vpmat(norder,norder)
+      real *8 vppmat(norder,norder)
 
-      allocate(vmat(norder,norder))
-      allocate(vpmat(norder,norder))
-      allocate(vppmat(norder,norder))
-
-      call ortho_eval_tables(ipoly,norder,vmat,vpmat,vppmat)
+      call ortho_eval_tables(ipoly,norder,umat,vmat,vpmat,vppmat)
       
       do ilev = 0,nlevels
         sc = 2.0d0/boxsize(ilev)
@@ -221,12 +218,196 @@ c            and uxx,uyy,uzz,uxy,uxz,uyz in 3d. nhess=ndim*(ndim+1)/2
           if(nchild.eq.0) then
              call ortho_evalgh_nd(ndim,nd,norder,coefs(1,1,ibox),sc,
      1           grad(1,1,1,ibox),hess(1,1,1,ibox),
-     2           vmat,vpmat,vppmat)             
+     2           vmat,vpmat,vppmat)
           endif
         enddo
       enddo
 
+      return
+      end
+c
+c
+c
+c
+      subroutine treedata_eval_laplacian_nd(ndim,nd,ipoly,nlevels,
+     1    itree,iptr,boxsize,norder,coefs,rlap)
+c
+c     This code evaluates the laplacian at the tensor grid on an adaptive tree
+c     given the orthogonal polynomial expansion coefficients at each leaf box.
+c 
+c     input:
+c     ndim - dimension of the underlying space
+c     nd - integer,   number of functions
+c     ipoly - 0: Legendre polynomials
+c                 1: Chebyshev polynomials
+c     nlevels - integer
+c            number of levels
+c     itree - integer(ltree)
+c            array containing the tree structure
+c     iptr - integer(8)
+c            pointer to various parts of the tree structure
+c           iptr(1) - laddr
+c           iptr(2) - ilevel
+c           iptr(3) - iparent
+c           iptr(4) - nchild
+c           iptr(5) - ichild
+c           iptr(6) - ncoll
+c           iptr(7) - coll
+c           iptr(8) - ltree
+c     norder - integer
+c           order of expansions for input coefficients array
+c     coefs - double (nd,norder**2,nboxes)
+c           expansion coefficients on quad tree
+c
+c     output:
+c     laplacian - double precision (nd,norder**ndim,nboxes)
+c            gradient values on tensor grid on each leaf box
+c
+      implicit real *8 (a-h,o-z)
+      integer nd
+      integer nlevels
+      integer itree(*),iptr(8)
+      real *8 boxsize(0:nlevels)
+      real *8 coefs(nd,norder**ndim,*)
+      real *8 rlap(nd,norder**ndim,*)
 
+      real *8 umat(norder,norder)
+      real *8 vmat(norder,norder)
+      real *8 vpmat(norder,norder)
+      real *8 vppmat(norder,norder)
+
+      call ortho_eval_tables(ipoly,norder,umat,vmat,vpmat,vppmat)
+      
+      do ilev = 0,nlevels
+        sc = 2.0d0/boxsize(ilev)
+        do ibox = itree(2*ilev+1),itree(2*ilev+2)
+          nchild = itree(iptr(4) + ibox-1)
+          if(nchild.eq.0) then
+             call ortho_eval_laplacian_nd(ndim,nd,norder,
+     1           coefs(1,1,ibox),sc,rlap(1,1,ibox),vmat,vppmat)             
+          endif
+        enddo
+      enddo
+
+      return
+      end
+c
+c
+c
+c
+      subroutine treedata_eval_pot_nd_asym(ndim,nd,delta,ipoly,nasym,
+     1    nlevels,itree,iptr,boxsize,norder,fvals,pot)
+c
+c     This code evaluates the potential value at the tensor grid on an adaptive tree
+c     using asympotitic expansions 
+c 
+c     input:
+c     ndim - dimension of the underlying space
+c     nd - integer,   number of functions
+c     ipoly - 0: Legendre polynomials
+c                 1: Chebyshev polynomials
+c     nasym - order of asympotitic expansion
+c     nlevels - integer
+c            number of levels
+c     itree - integer(ltree)
+c            array containing the tree structure
+c     iptr - integer(8)
+c            pointer to various parts of the tree structure
+c           iptr(1) - laddr
+c           iptr(2) - ilevel
+c           iptr(3) - iparent
+c           iptr(4) - nchild
+c           iptr(5) - ichild
+c           iptr(6) - ncoll
+c           iptr(7) - coll
+c           iptr(8) - ltree
+c     norder - integer
+c           order of expansions for input coefficients array
+c     fvals - double (nd,norder**ndim,nboxes)
+c           function values on the tree
+c
+c     output:
+c     pot - double precision (nd,norder**ndim,nboxes)
+c           potential values on the tree
+c
+      implicit real *8 (a-h,o-z)
+      integer nd
+      integer nlevels
+      integer itree(*),iptr(8)
+      real *8 boxsize(0:nlevels)
+      real *8 fvals(nd,norder**ndim,*)
+      real *8 pot(nd,norder**ndim,*)
+
+      real *8 umat(norder,norder)
+      real *8 vmat(norder,norder)
+      real *8 vpmat(norder,norder)
+      real *8 vppmat(norder,norder)
+      real *8 umat_nd(norder,norder,ndim)
+
+      real *8, allocatable :: fcoefs(:,:)
+      real *8, allocatable :: flvals(:,:)
+      real *8, allocatable :: flcoefs(:,:)
+      real *8, allocatable :: fl2vals(:,:)
+
+      call ortho_eval_tables(ipoly,norder,umat,vmat,vpmat,vppmat)
+      norder2=norder*norder
+      do i=1,ndim
+         call dcopy_f77(norder2,umat,1,umat_nd(1,1,i),1)
+      enddo
+      
+      npbox=norder**ndim
+      allocate(fcoefs(nd,npbox))
+      allocate(flvals(nd,npbox))
+      allocate(flcoefs(nd,npbox))
+      allocate(fl2vals(nd,npbox))
+      
+      sqrtpi = sqrt(4*atan(1.0d0))
+      d0 = sqrtpi*sqrt(delta)
+      d2 = delta/4
+      d4 = delta*delta/32
+
+      c0 = d0**ndim
+      c2 = c0*d2
+      c4 = c0*d4
+
+      itype=0
+      do ilev = 0,nlevels
+        sc=2.0d0/boxsize(ilev)
+        do ibox = itree(2*ilev+1),itree(2*ilev+2)
+          nchild = itree(iptr(4) + ibox-1)
+          if(nchild.eq.0) then
+             if (nasym.eq.2) then
+                call ortho_trans_nd(ndim,nd,itype,norder,
+     1              fvals(1,1,ibox),fcoefs,umat_nd)
+                call ortho_eval_laplacian_nd(ndim,nd,norder,fcoefs,
+     1              sc,flvals,vmat,vppmat)
+                do j=1,npbox
+                do ind=1,nd
+                   pot(ind,j,ibox)=c0*fvals(ind,j,ibox)
+     1                 +c2*flvals(ind,j)
+                enddo
+                enddo
+             elseif (nasym.eq.3) then
+                call ortho_trans_nd(ndim,nd,itype,norder,
+     1              fvals(1,1,ibox),fcoefs,umat_nd)
+                call ortho_eval_laplacian_nd(ndim,nd,norder,fcoefs,
+     1              sc,flvals,vmat,vppmat)
+                call ortho_trans_nd(ndim,nd,itype,norder,flvals,
+     1              flcoefs,umat_nd)
+                call ortho_eval_laplacian_nd(ndim,nd,norder,flcoefs,
+     1              sc,fl2vals,vmat,vppmat)
+                do j=1,npbox
+                do ind=1,nd
+                   pot(ind,j,ibox)=c0*fvals(ind,j,ibox)
+     1                 +c2*flvals(ind,j)+c4*fl2vals(ind,j)
+                enddo
+                enddo
+             endif
+          endif
+        enddo
+      enddo
+
+      return
       end
 c
 c
@@ -291,7 +472,7 @@ c
         enddo
       enddo
 
-
+      return
       end
 c
 c
@@ -364,7 +545,7 @@ c
         enddo
       enddo
 
-
+      return
       end
 c
 c
@@ -470,6 +651,7 @@ c     resort the output arrays in input order
 c
       call dreorderi(nd,nt,potsort,fvals,itarg)
 
+      return
       end
 c
 c
@@ -581,6 +763,7 @@ c
       call dreorderi(nd,nt,potsort,pot,itarg)
       call dreorderi(nd*ndim,nt,gradsort,grad,itarg)
 
+      return
       end
 c
 c
@@ -696,6 +879,7 @@ c
       call dreorderi(nd*ndim,nt,gradsort,grad,itarg)
       call dreorderi(nd*ndim*(ndim+1)/2,nt,hesssort,hess,itarg)
 
+      return
       end
 c
 c
@@ -765,7 +949,8 @@ c             call prin2('fcomp=*',fcomp(1,1,ibox),nd*npbox)
 
       abserr=sqrt(abserr)
       rnorm=sqrt(rnorm)
-      
+
+      return
       end
 c
 c

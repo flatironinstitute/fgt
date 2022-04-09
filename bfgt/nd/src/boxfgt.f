@@ -357,16 +357,24 @@ c
       
       complex *16, allocatable :: wpwshift(:,:)
       complex *16, allocatable :: wpwmsshift(:,:,:)
-      
+
+c     1d plane wave related tables
       complex *16, allocatable :: tab_poly2pw(:,:,:)
       complex *16, allocatable :: tab_pw2pot(:,:,:)
       complex *16, allocatable :: tab_pw2der(:,:,:)
       complex *16, allocatable :: tab_pw2dxx(:,:,:)
 
+c     for extra targets
       real *8, allocatable :: coefsp(:,:,:)
       real *8, allocatable :: coefsg(:,:,:,:)
       real *8, allocatable :: coefsh(:,:,:,:)
 
+c     for asymptotic calculations
+      real *8, allocatable :: fcoefs(:,:,:)
+      real *8, allocatable :: gvals(:,:,:,:)
+      real *8, allocatable :: hvals(:,:,:,:)
+
+c     1d direct evaluation tables
       real *8, allocatable :: tab_loc(:,:,:,:)
       real *8, allocatable :: tabx_loc(:,:,:,:)
       real *8, allocatable :: tabxx_loc(:,:,:,:)
@@ -395,8 +403,23 @@ C$    time1=omp_get_wtime()
       if (ipoly.eq.0) call legeexps(itype,norder,xq,umat,vmat,wts)
       if (ipoly.eq.1) call chebexps(itype,norder,xq,umat,vmat,wts)
 c      
+      allocate(umat_nd(norder,norder,ndim))
+      norder2=norder*norder
+      do i=1,ndim
+         call dcopy_f77(norder2,umat,1,umat_nd(1,1,i),1)
+      enddo
+
       nlevend=nlevels
       if (npwlevel.lt.nlevels) nlevend=npwlevel
+
+c     compute the number of leaf boxes
+      nleafbox = 0
+      do ilevel=1,nlevels
+        do ibox=itree(2*ilevel+1),itree(2*ilevel+2)
+          if(itree(iptr(4)+ibox-1).eq.0) nleafbox = nleafbox+1
+        enddo
+      enddo
+      call prinf('nleafbox=*',nleafbox,1)
       
       allocate(ifhung(nboxes))
       do i=1,nboxes
@@ -417,6 +440,15 @@ c           Check if the current box is a nonempty leaf box
             endif
          enddo
       enddo
+
+      nasym=3
+      sigma=(delta/boxsize(nlevels)**2)**nasym/8
+      if(ifprint.eq.1) call 
+     1    prin2('estimated asymptotic expansion error=*',sigma,1)
+      
+cccc      if (nleafbox.eq.ndirect .and. sigma.le.2*eps) goto 3000
+cccc      goto 3000
+      
       if(ifprint.eq.1) call 
      1    prinf('number of direct evaluation source boxes=*',ndirect,1)
 
@@ -765,10 +797,81 @@ c
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(7) = time2-time1
+      goto 4000
 
-
+ 3000 continue
       if(ifprint .ge. 1)
-     $     call prinf('=== STEP 7 (extra targets) =====*',i,0)
+     $     call prinf('=== STEP 7 (asymptotic regime) =====*',i,0)
+      call cpu_time(time1)
+C$    time1=omp_get_wtime()
+
+c     evaluate potential
+      call treedata_eval_pot_nd_asym(ndim,nd,delta,ipoly,nasym,
+     1    nlevels,itree,iptr,boxsize,norder,fvals,pot)
+
+      itype=0
+      iffast=1
+      if (iffast.eq.1) then
+c     use spectral differentiation to evaluate gradient and hessian
+         if (ifpgh.eq.2) then
+            allocate(fcoefs(nd,npbox,nboxes))
+            ng=nd*ndim
+            call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
+     1          iptr,boxsize,norder,pot,fcoefs,umat_nd)
+            call treedata_evalg_nd(ndim,nd,ipoly,nlevels,itree,iptr,
+     1          boxsize,norder,fcoefs,grad)
+         endif
+      
+         if (ifpgh.eq.3) then
+            allocate(fcoefs(nd,npbox,nboxes))
+            ng=nd*ndim
+            nh=nd*nhess
+            call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
+     1          iptr,boxsize,norder,pot,fcoefs,umat_nd)
+            call treedata_evalgh_nd(ndim,nd,ipoly,nlevels,itree,iptr,
+     1          boxsize,norder,fcoefs,grad,hess)
+         endif
+      elseif (iffast.eq.0) then
+c     also use asymptotic expansion to evaluate gradient and hessian
+         if (ifpgh.eq.2) then
+            allocate(fcoefs(nd,npbox,nboxes))
+            allocate(gvals(nd,ndim,npbox,nboxes))
+            ng=nd*ndim
+            call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
+     1          iptr,boxsize,norder,fvals,fcoefs,umat_nd)
+            call treedata_evalg_nd(ndim,nd,ipoly,nlevels,itree,iptr,
+     1          boxsize,norder,fcoefs,gvals)
+
+            call treedata_eval_pot_nd_asym(ndim,ng,delta,ipoly,nasym,
+     1          nlevels,itree,iptr,boxsize,norder,gvals,grad)
+         endif
+      
+         if (ifpgh.eq.3) then
+            allocate(fcoefs(nd,npbox,nboxes))
+            allocate(gvals(nd,ndim,npbox,nboxes))
+            allocate(hvals(nd,nhess,npbox,nboxes))
+            ng=nd*ndim
+            nh=nd*nhess
+            call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
+     1          iptr,boxsize,norder,fvals,fcoefs,umat_nd)
+            
+            call treedata_evalgh_nd(ndim,nd,ipoly,nlevels,itree,iptr,
+     1          boxsize,norder,fcoefs,gvals,hvals)
+            call treedata_eval_pot_nd_asym(ndim,ng,delta,ipoly,nasym,
+     1          nlevels,itree,iptr,boxsize,norder,gvals,grad)
+            call treedata_eval_pot_nd_asym(ndim,nh,delta,ipoly,nasym,
+     1          nlevels,itree,iptr,boxsize,norder,hvals,hess)
+      endif
+      endif
+      
+      
+      call cpu_time(time2)
+C$    time2=omp_get_wtime()  
+      timeinfo(8) = time2-time1
+
+ 4000 continue
+      if(ifprint .ge. 1)
+     $     call prinf('=== STEP 8 (extra targets) =====*',i,0)
 c
 cc
       call cpu_time(time1)
@@ -778,12 +881,6 @@ C$    time1=omp_get_wtime()
       allocate(coefsg(nd,ndim,npbox,nboxes))
       allocate(coefsh(nd,nhess,npbox,nboxes))
 
-      allocate(umat_nd(norder,norder,ndim))
-      norder2=norder*norder
-      do i=1,ndim
-         call dcopy_f77(norder2,umat,1,umat_nd(1,1,i),1)
-      enddo
-      
 c     compute expansion coefficients for potential, gradient, and hessian
       itype=0
       if (ifpghtarg.ge.1) then
@@ -834,16 +931,22 @@ c     using coefficients for potential only
       
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
-      timeinfo(8) = time2-time1
+      timeinfo(9) = time2-time1
       
       
       if(ifprint.eq.1) then 
-         call prin2('timeinfo=*',timeinfo,8)
+         call prin2('timeinfo=*',timeinfo,9)
          d= 0
          do i = 1,8
             d = d + timeinfo(i)
          enddo
-         call prin2('sum(timeinfo)=*',d,1)
+         call prin2('time on tensor grid=*',d,1)
+         call prin2('tensor grid speed in pps=*',
+     1       (nleafbox*npbox*nd+0.0d0)/d,1)
+         d=timeinfo(9)
+         call prin2('time on extra targets=*',d,1)
+         call prin2('extra targets speed in pps=*',
+     1       (ntarg*nd+0.0d0)/d,1)
       ENDIF
       
       return

@@ -520,7 +520,10 @@ c----------------------------------------------------------------------c
       real *8, allocatable :: tab(:,:)
       real *8, allocatable :: tabx(:,:)
       real *8, allocatable :: tabxx(:,:)
-      integer itype,nquad,i,j,k,m,ipoly,n,ifzero,nnodes,nt
+
+      integer ind(2,n+1),indx(2,n+1),indxx(2,n+1)
+      
+      integer itype,nquad,i,j,k,m,ipoly,n,ifzero,nnodes,nt,i1,i2
 c
       allocate(tab(n,n))
       allocate(tabx(n,n))
@@ -633,7 +636,32 @@ c
       do k=-6,6
          if (abs(k).ne.5) then
             call compute_sparse_pattern(eps,n,n,tab_loc(1,1,k),
-     1       ind_loc(1,1,k),ifzero)
+     1          ind,ifzero)
+            call compute_sparse_pattern(eps,n,n,tabx_loc(1,1,k),
+     1          indx,ifzero)
+            call compute_sparse_pattern(eps,n,n,tabxx_loc(1,1,k),
+     1          indxx,ifzero)
+            do j=1,n+1
+               i2=ind(2,j)
+               if (i2.lt.indx(2,j)) i2=indx(2,j)
+               if (i2.lt.indxx(2,j)) i2=indxx(2,j)
+               ind_loc(2,j,k)=i2
+
+               i1=ind(1,j)
+               if (indx(1,j).eq.0) then
+               elseif (i1.gt.indx(1,j)) then
+                  i1=indx(1,j)
+               endif
+               if (indxx(1,j).eq.0) then
+               elseif (i1.gt.indxx(1,j)) then
+                  i1=indxx(1,j)
+               endif
+               if (i2.gt.0 .and.i1.eq.0) i1=1
+               ind_loc(1,j,k)=i1
+
+            enddo
+c            call compute_sparse_pattern(eps,n,n,tabx_loc(1,1,k),
+c     1          ind_loc(1,1,k),ifzero)
          endif
       enddo
       

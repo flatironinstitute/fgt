@@ -47,13 +47,13 @@ c
       external fgaussn,fgaussnx
 
 c     dimension of the underlying space
-      ndim=2
+      ndim=3
       eps = 0.5d-12
-      if (ndim.eq.3) eps=0.5d-6
+      if (ndim.eq.3) eps=0.5d-7
 c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
       ipoly=0
 c     polynomial expansion order for each leaf box
-      norder = 8
+      norder = 16
 
       iptype = 0
       eta = 1.0d0
@@ -78,7 +78,7 @@ c
 c      initialize function parameters
 c
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 4d-3
+      delta = 1d-10
       
       boxlen = 1.0d0
       
@@ -124,7 +124,7 @@ c     fourth gaussian
       dpars(20) = 1/pi/rsign
 
 
-      ntarg = 1 000 000
+      ntarg = 100 000
       nhess = ndim*(ndim+1)/2
       allocate(targs(ndim,ntarg),pote(nd,ntarg))
       allocate(grade(nd,ndim,ntarg),hesse(nd,nhess,ntarg))
@@ -183,10 +183,6 @@ c     allocate memory and initialization
       allocate(grad(nd,ndim,npbox,nboxes))
       allocate(hess(nd,nhess,npbox,nboxes))
 
-      allocate(potexe(nd,ntarg))
-      allocate(gradexe(nd,ndim,ntarg))
-      allocate(hessexe(nd,nhess,ntarg))
-
       do i=1,nboxes
         do j=1,npbox
            do ind=1,nd
@@ -231,13 +227,13 @@ c     compute exact solutions on tensor grid
         do ibox=itree(2*ilevel+1),itree(2*ilevel+2)
           if(itree(iptr(4)+ibox-1).eq.0) then
              do j=1,npbox
-              do k=1,ndim
+               do k=1,ndim
                  targ(k)=centers(k,ibox) + xref(k,j)*bs
-              enddo
+               enddo
 
-              call uexact(ndim,nd,delta,targ,dpars,potex(1,j,ibox),
+               call uexact(ndim,nd,delta,targ,dpars,potex(1,j,ibox),
      1            gradex(1,1,j,ibox),hessex(1,1,j,ibox))
-           enddo
+             enddo
           endif
         enddo
       enddo
@@ -274,6 +270,10 @@ c
       call prin2('relative hess l2 error=*',errh,1)
 c
 c     compute exact solutions on arbitrary targets      
+      allocate(potexe(nd,ntarg))
+      allocate(gradexe(nd,ndim,ntarg))
+      allocate(hessexe(nd,nhess,ntarg))
+
       do j=1,ntarg
          call uexact(ndim,nd,delta,targs(1,j),dpars,potexe(1,j),
      1       gradexe(1,1,j),hessexe(1,1,j))

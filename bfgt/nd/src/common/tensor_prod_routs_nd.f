@@ -387,14 +387,11 @@ c
       do ind = 1,nd
 c        transform in x
          do k1=1,n
-c            cd=0
             cdx=0
             do j1=1,n
-c               cd=cd+vmat(j1,k1)*fcoefs(ind,j1)
-               cdx=cdx+vpmat(j1,k1)*fcoefs(ind,j1)
+               cdx=cdx+vpmat(k1,j1)*fcoefs(ind,j1)
             enddo
-c            pot(ind,k1)=pot(ind,k1)+cd
-            grad(ind,k1)=grad(ind,k1)+cdx*sc
+            grad(ind,k1)=cdx*sc
          enddo
       enddo
       
@@ -422,8 +419,8 @@ c        transform in x
             cd=0
             cdx=0
             do j1=1,n
-               cd=cd+vmat(j1,k1)*fcoefs(ind,j1,j2)
-               cdx=cdx+vpmat(j1,k1)*fcoefs(ind,j1,j2)
+               cd=cd+vmat(k1,j1)*fcoefs(ind,j1,j2)
+               cdx=cdx+vpmat(k1,j1)*fcoefs(ind,j1,j2)
             enddo
             ff(k1,j2)=cd
             ffx(k1,j2)=cdx
@@ -436,13 +433,11 @@ c            cd=0
             cdx = 0.0d0
             cdy = 0.0d0
             do j2=1,n
-c               cd=cd+vmat(j2,k2)*ff(k1,j2)
-               cdy=cdy+vpmat(j2,k2)*ff(k1,j2)
-               cdx=cdx+vmat(j2,k2)*ffx(k1,j2)
+               cdy=cdy+vpmat(k2,j2)*ff(k1,j2)
+               cdx=cdx+vmat(k2,j2)*ffx(k1,j2)
             enddo
-c            pot(ind,k1,k2)=pot(ind,k1,k2)+cd
-            grad(ind,1,k1,k2)=grad(ind,1,k1,k2)+cdx*sc
-            grad(ind,2,k1,k2)=grad(ind,2,k1,k2)+cdy*sc
+            grad(ind,1,k1,k2)=cdx*sc
+            grad(ind,2,k1,k2)=cdy*sc
          enddo
          enddo
 c     end of the ind loop
@@ -478,8 +473,8 @@ c        transform in x
             cd=0
             cdx=0.0d0
             do j1=1,n
-               cd=cd+vmat(j1,k1)*fcoefs(ind,j1,j2,j3)
-               cdx=cdx+vpmat(j1,k1)*fcoefs(ind,j1,j2,j3)
+               cd=cd+vmat(k1,j1)*fcoefs(ind,j1,j2,j3)
+               cdx=cdx+vpmat(k1,j1)*fcoefs(ind,j1,j2,j3)
             enddo
             ff(k1,j2,j3)=cd
             ffx(k1,j2,j3)=cdx
@@ -495,10 +490,10 @@ c        transform in y
             cdx = 0.0d0
             cdy = 0.0d0
             do j2=1,n
-               cd=cd+vmat(j2,k2)*ff(k1,j2,j3)
-               cdy=cdy+vpmat(j2,k2)*ff(k1,j2,j3)
+               cd=cd+vmat(k2,j2)*ff(k1,j2,j3)
+               cdy=cdy+vpmat(k2,j2)*ff(k1,j2,j3)
                
-               cdx=cdx+vmat(j2,k2)*ffx(k1,j2,j3)
+               cdx=cdx+vmat(k2,j2)*ffx(k1,j2,j3)
             enddo
             ff2(k1,k2,j3)=cd
             ff2x(k1,k2,j3)=cdx
@@ -511,21 +506,18 @@ c        transform in z
          do k3=1,n
          do k2=1,n
          do k1=1,n
-c            cd=0
             cdx = 0.0d0
             cdy = 0.0d0
             cdz = 0.0d0
             do j3=1,n
-c               cd=cd+vmat(j3,k3)*ff2(k1,k2,j3)
-               cdz=cdz+vpmat(j3,k3)*ff2(k1,k2,j3)
+               cdz=cdz+vpmat(k3,j3)*ff2(k1,k2,j3)
                
-               cdx=cdx+vmat(j3,k3)*ff2x(k1,k2,j3)
-               cdy=cdy+vmat(j3,k3)*ff2y(k1,k2,j3)
+               cdx=cdx+vmat(k3,j3)*ff2x(k1,k2,j3)
+               cdy=cdy+vmat(k3,j3)*ff2y(k1,k2,j3)
             enddo
-c            pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+cd
-            grad(ind,1,k1,k2,k3)=grad(ind,1,k1,k2,k3)+cdx*sc
-            grad(ind,2,k1,k2,k3)=grad(ind,2,k1,k2,k3)+cdy*sc
-            grad(ind,3,k1,k2,k3)=grad(ind,3,k1,k2,k3)+cdz*sc
+            grad(ind,1,k1,k2,k3)=cdx*sc
+            grad(ind,2,k1,k2,k3)=cdy*sc
+            grad(ind,3,k1,k2,k3)=cdz*sc
          enddo
          enddo
          enddo
@@ -543,7 +535,7 @@ c
 c     evaluate gradient and hessian at tensor grid given potential coefficients
 c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      subroutine ortho_evalgh_nd(ndim,nd,norder,coefs,sc,grad
+      subroutine ortho_evalgh_nd(ndim,nd,norder,coefs,sc,grad,
      1    hess,vmat,vpmat,vppmat)
 c
 c     this subroutine evaluates the hessian at the tensor grid
@@ -605,13 +597,12 @@ c            cd=0
             cdx=0
             cdxx=0
             do j1=1,n
-c               cd=cd+vmat(j1,k1)*fcoefs(ind,j1)
-               cdx=cdx+vpmat(j1,k1)*fcoefs(ind,j1)
-               cdxx=cdxx+vppmat(j1,k1)*fcoefs(ind,j1)
+c               cd=cd+vmat(k1,j1)*fcoefs(ind,j1)
+               cdx=cdx+vpmat(k1,j1)*fcoefs(ind,j1)
+               cdxx=cdxx+vppmat(k1,j1)*fcoefs(ind,j1)
             enddo
-c            pot(ind,k1)=pot(ind,k1)+cd
-            grad(ind,k1)=grad(ind,k1)+cdx*sc
-            hess(ind,k1)=hess(ind,k1)+cdxx*sc2
+            grad(ind,k1)=cdx*sc
+            hess(ind,k1)=cdxx*sc2
          enddo
       enddo
       
@@ -643,9 +634,9 @@ c        transform in x
             cdx=0
             cdxx=0
             do j1=1,n
-               cd=cd+vmat(j1,k1)*fcoefs(ind,j1,j2)
-               cdx=cdx+vpmat(j1,k1)*fcoefs(ind,j1,j2)
-               cdxx=cdxx+vppmat(j1,k1)*fcoefs(ind,j1,j2)
+               cd=cd+vmat(k1,j1)*fcoefs(ind,j1,j2)
+               cdx=cdx+vpmat(k1,j1)*fcoefs(ind,j1,j2)
+               cdxx=cdxx+vppmat(k1,j1)*fcoefs(ind,j1,j2)
             enddo
             ff(k1,j2)=cd
             ffx(k1,j2)=cdx
@@ -662,22 +653,21 @@ c            cd = 0.0d0
             cdxy = 0.0d0
             cdyy = 0.0d0
             do j2=1,n
-c               cd=cd+vmat(j2,k2)*ff(k1,j2)
-               cdy=cdy+vpmat(j2,k2)*ff(k1,j2)
-               cdyy=cdyy+vppmat(j2,k2)*ff(k1,j2)
+c               cd=cd+vmat(k2,j2)*ff(k1,j2)
+               cdy=cdy+vpmat(k2,j2)*ff(k1,j2)
+               cdyy=cdyy+vppmat(k2,j2)*ff(k1,j2)
 
-               cdx=cdx+vmat(j2,k2)*ffx(k1,j2)
-               cdxy=cdxy+vpmat(j2,k2)*ffx(k1,j2)
+               cdx=cdx+vmat(k2,j2)*ffx(k1,j2)
+               cdxy=cdxy+vpmat(k2,j2)*ffx(k1,j2)
 
-               cdxx=cdxx+vmat(j2,k2)*ffxx(k1,j2)
+               cdxx=cdxx+vmat(k2,j2)*ffxx(k1,j2)
             enddo
-c            pot(ind,k1,k2)=pot(ind,k1,k2)+cd
-            grad(ind,1,k1,k2)=grad(ind,1,k1,k2)+cdx*sc
-            grad(ind,2,k1,k2)=grad(ind,2,k1,k2)+cdy*sc
+            grad(ind,1,k1,k2)=cdx*sc
+            grad(ind,2,k1,k2)=cdy*sc
 
-            hess(ind,1,k1,k2)=hess(ind,1,k1,k2)+cdxx*sc2
-            hess(ind,2,k1,k2)=hess(ind,2,k1,k2)+cdxy*sc2
-            hess(ind,3,k1,k2)=hess(ind,3,k1,k2)+cdyy*sc2
+            hess(ind,1,k1,k2)=cdxx*sc2
+            hess(ind,2,k1,k2)=cdxy*sc2
+            hess(ind,3,k1,k2)=cdyy*sc2
          enddo
          enddo
 c     end of the ind loop
@@ -725,9 +715,9 @@ c        transform in x
             cdx=0.0d0
             cdxx=0.0d0
             do j1=1,n
-               cd=cd+vmat(j1,k1)*fcoefs(ind,j1,j2,j3)
-               cdx=cdx+vpmat(j1,k1)*fcoefs(ind,j1,j2,j3)
-               cdxx=cdxx+vppmat(j1,k1)*fcoefs(ind,j1,j2,j3)
+               cd=cd+vmat(k1,j1)*fcoefs(ind,j1,j2,j3)
+               cdx=cdx+vpmat(k1,j1)*fcoefs(ind,j1,j2,j3)
+               cdxx=cdxx+vppmat(k1,j1)*fcoefs(ind,j1,j2,j3)
             enddo
             ff(k1,j2,j3)=cd
             ffx(k1,j2,j3)=cdx
@@ -747,14 +737,14 @@ c        transform in y
             cdxy = 0.0d0
             cdyy = 0.0d0
             do j2=1,n
-               cd   = cd   +   vmat(j2,k2)*ff(k1,j2,j3)
-               cdy  = cdy  +  vpmat(j2,k2)*ff(k1,j2,j3)
-               cdyy = cdyy + vppmat(j2,k2)*ff(k1,j2,j3)
+               cd   = cd   +   vmat(k2,j2)*ff(k1,j2,j3)
+               cdy  = cdy  +  vpmat(k2,j2)*ff(k1,j2,j3)
+               cdyy = cdyy + vppmat(k2,j2)*ff(k1,j2,j3)
 
-               cdx  = cdx  +   vmat(j2,k2)*ffx(k1,j2,j3)
-               cdxy = cdxy +  vpmat(j2,k2)*ffx(k1,j2,j3)
+               cdx  = cdx  +   vmat(k2,j2)*ffx(k1,j2,j3)
+               cdxy = cdxy +  vpmat(k2,j2)*ffx(k1,j2,j3)
                
-               cdxx = cdxx +   vmat(j2,k2)*ffxx(k1,j2,j3)
+               cdxx = cdxx +   vmat(k2,j2)*ffxx(k1,j2,j3)
             enddo
             ff2(k1,k2,j3)=cd
             ff2x(k1,k2,j3)=cdx
@@ -781,32 +771,232 @@ c            cd=0
             cdxz = 0.0d0
             cdyz = 0.0d0
             do j3=1,n
-c               cd   = cd   +   vmat(j3,k3)*ff2(k1,k2,j3)
-               cdz  = cdz  +  vpmat(j3,k3)*ff2(k1,k2,j3)
-               cdzz = cdzz + vppmat(j3,k3)*ff2(k1,k2,j3)
+c               cd   = cd   +   vmat(k3,j3)*ff2(k1,k2,j3)
+               cdz  = cdz  +  vpmat(k3,j3)*ff2(k1,k2,j3)
+               cdzz = cdzz + vppmat(k3,j3)*ff2(k1,k2,j3)
 
-               cdx  = cdx  +  vmat(j3,k3)*ff2x(k1,k2,j3)
-               cdxz = cdxz + vpmat(j3,k3)*ff2x(k1,k2,j3)
+               cdx  = cdx  +  vmat(k3,j3)*ff2x(k1,k2,j3)
+               cdxz = cdxz + vpmat(k3,j3)*ff2x(k1,k2,j3)
 
-               cdy  = cdy  +  vmat(j3,k3)*ff2y(k1,k2,j3)
-               cdyz = cdyz + vpmat(j3,k3)*ff2y(k1,k2,j3)
+               cdy  = cdy  +  vmat(k3,j3)*ff2y(k1,k2,j3)
+               cdyz = cdyz + vpmat(k3,j3)*ff2y(k1,k2,j3)
                
-               cdxx = cdxx + vmat(j3,k3)*ff2xx(k1,k2,j3)
-               cdxy = cdxy + vmat(j3,k3)*ff2xy(k1,k2,j3)
-               cdyy = cdyy + vmat(j3,k3)*ff2yy(k1,k2,j3)
+               cdxx = cdxx + vmat(k3,j3)*ff2xx(k1,k2,j3)
+               cdxy = cdxy + vmat(k3,j3)*ff2xy(k1,k2,j3)
+               cdyy = cdyy + vmat(k3,j3)*ff2yy(k1,k2,j3)
             enddo
 c            pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+cd
-            grad(ind,1,k1,k2,k3)=grad(ind,1,k1,k2,k3)+cdx*sc
-            grad(ind,2,k1,k2,k3)=grad(ind,2,k1,k2,k3)+cdy*sc
-            grad(ind,3,k1,k2,k3)=grad(ind,3,k1,k2,k3)+cdz*sc
+            grad(ind,1,k1,k2,k3)=cdx*sc
+            grad(ind,2,k1,k2,k3)=cdy*sc
+            grad(ind,3,k1,k2,k3)=cdz*sc
 
-            hess(ind,1,k1,k2,k3)=hess(ind,1,k1,k2,k3)+cdxx*sc2
-            hess(ind,2,k1,k2,k3)=hess(ind,2,k1,k2,k3)+cdyy*sc2
-            hess(ind,3,k1,k2,k3)=hess(ind,3,k1,k2,k3)+cdzz*sc2
+            hess(ind,1,k1,k2,k3)=cdxx*sc2
+            hess(ind,2,k1,k2,k3)=cdyy*sc2
+            hess(ind,3,k1,k2,k3)=cdzz*sc2
 
-            hess(ind,4,k1,k2,k3)=hess(ind,4,k1,k2,k3)+cdxy*sc2
-            hess(ind,5,k1,k2,k3)=hess(ind,5,k1,k2,k3)+cdxz*sc2
-            hess(ind,6,k1,k2,k3)=hess(ind,6,k1,k2,k3)+cdyz*sc2
+            hess(ind,4,k1,k2,k3)=cdxy*sc2
+            hess(ind,5,k1,k2,k3)=cdxz*sc2
+            hess(ind,6,k1,k2,k3)=cdyz*sc2
+         enddo
+         enddo
+         enddo
+c     end of the ind loop
+      enddo
+      
+      return
+      end subroutine
+c
+c      
+c      
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c
+c     evaluate the laplacian at tensor grid given potential coefficients
+c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      subroutine ortho_eval_laplacian_nd(ndim,nd,norder,coefs,sc,rlap,
+     1    vmat,vppmat)
+c
+c     this subroutine evaluates the laplacian at the tensor grid
+c
+c     input:
+c     ndim - dimension of the underlying space
+c     nd - number of input data
+c     norder - order of polynomial expansion
+c     coefs - orthogonal polynomial expansion coefficients for the potential
+c     sc - scaling factor for the derivative
+c     vmat - matrix converting coefficients into function values
+c     vppmat - matrix converting coefficients into values of the second derivative
+c
+c     output:
+c     rlap - value of the laplacian on the tensor grid
+c
+      implicit real *8 (a-h,o-z)
+      real *8 coefs(nd,norder**ndim)
+      real *8 rlap(nd,norder**ndim)
+
+      real *8 vmat(norder,norder)
+      real *8 vppmat(norder,norder)
+
+      if (ndim.eq.1) then
+         call ortho_eval_laplacian_1d(nd,norder,coefs,sc,rlap,
+     1    vmat,vppmat)
+      elseif (ndim.eq.2) then
+         call ortho_eval_laplacian_2d(nd,norder,coefs,sc,rlap,
+     1    vmat,vppmat)
+      elseif (ndim.eq.3) then
+         call ortho_eval_laplacian_3d(nd,norder,coefs,sc,rlap,
+     1    vmat,vppmat)
+      endif
+
+      return
+      end
+c
+c
+c
+c
+C*********************************************************************C
+      subroutine ortho_eval_laplacian_1d(nd,n,fcoefs,sc,rlap,
+     1    vmat,vppmat)
+C*********************************************************************C
+      implicit real *8 (a-h,o-z)
+      real *8 fcoefs(nd,n),rlap(nd,n)
+      real *8 vmat(n,n)
+      real *8 vppmat(n,n)
+c
+      sc2=sc*sc
+      
+      do ind = 1,nd
+c        transform in x
+         do k1=1,n
+            cdxx=0
+            do j1=1,n
+               cdxx=cdxx+vppmat(k1,j1)*fcoefs(ind,j1)
+            enddo
+            rlap(ind,k1)=cdxx*sc2
+         enddo
+      enddo
+      
+      return
+      end subroutine
+c
+c
+C
+c
+      subroutine ortho_eval_laplacian_2d(nd,n,fcoefs,sc,rlap,
+     1    vmat,vppmat)
+      implicit real *8 (a-h,o-z)
+      real *8 fcoefs(nd,n,n),rlap(nd,n,n)
+      real *8 vmat(n,n)
+      real *8 vppmat(n,n)
+
+      real *8 ff(n,n)
+      real *8 ffxx(n,n)
+c
+      sc2=sc*sc
+      
+      do ind = 1,nd
+c        transform in x
+         do j2=1,n
+         do k1=1,n
+            cd=0
+            cdxx=0
+            do j1=1,n
+               cd=cd+vmat(k1,j1)*fcoefs(ind,j1,j2)
+               cdxx=cdxx+vppmat(k1,j1)*fcoefs(ind,j1,j2)
+            enddo
+            ff(k1,j2)=cd
+            ffxx(k1,j2)=cdxx
+         enddo
+         enddo
+c        transfrom in y
+         do k2=1,n
+         do k1=1,n
+            cdxx = 0.0d0
+            cdyy = 0.0d0
+            do j2=1,n
+               cdxx=cdxx+vmat(k2,j2)*ffxx(k1,j2)
+               cdyy=cdyy+vppmat(k2,j2)*ff(k1,j2)
+            enddo
+            rlap(ind,k1,k2)=(cdxx+cdyy)*sc2
+         enddo
+         enddo
+c     end of the ind loop
+      enddo
+      
+      return
+      end subroutine
+c
+c
+C
+c
+      subroutine ortho_eval_laplacian_3d(nd,n,fcoefs,sc,rlap,
+     1    vmat,vppmat)
+C*********************************************************************C
+      implicit real *8 (a-h,o-z)
+      real *8 fcoefs(nd,n,n,n)
+      real *8 rlap(nd,n,n,n)
+
+      real *8 vmat(n,n)
+      real *8 vppmat(n,n)
+
+      real *8 ff(n,n,n)
+      real *8 ffxx(n,n,n)
+      
+      real *8 ff2(n,n,n)
+      real *8 ff2xx(n,n,n)
+      real *8 ff2yy(n,n,n)
+c
+      sc2=sc*sc
+      
+      do ind = 1,nd
+c        transform in x
+         do j3=1,n
+         do j2=1,n
+         do k1=1,n
+            cd=0
+            cdxx=0.0d0
+            do j1=1,n
+               cd=cd+vmat(k1,j1)*fcoefs(ind,j1,j2,j3)
+               cdxx=cdxx+vppmat(k1,j1)*fcoefs(ind,j1,j2,j3)
+            enddo
+            ff(k1,j2,j3)=cd
+            ffxx(k1,j2,j3)=cdxx
+         enddo
+         enddo
+         enddo
+
+c        transform in y
+         do j3=1,n
+         do k2=1,n
+         do k1=1,n
+            cd=0
+            cdxx = 0.0d0
+            cdyy = 0.0d0
+            do j2=1,n
+               cd   = cd   +   vmat(k2,j2)*ff(k1,j2,j3)
+               cdyy = cdyy + vppmat(k2,j2)*ff(k1,j2,j3)
+               cdxx = cdxx +   vmat(k2,j2)*ffxx(k1,j2,j3)
+            enddo
+            ff2(k1,k2,j3)=cd
+            ff2xx(k1,k2,j3)=cdxx
+            ff2yy(k1,k2,j3)=cdyy
+         enddo
+         enddo
+         enddo
+
+c        transform in z
+         do k3=1,n
+         do k2=1,n
+         do k1=1,n
+            cdxx = 0.0d0
+            cdyy = 0.0d0
+            cdzz = 0.0d0
+            do j3=1,n
+               cdxx = cdxx + vmat(k3,j3)*ff2xx(k1,k2,j3)
+               cdyy = cdyy + vmat(k3,j3)*ff2yy(k1,k2,j3)
+               cdzz = cdzz + vppmat(k3,j3)*ff2(k1,k2,j3)
+            enddo
+            rlap(ind,k1,k2,k3)=(cdxx+cdyy+cdzz)*sc2
          enddo
          enddo
          enddo
@@ -1016,9 +1206,97 @@ c
 c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c
-c     potential coefficients 2 gradient and hessian coefficients
+c     potential coefficients to gradient and hessian coefficients
 c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      subroutine ortho_coefsgh_nd(ndim,nd,norder,coefsp,
+     1    coefsg,coefsh,umat)
+c
+c     this subroutine computes the expansion coefficients for the gradient
+c     given the expansion coefficients of the potential
+c
+c     input:
+c     nd - number of input data
+c     norder - order of polynomial expansion
+c     coefsp - expansion coefficients of the potential
+c     umat - 1D transformation matrix
+c     work - work array
+c      
+c     output:
+c     coefsg - expansion coefficients of the gradient
+c     coefsh - expansion coefficients of the hessian
+c
+      implicit real *8 (a-h,o-z)
+      real *8 coefsp(nd,norder**ndim)
+      real *8 coefsg(nd,ndim,norder**ndim),umat(norder,norder)
+      real *8 coefsh(nd,ndim*(ndim+1)/2,norder**ndim)
+
+      if (ndim.eq.1) then
+         call ortho_coefsgh_1d(nd,norder,coefsp,coefsg,coefsh,umat)         
+      elseif (ndim.eq.2) then
+         call ortho_coefsgh_2d(nd,norder,coefsp,coefsg,coefsh,umat)         
+      elseif (ndim.eq.3) then
+         call ortho_coefsgh_3d(nd,norder,coefsp,coefsg,coefsh,umat)         
+      endif
+      
+      return
+      end
+c      
+c      
+c      
+c      
+c      
+      subroutine ortho_coefsgh_1d(nd,norder,coefsp,coefsg,coefsh,umat)
+c
+c     this subroutine computes the expansion coefficients for the gradient
+c     and the hessian given the expansion coefficients of the potential
+c
+c     input:
+c     nd - number of input data
+c     norder - order of polynomial expansion
+c     coefsp - expansion coefficients of the potential
+c     umat - 1D transformation matrix
+c     work - work array
+c      
+c     output:
+c     coefsg - expansion coefficients of the gradient
+c     coefsh - expansion coefficients of the hessian
+c
+      implicit real *8 (a-h,o-z)
+      real *8 coefsp(nd,norder)
+      real *8 coefsg(nd,norder),umat(norder,norder)
+      real *8 coefsh(nd,norder)
+
+c     compute the expansion coefficients of the gradient
+c     differentiation in x
+      do k=1,norder
+         do ind=1,nd
+            dd=0
+            do k1=1,norder
+               dd=dd+umat(k,k1)*coefsp(ind,k1)
+            enddo
+            coefsg(ind,k)=dd
+         enddo
+      enddo
+
+c     compute the expansion coefficients of the hessian
+c     u_{xx}
+      do k=1,norder
+         do ind=1,nd
+            dd=0
+            do k1=1,norder
+               dd=dd+umat(k,k1)*coefsg(ind,k1)
+            enddo
+            coefsh(ind,k)=dd
+         enddo
+      enddo
+      
+      return
+      end
+c
+c
+c
+c
       subroutine ortho_coefsgh_2d(nd,norder,coefsp,coefsg,coefsh,umat)
 c
 c     this subroutine computes the expansion coefficients for the gradient
@@ -1107,6 +1385,172 @@ c     u_{yy}
       enddo
       enddo
 
+      
+      return
+      end
+c
+c
+c
+c
+      subroutine ortho_coefsgh_3d(nd,norder,coefsp,coefsg,coefsh,umat)
+c
+c     this subroutine computes the expansion coefficients for the gradient
+c     and the hessian given the expansion coefficients of the potential
+c
+c     input:
+c     nd - number of input data
+c     norder - order of polynomial expansion
+c     coefsp - expansion coefficients of the potential
+c     umat - 1D transformation matrix
+c     work - work array
+c      
+c     output:
+c     coefsg - expansion coefficients of the gradient
+c     coefsh - expansion coefficients of the hessian
+c
+      implicit real *8 (a-h,o-z)
+      real *8 coefsp(nd,norder,norder,norder)
+      real *8 coefsg(nd,3,norder,norder,norder),umat(norder,norder)
+      real *8 coefsh(nd,6,norder,norder,norder)
+
+c     compute the expansion coefficients of the gradient
+c     differentiation in x
+      do i=1,norder
+      do j=1,norder
+      do k=1,norder
+         do ind=1,nd
+            dd=0
+            do k1=1,norder
+               dd=dd+umat(k,k1)*coefsp(ind,k1,j,i)
+            enddo
+            coefsg(ind,1,k,j,i)=dd
+         enddo
+      enddo
+      enddo
+      enddo
+      
+c     differentiation in y
+      do i=1,norder
+      do j=1,norder
+      do k=1,norder
+         do ind=1,nd
+            dd=0
+            do j1=1,norder
+               dd=dd+umat(j,j1)*coefsp(ind,k,j1,i)
+            enddo
+            coefsg(ind,2,j,k,i)=dd
+         enddo
+      enddo
+      enddo
+      enddo
+
+c     differentiation in z
+      do i=1,norder
+      do j=1,norder
+      do k=1,norder
+         do ind=1,nd
+            dd=0
+            do i1=1,norder
+               dd=dd+umat(i,i1)*coefsp(ind,k,j,i1)
+            enddo
+            coefsg(ind,3,j,k,i)=dd
+         enddo
+      enddo
+      enddo
+      enddo
+
+c     compute the expansion coefficients of the hessian
+c     u_{xx}
+      do i=1,norder
+      do j=1,norder
+      do k=1,norder
+         do ind=1,nd
+            dd=0
+            do k1=1,norder
+               dd=dd+umat(k,k1)*coefsg(ind,1,k1,j,i)
+            enddo
+            coefsh(ind,1,k,j,i)=dd
+         enddo
+      enddo
+      enddo
+      enddo
+
+c     u_{yy}
+      do i=1,norder
+      do j=1,norder
+      do k=1,norder
+         do ind=1,nd
+            dd=0
+            do j1=1,norder
+               dd=dd+umat(j,j1)*coefsg(ind,2,k,j1,i)
+            enddo
+            coefsh(ind,2,j,k,i)=dd
+         enddo
+      enddo
+      enddo
+      enddo
+
+c     u_{zz}
+      do i=1,norder
+      do j=1,norder
+      do k=1,norder
+         do ind=1,nd
+            dd=0
+            do i1=1,norder
+               dd=dd+umat(i,i1)*coefsg(ind,3,k,j,i1)
+            enddo
+            coefsh(ind,3,j,k,i)=dd
+         enddo
+      enddo
+      enddo
+      enddo
+
+c     u_{xy}
+      do i=1,norder
+      do j=1,norder
+      do k=1,norder
+         do ind=1,nd
+            dd=0
+            do j1=1,norder
+               dd=dd+umat(j,j1)*coefsg(ind,1,k,j1,i)
+            enddo
+            coefsh(ind,4,j,k,i)=dd
+         enddo
+      enddo
+      enddo
+      enddo
+
+c     u_{xz}
+      do i=1,norder
+      do j=1,norder
+      do k=1,norder
+         do ind=1,nd
+            dd=0
+            do i1=1,norder
+               dd=dd+umat(i,i1)*coefsg(ind,1,k,j,i1)
+            enddo
+            coefsh(ind,5,j,k,i)=dd
+         enddo
+      enddo
+      enddo
+      enddo
+
+c     u_{yz}
+      do i=1,norder
+      do j=1,norder
+      do k=1,norder
+         do ind=1,nd
+            dd=0
+            do i1=1,norder
+               dd=dd+umat(i,i1)*coefsg(ind,2,k,j,i1)
+            enddo
+            coefsh(ind,6,j,k,i)=dd
+         enddo
+      enddo
+      enddo
+      enddo
+
+      
       
       return
       end
@@ -1942,10 +2386,9 @@ c     make 1D tables for computing function values and its derivatives
 c     from its expansion coefficients
 c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-      subroutine ortho_eval_tables(ipoly,n,vmat,vpmat,vppmat)
+      subroutine ortho_eval_tables(ipoly,n,umat,vmat,vpmat,vppmat)
 c
-c     makes tables for computing function values and its derivatives
-c     on interpolation nodes
+c     returns 1d transformation tables 
 c
 c     input:
 c     ipoly - ipoly=0 Legendre polynomials
@@ -1953,15 +2396,17 @@ c                   1 Chebyshev polynomials
 c     n - order of polynomial expansion
 c      
 c     output:
+c     umat - nxn matrix converting function values to expansion coefficients 
 c     vmat - nxn matrix converting expansion coefficients to function values
 c     vpmat - nxn matrix converting expansion coefficients to first derivatives
 c     vppmat - nxn matrix converting expansion coefficients to second derivatives
 c
       implicit real *8 (a-h,o-z)
+      real *8 umat(n,n)
       real *8 vmat(n,n)
       real *8 vpmat(n,n)
       real *8 vppmat(n,n)
-      real *8 xs(n),umat(n,n),ws(n)
+      real *8 xs(n),ws(n)
 
       itype=2
       if (ipoly.eq.0) then
@@ -1969,7 +2414,7 @@ c
       elseif (ipoly.eq.1) then
          call chebexps2(itype,n,xs,umat,vmat,ws,vpmat,vppmat)
       endif
-      
+
       return
       end
 c

@@ -1385,7 +1385,7 @@ c----------------------------------------------------------------------c
          call g2d_tens_prod_to_potloc(nd,n,fvals,pot,
      1    tab_loc,ind_loc,ixyz)
       elseif (ndim.eq.3) then
-         call g3d_tens_prod_to_potloc(nd,n,fvals,pot,
+         call g3d_tens_prod_to_potloc_fast(nd,n,fvals,pot,
      1    tab_loc,ind_loc,ixyz)
       endif
       return
@@ -2163,6 +2163,172 @@ c         do k1=1,n
             cdyz = 0.0d0
             do j3=ind_loc(1,k3,iz),ind_loc(2,k3,iz)
 c            do j3=1,n
+               cd   = cd   +   tab_loc(j3,k3,iz)*ff2(k1,k2,j3)
+               cdz  = cdz  +  tabx_loc(j3,k3,iz)*ff2(k1,k2,j3)
+               cdzz = cdzz + tabxx_loc(j3,k3,iz)*ff2(k1,k2,j3)
+
+               cdx  = cdx  +  tab_loc(j3,k3,iz)*ff2x(k1,k2,j3)
+               cdxz = cdxz + tabx_loc(j3,k3,iz)*ff2x(k1,k2,j3)
+
+               cdy  = cdy  +  tab_loc(j3,k3,iz)*ff2y(k1,k2,j3)
+               cdyz = cdyz + tabx_loc(j3,k3,iz)*ff2y(k1,k2,j3)
+               
+               cdxx = cdxx + tab_loc(j3,k3,iz)*ff2xx(k1,k2,j3)
+               cdxy = cdxy + tab_loc(j3,k3,iz)*ff2xy(k1,k2,j3)
+               cdyy = cdyy + tab_loc(j3,k3,iz)*ff2yy(k1,k2,j3)
+            enddo
+            pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+cd
+            grad(ind,1,k1,k2,k3)=grad(ind,1,k1,k2,k3)+cdx
+            grad(ind,2,k1,k2,k3)=grad(ind,2,k1,k2,k3)+cdy
+            grad(ind,3,k1,k2,k3)=grad(ind,3,k1,k2,k3)+cdz
+
+            hess(ind,1,k1,k2,k3)=hess(ind,1,k1,k2,k3)+cdxx
+            hess(ind,2,k1,k2,k3)=hess(ind,2,k1,k2,k3)+cdyy
+            hess(ind,3,k1,k2,k3)=hess(ind,3,k1,k2,k3)+cdzz
+
+            hess(ind,4,k1,k2,k3)=hess(ind,4,k1,k2,k3)+cdxy
+            hess(ind,5,k1,k2,k3)=hess(ind,5,k1,k2,k3)+cdxz
+            hess(ind,6,k1,k2,k3)=hess(ind,6,k1,k2,k3)+cdyz
+         enddo
+         enddo
+         enddo
+c     end of the ind loop
+      enddo
+      
+      return
+      end subroutine
+c
+      subroutine g3d_tens_prod_to_pghloc_slow(nd,n,fvals,pot,grad,hess,
+     1    tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
+C*********************************************************************C
+c     This routine computes 3D volume Gauss transform over a 
+c     single box source distribution given as function values
+c     on a tensor product grid.
+c
+c     INPUT:
+c     nd            vector length (for multiple RHS)
+c     n             number of nodes along each dimension
+c     fvals         function values at tensor grid
+c     tab_loc       precomputed tables of 1D integrals
+c     tabx_loc      precomputed tables for first derivatives
+c     tabxx_loc     precomputed tables for second derivatives
+c     ind_loc       precomputed nonzero pattern of tables
+c     ixy           pointers to local table, specify which local table should
+c                   be used
+c     OUTPUT:
+c     pot           potential values on tensor product grid
+c     grad          gradient values on tensor product grid
+c     hess          hessian values on tensor product grid
+c----------------------------------------------------------------------c
+      implicit real *8 (a-h,o-z)
+      real *8 fvals(nd,n,n,n)
+      real *8 pot(nd,n,n,n)
+      real *8 grad(nd,3,n,n,n)
+      real *8 hess(nd,6,n,n,n)
+
+      real *8 tab_loc(n,n,-6:6)
+      real *8 tabx_loc(n,n,-6:6)
+      real *8 tabxx_loc(n,n,-6:6)
+      integer ind_loc(2,n+1,-6:6)
+      integer ixyz(3)
+
+      real *8 ff(n,n,n)
+      real *8 ffx(n,n,n)
+      real *8 ffxx(n,n,n)
+      
+      real *8 ff2(n,n,n)
+      real *8 ff2x(n,n,n)
+      real *8 ff2xy(n,n,n)
+      real *8 ff2xx(n,n,n)
+      
+      real *8 ff2y(n,n,n)
+      real *8 ff2yy(n,n,n)
+c
+
+      ix=ixyz(1)
+      iy=ixyz(2)
+      iz=ixyz(3)
+      
+      nx = ind_loc(2,n+1,ix)-ind_loc(1,n+1,ix)+1
+      ny = ind_loc(2,n+1,iy)-ind_loc(1,n+1,iy)+1
+      nz = ind_loc(2,n+1,iz)-ind_loc(1,n+1,iz)+1
+
+      if (nx.eq.0 .or. ny.eq.0 .or. nz.eq.0) return
+      
+      do ind = 1,nd
+c        transform in x
+         do j3=1,n
+         do j2=1,n
+c         do k1=ind_loc(1,n+1,ix),ind_loc(2,n+1,ix)
+         do k1=1,n
+            cd=0
+            cdx=0.0d0
+            cdxx=0.0d0
+c            do j1=ind_loc(1,k1,ix),ind_loc(2,k1,ix)
+            do j1=1,n
+               cd   = cd   +   tab_loc(j1,k1,ix)*fvals(ind,j1,j2,j3)
+               cdx  = cdx  +  tabx_loc(j1,k1,ix)*fvals(ind,j1,j2,j3)
+               cdxx = cdxx + tabxx_loc(j1,k1,ix)*fvals(ind,j1,j2,j3)
+            enddo
+              ff(k1,j2,j3) = cd
+             ffx(k1,j2,j3) = cdx
+            ffxx(k1,j2,j3) = cdxx
+         enddo
+         enddo
+         enddo
+
+c        transform in y
+         do j3=1,n
+c         do k2=ind_loc(1,n+1,iy),ind_loc(2,n+1,iy)
+c         do k1=ind_loc(1,n+1,ix),ind_loc(2,n+1,ix)
+         do k2=1,n
+         do k1=1,n
+            cd=0
+            cdx = 0.0d0
+            cdy = 0.0d0
+            cdxx = 0.0d0
+            cdxy = 0.0d0
+            cdyy = 0.0d0
+c            do j2=ind_loc(1,k2,iy),ind_loc(2,k2,iy)
+            do j2=1,n
+               cd   = cd   +   tab_loc(j2,k2,iy)*ff(k1,j2,j3)
+               cdy  = cdy  +  tabx_loc(j2,k2,iy)*ff(k1,j2,j3)
+               cdyy = cdyy + tabxx_loc(j2,k2,iy)*ff(k1,j2,j3)
+
+               cdx  = cdx  +   tab_loc(j2,k2,iy)*ffx(k1,j2,j3)
+               cdxy = cdxy +  tabx_loc(j2,k2,iy)*ffx(k1,j2,j3)
+               
+               cdxx = cdxx +   tab_loc(j2,k2,iy)*ffxx(k1,j2,j3)
+            enddo
+            ff2(k1,k2,j3)=cd
+            ff2x(k1,k2,j3)=cdx
+            ff2xx(k1,k2,j3)=cdxx
+            ff2y(k1,k2,j3)=cdy
+            ff2yy(k1,k2,j3)=cdyy
+            ff2xy(k1,k2,j3)=cdxy
+         enddo
+         enddo
+         enddo
+
+c        transform in z
+c         do k3=ind_loc(1,n+1,iz),ind_loc(2,n+1,iz)
+c         do k2=ind_loc(1,n+1,iy),ind_loc(2,n+1,iy)
+c         do k1=ind_loc(1,n+1,ix),ind_loc(2,n+1,ix)
+         do k3=1,n
+         do k2=1,n
+         do k1=1,n
+            cd=0
+            cdx = 0.0d0
+            cdy = 0.0d0
+            cdz = 0.0d0
+            cdxx = 0.0d0
+            cdyy = 0.0d0
+            cdzz = 0.0d0
+            cdxy = 0.0d0
+            cdxz = 0.0d0
+            cdyz = 0.0d0
+c            do j3=ind_loc(1,k3,iz),ind_loc(2,k3,iz)
+            do j3=1,n
                cd   = cd   +   tab_loc(j3,k3,iz)*ff2(k1,k2,j3)
                cdz  = cdz  +  tabx_loc(j3,k3,iz)*ff2(k1,k2,j3)
                cdzz = cdzz + tabxx_loc(j3,k3,iz)*ff2(k1,k2,j3)

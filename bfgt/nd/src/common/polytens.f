@@ -1574,3 +1574,39 @@ c
 c
 c
 c
+      subroutine tens_prod_get_rmask(ndim,iptype,norder,npols,
+     1    rmask,rsum)
+c
+c     get the tail indices for estimating the function error
+c
+c
+c
+      implicit real *8 (a-h,o-z)
+      integer iind2p(ndim,npols)
+      real *8 rmask(npols)
+
+      call polytens_ind2pow(ndim,norder-1,'f',iind2p)
+      
+      rsum = 0
+      do i=1,npols
+        rmask(i) = 0.0d0
+        i1=0
+        do k=1,ndim
+           i1=i1+iind2p(k,i)
+        enddo
+        if(i1.eq.norder-1) then
+          rmask(i) = 1.0d0
+          rsum = rsum + 1
+        endif
+      enddo
+
+      if(iptype.eq.2) rsum = sqrt(rsum)
+      if(iptype.eq.0) rsum = 1
+
+      return
+      end
+c
+c
+c
+c
+      

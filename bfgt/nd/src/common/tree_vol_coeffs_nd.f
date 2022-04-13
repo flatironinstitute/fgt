@@ -123,7 +123,7 @@ c
       integer, allocatable :: laddr(:,:),ilevel(:),iparent(:),nchild(:)
       integer, allocatable :: ichild(:,:),ncoll(:),icoll(:,:)
       real *8, allocatable :: centers(:,:)
-      integer, allocatable :: nbors(:,:),nnbors(:)
+      integer, allocatable :: nbors(:,:),nnbors(:),ifrefine(:)
 
       integer, allocatable :: ilevel2(:),iparent2(:),nchild2(:),
      1    ichild2(:,:)
@@ -145,7 +145,7 @@ c
 
       real *8 rsc,ra,utmp,vtmp
       integer nbloc,nbctr,nbadd,irefine,ilev,ifirstbox,ilastbox
-      integer nbtot,iii,idim,iper
+      integer nbtot,iii,idim,iper,isep,nrefine
 
       
       nbmax = 100000
@@ -210,20 +210,9 @@ c
       npols = norder**ndim
       allocate(wts2(npbox),xref2(ndim,npbox))
 
-      if (ndim.eq.1) then
-         do i=1,norder
-            xref2(1,i)=xq(i)
-            wts2(i)=wts(i)
-         enddo
-      elseif (ndim.eq.2) then
-         itype = 1
-         call polytens_exps_2d(ipoly,itype,norder,'f',xref2,
-     1       utmp,1,vtmp,1,wts2)
-      elseif (ndim.eq.3) then
-         itype = 1
-         call polytens_exps_3d(ipoly,itype,norder,'f',xref2,
-     1       utmp,1,vtmp,1,wts2)
-      endif
+      itype = 1
+      call polytens_exps_nd(ndim,ipoly,itype,norder,'f',xref2,
+     1    utmp,1,vtmp,1,wts2)
 c
 c       compute fvals at the grid
 c
@@ -424,6 +413,20 @@ c
         endif
       endif
 
+c     now flag boxes that may require refinement for the box fgt
+c     added by Shidong Jiang on 04/11/2022
+      isep=1
+      allocate(ifrefine(nboxes))
+      call flag_box_refine(ndim,nlevels,nboxes,laddr,boxsize,
+     1                   centers,iparent,nchild,
+     2                   ichild,isep,nnbors,mnbors,nbors,iper,
+     3                   ifrefine,nrefine)
+
+      call prinf('nboxes in tree_mem=*',nboxes,1)
+      call prinf('nrefine=*',nrefine,1)
+c      nboxes = nboxes+nrefine*mc
+      nboxes = nboxes*2
+      
       ltree = (4+mc+mnbors)*nboxes + 2*(nlevels+1)
 
       return
@@ -511,7 +514,7 @@ c
       integer itree(ltree),ier
       real *8 fvals(nd,norder**ndim,nboxes),centers(ndim,nboxes)
       real *8, allocatable :: fval1(:,:,:,:),centerstmp(:,:,:)
-      integer, allocatable :: irefinebox(:)
+      integer, allocatable :: irefinebox(:),ifrefine(:)
       real *8 boxsize(0:nlevels)
 c      real *8 xq(norder),wts(norder),umat(norder,norder)
 c      real *8 vmat(norder,norder)
@@ -525,7 +528,7 @@ c      real *8 vmat(norder,norder)
       real *8 rsc
 
       real *8 ra
-      integer j,nboxes0,npols,iper,mc,mnbors
+      integer j,nboxes0,npols,iper,mc,mnbors,nrefine
 
       external fun
 
@@ -665,6 +668,8 @@ c
      3       itree(iptr(3)),itree(iptr(4)),itree(iptr(5)),
      4       itree(iptr(6)),itree(iptr(7)))
       endif
+
+      call prinf('nboxes in tree_build=*',nboxes,1)
 
 cccc      call prinf('nboxes0=*',nboxes0,1)
 cccc      call prinf('nlevels=*',nlevels,1)
@@ -815,21 +820,21 @@ c
       integer i,ibox,nel0,j,l,jbox,nel1,nbl,k,mc
 
       real *8 bsh
-      integer, allocatable :: isign(:,:)
+      integer, allocatable :: isgn(:,:)
       external fun
       
-      allocate(isign(ndim,2**ndim))
+      allocate(isgn(ndim,2**ndim))
 
       mc=2**ndim
       do j=1,ndim
-         isign(j,1)=-1
+         isgn(j,1)=-1
       enddo
 
       do j=1,ndim
          do i=1,mc,2**(j-1)
-            if (i.gt.1) isign(j,i)=-isign(j,i-2**(j-1))
+            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
             do k=1,2**(j-1)-1
-               isign(j,i+k)=isign(j,i)
+               isgn(j,i+k)=isgn(j,i)
             enddo
          enddo
       enddo
@@ -851,7 +856,7 @@ C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,nbl,j,jbox,l,xyz,k)
           do j=1,mc
             jbox = nbl+j
             do k=1,ndim
-               centers(k,jbox) = centers(k,ibox)+isign(k,j)*bsh
+               centers(k,jbox) = centers(k,ibox)+isgn(k,j)*bsh
             enddo
 
             do l=1,npbox
@@ -1895,21 +1900,21 @@ c
       integer i,ibox,nel,j,l,jbox,nbl,ii,k,mc
 
       real *8 bsh
-      integer, allocatable :: isign(:,:)
+      integer, allocatable :: isgn(:,:)
       external fun
       
-      allocate(isign(ndim,2**ndim))
+      allocate(isgn(ndim,2**ndim))
 
       mc=2**ndim
       do j=1,ndim
-         isign(j,1)=-1
+         isgn(j,1)=-1
       enddo
 
       do j=1,ndim
          do i=1,mc,2**(j-1)
-            if (i.gt.1) isign(j,i)=-isign(j,i-2**(j-1))
+            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
             do k=1,2**(j-1)-1
-               isign(j,i+k)=isign(j,i)
+               isgn(j,i+k)=isgn(j,i)
             enddo
          enddo
       enddo
@@ -1934,7 +1939,7 @@ C$OMP$PRIVATE(xyz,k)
           do j=1,mc
             jbox = nbl+j
             do k=1,ndim
-               centers(k,jbox) = centers(k,ibox)+isign(k,j)*bsh
+               centers(k,jbox) = centers(k,ibox)+isgn(k,j)*bsh
             enddo
 
             do l=1,npbox
@@ -2034,3 +2039,156 @@ c
 c
 c
 c
+      subroutine fgt_vol_tree_reorg(ndim,nboxes,nd,npbox,nblock,
+     1    nboxid,nnewboxes,nboxes0,
+     1    centers,nlevels,laddr,ilevel,iparent,nchild,ichild,
+     2    fvals)
+
+c    This subroutine reorganizes the current data in all the tree
+c    arrays to rearrange them in the standard format.
+c    The boxes on input are assumed to be arranged in the following
+c    format
+c    boxes on level i are the boxes from laddr(1,i) to 
+c    laddr(2,i) and also from laddrtail(1,i) to laddrtail(2,i)
+c
+c    At the end of the sorting, the boxes on level i
+c    are arranged from laddr(1,i) to laddr(2,i)  
+c
+c    INPUT/OUTPUT arguments
+c    nboxes         in: integer
+c                   number of boxes
+c
+c    nd             in: integer
+c                   number of real value functions
+c
+c    npbox          in: integer
+c                   number of grid points per function
+c
+c    nblock         in: integer(0:nlevels)
+c                   number of new boxes on each level
+c
+c
+c    centers        in/out: double precision(3,nboxes)
+c                   x and y coordinates of the center of boxes
+c
+c    nlevels        in: integer
+c                   Number of levels in the tree
+c
+c    laddr          in/out: integer(2,0:nlevels)
+c                   boxes at level i are numbered between
+c                   laddr(1,i) to laddr(2,i)
+c
+c    ilevel      in/out: integer(nboxes)
+c                ilevel(i) is the level of box i
+c
+c    iparent     in/out: integer(nboxes)
+c                 iparent(i) is the parent of box i
+c
+c    nchild      in/out: integer(nboxes)
+c                nchild(i) is the number of children 
+c                of box i
+c
+c    ichild       in/out: integer(8,nboxes)
+c                 ichild(j,i) is the jth child of box i
+c
+      implicit real *8 (a-h,o-z)
+c     Calling sequence variables and temporary variables
+      integer ndim,nboxes,nlevels,npbox,nd
+      double precision centers(ndim,nboxes)
+      integer laddr(2,0:nlevels), tladdr(2,0:nlevels)
+      integer ilevel(nboxes)
+      integer iparent(nboxes)
+      integer nchild(nboxes)
+      integer ichild(2**ndim,nboxes)
+      integer nblock(0:nlevels),nboxid(nnewboxes)
+      double precision fvals(nd,npbox,nboxes)
+      
+      integer, allocatable :: tilevel(:),tiparent(:),tnchild(:)
+      integer, allocatable :: tichild(:,:)
+      integer, allocatable :: iboxtocurbox(:)
+
+      double precision, allocatable :: tfvals(:,:,:),tcenters(:,:)
+
+c     Temporary variables
+      integer i,j,k,l,ilevstart(0:nlevels+1)
+      integer ibox,ilev, curbox,idim,nblev,mc
+
+      ilevstart(0)=0
+      call cumsum(nlevels+1,nblock(0),ilevstart(1))
+      mc=2**ndim
+      
+      allocate(tilevel(nboxes),tiparent(nboxes),tnchild(nboxes))
+      allocate(tichild(mc,nboxes),iboxtocurbox(nboxes))
+      allocate(tfvals(nd,npbox,nboxes),tcenters(ndim,nboxes))
+
+      do ilev = 0,nlevels
+         tladdr(1,ilev) = laddr(1,ilev)
+         tladdr(2,ilev) = laddr(2,ilev)
+      enddo
+      call vol_tree_copy(ndim,nd,nboxes,npbox,centers,ilevel,
+     1    iparent,nchild,ichild,fvals,tcenters,tilevel,
+     2    tiparent,tnchild,tichild,tfvals)
+
+     
+c     Rearrange old arrays now
+
+      do ilev = 0,1
+         do ibox = laddr(1,ilev),laddr(2,ilev)
+           iboxtocurbox(ibox) = ibox
+         enddo
+      enddo
+
+      curbox = laddr(1,2)
+      do ilev=2,nlevels
+         laddr(1,ilev) = curbox
+         do ibox = tladdr(1,ilev),tladdr(2,ilev)
+            ilevel(curbox) = tilevel(ibox)
+            nchild(curbox) = tnchild(ibox)
+            do k=1,ndim
+               centers(k,curbox) = tcenters(k,ibox)
+            enddo
+            do i=1,npbox
+              do idim=1,nd
+                fvals(idim,i,curbox) = tfvals(idim,i,ibox)
+              enddo
+            enddo
+            iboxtocurbox(ibox) = curbox
+
+            curbox = curbox + 1
+         enddo
+c        now add new boxes to level ilev
+         do i=1,nblock(ilev)
+            ibox=nboxid(ilevstart(ilev)+i)
+            ilevel(curbox) = tilevel(ibox)
+            nchild(curbox) = tnchild(ibox)
+            do k=1,ndim
+               centers(k,curbox) = tcenters(k,ibox)
+            enddo
+            do j=1,npbox
+              do idim=1,nd
+                fvals(idim,j,curbox) = tfvals(idim,j,ibox)
+              enddo
+            enddo
+            iboxtocurbox(ibox) = curbox
+
+            curbox = curbox + 1
+         enddo
+         laddr(2,ilev) = curbox-1
+      enddo
+
+c     Handle the parent children part of the tree 
+c     using the mapping iboxtocurbox
+
+      do ibox=1,nboxes
+         if(tiparent(ibox).eq.-1) iparent(iboxtocurbox(ibox)) = -1
+         if(tiparent(ibox).gt.0) 
+     1       iparent(iboxtocurbox(ibox)) = iboxtocurbox(tiparent(ibox))
+         do i=1,mc
+            if(tichild(i,ibox).eq.-1) ichild(i,iboxtocurbox(ibox)) = -1
+            if(tichild(i,ibox).gt.0) 
+     1      ichild(i,iboxtocurbox(ibox)) = iboxtocurbox(tichild(i,ibox))
+         enddo
+      enddo
+
+      return
+      end

@@ -172,10 +172,10 @@ c     iaddr is pointer for workspace need by various expansions.
 c
       if (npwlevel.le.1.and.iperiod.eq.1) then
          call gnd_mpalloc(nd,ndim,itree,iaddr,
-     1       nlevels,0,lmptot,npw)
+     1       nboxes,nlevels,0,lmptot,npw)
       else
          call gnd_mpalloc(nd,ndim,itree,iaddr,
-     1       nlevels,npwlevel,lmptot,npw)
+     1       nboxes,nlevels,npwlevel,lmptot,npw)
       endif
       
       if(ifprint .eq. 1) call prinf_long(' lmptot is *',lmptot,1)
@@ -344,16 +344,20 @@ c
 cc        temporary variables
 c
       integer, allocatable :: nlist1(:),list1(:,:)
+      integer, allocatable :: nlist_loc(:),list_loc(:,:)
       integer, allocatable :: nlistpw(:), listpw(:,:)
       integer, allocatable :: ifhung(:),iflocal(:)
+      integer, allocatable :: ifrefine0(:),ifrefine(:)
+      integer laddrtail(2,0:nlevels)
 
       integer ndirect
       integer ixyz(ndim)
-      
+
+      real *8, allocatable :: rmask(:)
       real *8, allocatable :: xq(:),wts(:),umat(:,:),vmat(:,:)
       real *8, allocatable :: umat_nd(:,:,:)
 
-      real *8 ws(100),ts(100)
+      real *8 ws(100),ts(100),pwexp(npw**ndim*nd)
       
       complex *16, allocatable :: wpwshift(:,:)
       complex *16, allocatable :: wpwmsshift(:,:,:)
@@ -374,11 +378,19 @@ c     for asymptotic calculations
       real *8, allocatable :: gvals(:,:,:,:)
       real *8, allocatable :: hvals(:,:,:,:)
 
+c     for checking whether the potential is resolved
+      real *8, allocatable :: coefs(:,:)
+      integer nblock(0:nlevels),ilevstart(0:nlevels+1)
+      integer, allocatable :: nboxid(:)
+      
 c     1d direct evaluation tables
       real *8, allocatable :: tab_loc(:,:,:,:)
       real *8, allocatable :: tabx_loc(:,:,:,:)
       real *8, allocatable :: tabxx_loc(:,:,:,:)
       integer, allocatable :: ind_loc(:,:,:,:)
+
+      integer, allocatable :: isgn(:,:)
+      integer, allocatable :: iflag(:)
       
       ifprint = 1
 
@@ -736,6 +748,7 @@ c            do nothing here
            else    
              nchild = itree(iptr(4)+ibox-1)
              if(nchild.eq.0) then
+               ifpghloc=1
                call gnd_pw2pgh(ndim,nd,norder,npw,
      1            rmlexp(iaddr(2,ibox)),tab_pw2pot(1,1,ilev),
      2            tab_pw2der(1,1,ilev),tab_pw2dxx(1,1,ilev),ifpgh,
@@ -781,6 +794,7 @@ cccc              jbox is the target box
                      call gnd_find_loctab_ind(ndim,iperiod,
      1                   centers(1,jbox),centers(1,ibox),
      2                   bs,bs0,ixyz)
+                     ifpghloc=1
                      call gnd_tens_prod_to_pghloc(ndim,nd,norder,
      1                   fvals(1,1,ibox),ifpgh,pot(1,1,jbox),
      2                   grad(1,1,1,jbox),hess(1,1,1,jbox),
@@ -797,7 +811,9 @@ c
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(7) = time2-time1
+      allocate(coefsp(nd,npbox,nboxes))
       goto 4000
+ccc      goto 3000
 
  3000 continue
       if(ifprint .ge. 1)
@@ -806,8 +822,8 @@ C$    time2=omp_get_wtime()
 C$    time1=omp_get_wtime()
 
 c     evaluate potential
-      call treedata_eval_pot_nd_asym(ndim,nd,delta,ipoly,nasym,
-     1    nlevels,itree,iptr,boxsize,norder,fvals,pot)
+c      call treedata_eval_pot_nd_asym(ndim,nd,delta,ipoly,nasym,
+c     1    nlevels,itree,iptr,boxsize,norder,fvals,pot)
 
       itype=0
       iffast=1
@@ -815,7 +831,6 @@ c     evaluate potential
 c     use spectral differentiation to evaluate gradient and hessian
          if (ifpgh.eq.2) then
             allocate(fcoefs(nd,npbox,nboxes))
-            ng=nd*ndim
             call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
      1          iptr,boxsize,norder,pot,fcoefs,umat_nd)
             call treedata_evalg_nd(ndim,nd,ipoly,nlevels,itree,iptr,
@@ -824,8 +839,6 @@ c     use spectral differentiation to evaluate gradient and hessian
       
          if (ifpgh.eq.3) then
             allocate(fcoefs(nd,npbox,nboxes))
-            ng=nd*ndim
-            nh=nd*nhess
             call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
      1          iptr,boxsize,norder,pot,fcoefs,umat_nd)
             call treedata_evalgh_nd(ndim,nd,ipoly,nlevels,itree,iptr,
@@ -836,12 +849,12 @@ c     also use asymptotic expansion to evaluate gradient and hessian
          if (ifpgh.eq.2) then
             allocate(fcoefs(nd,npbox,nboxes))
             allocate(gvals(nd,ndim,npbox,nboxes))
-            ng=nd*ndim
+
             call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
      1          iptr,boxsize,norder,fvals,fcoefs,umat_nd)
             call treedata_evalg_nd(ndim,nd,ipoly,nlevels,itree,iptr,
      1          boxsize,norder,fcoefs,gvals)
-
+            ng=nd*ndim
             call treedata_eval_pot_nd_asym(ndim,ng,delta,ipoly,nasym,
      1          nlevels,itree,iptr,boxsize,norder,gvals,grad)
          endif
@@ -850,13 +863,13 @@ c     also use asymptotic expansion to evaluate gradient and hessian
             allocate(fcoefs(nd,npbox,nboxes))
             allocate(gvals(nd,ndim,npbox,nboxes))
             allocate(hvals(nd,nhess,npbox,nboxes))
-            ng=nd*ndim
-            nh=nd*nhess
+
             call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
      1          iptr,boxsize,norder,fvals,fcoefs,umat_nd)
-            
             call treedata_evalgh_nd(ndim,nd,ipoly,nlevels,itree,iptr,
      1          boxsize,norder,fcoefs,gvals,hvals)
+            ng=nd*ndim
+            nh=nd*nhess
             call treedata_eval_pot_nd_asym(ndim,ng,delta,ipoly,nasym,
      1          nlevels,itree,iptr,boxsize,norder,gvals,grad)
             call treedata_eval_pot_nd_asym(ndim,nh,delta,ipoly,nasym,
@@ -868,27 +881,222 @@ c     also use asymptotic expansion to evaluate gradient and hessian
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(8) = time2-time1
-
  4000 continue
       if(ifprint .ge. 1)
-     $     call prinf('=== STEP 8 (extra targets) =====*',i,0)
+     $     call prinf('=== STEP 8 (refine if necessary) =====*',i,0)
+      call cpu_time(time1)
+C$    time1=omp_get_wtime()
+
+c     find the list of source boxes for each target box
+      allocate(nlist_loc(nboxes))
+      allocate(list_loc(mnlist1,nboxes))
+      do i=1,nboxes
+         nlist_loc(i)=0
+      enddo
+      
+      do ilev = 0,nlevend
+         do ibox = itree(2*ilev+1),itree(2*ilev+2)
+c        ibox is the source box            
+            if (ifhung(ibox) .eq. 1) then
+               nl1 = nlist1(ibox)
+               do j=1,nl1
+cccc              jbox is the target box
+                  jbox = list1(j,ibox)
+                  jlev = itree(iptr(2)+jbox-1)
+                  if ((ilev .ne. jlev) .or.
+     1                ((iflocal(ibox).ne.1) .or. (jbox.ne.ibox))) then
+                     nlist_loc(jbox)=nlist_loc(jbox)+1
+                     list_loc(nlist_loc(jbox),jbox)=ibox
+                  endif
+               enddo
+            endif
+         enddo
+      enddo
+c      
+
+      allocate(isgn(ndim,2**ndim))
+
+      mc=2**ndim
+      do j=1,ndim
+         isgn(j,1)=-1
+      enddo
+
+      do j=1,ndim
+         do i=1,mc,2**(j-1)
+            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
+            do k=1,2**(j-1)-1
+               isgn(j,i+k)=isgn(j,i)
+            enddo
+         enddo
+      enddo
+      
+
+      allocate(ifrefine0(nboxes))
+      allocate(ifrefine(nboxes))
+      call flag_box_refine(ndim,nlevels,nboxes,itree(iptr(1)),boxsize,
+     1    centers,itree(iptr(3)),itree(iptr(4)),itree(iptr(5)),
+     2    isep,itree(iptr(6)),mnbors,itree(iptr(7)),iper,
+     3    ifrefine0,mrefine)
+      call prinf('mrefine=*',mrefine,1)
+
+      allocate(rmask(npbox))
+      call tens_prod_get_rmask(ndim,iptype,norder,npbox,
+     1    rmask,rsum)
+      call prin2('rmask=*',rmask,npbox)
+      call prin2('rsum=*',rsum,1)
+      
+c     call fun_err on each relevant leaf box
+      isep=1
+      iper=0
+      iptype=0
+      eta=1.0d0
+      
+      
+      if(iptype.eq.2) rsc = sqrt(1.0d0/boxsize(0)**ndim)
+      if(iptype.eq.1) rsc = (1.0d0/boxsize(0)**ndim)
+      if(iptype.eq.0) rsc = 1.0d0
+
+c     compute the L_{iptype} norm of the pot by going throught each leaf box
+      call treedata_lpnorm(ndim,iptype,ipoly,nd,nlevels,itree,
+     1    iptr,boxsize,norder,npbox,pot,rnorm,nleaf)
+      call prin2('l2 norm of the potential=*',rnorm,1)
+      
+      rsc = rsc*rnorm
+      
+      nboxes0 = itree(2*nlevels+2)
+      call prinf('nboxes0=*',nboxes0,1)
+
+      do ibox=1,nboxes
+         ifrefine(ibox)=0
+      enddo
+
+      do i=0,nlevels
+         nblock(i)=0
+      enddo
+
+      allocate(coefs(nd,npbox))
+      
+      nrefine=0
+      do ilev = 0,nlevels-1
+         sc = boxsize(ilev)/2
+         rscale=sc**eta
+         do ibox = itree(2*ilev+1),itree(2*ilev+2)
+            if (ifrefine0(ibox).eq.1) then
+               call ortho_trans_nd(ndim,nd,0,norder,pot(1,1,ibox),
+     1             coefs,umat_nd)
+               call fun_err(nd,npbox,coefs,rmask,
+     1             iptype,rscale,erra)
+     
+               erra = erra/rsum
+
+               if(erra.gt.eps*rsc) then
+                  ifrefine(ibox)=1
+                  nrefine=nrefine+1
+               endif
+            endif
+         enddo
+      enddo
+      call prinf('nrefine=*',nrefine,1)
+cccc      call prinf('ifrefine=*',ifrefine,nboxes)
+
+c     recalculate pot, grad, hessian if necessary
+      nnewboxes=0
+      do ibox = 1,nboxes
+         if (ifrefine(ibox).eq.1) then
+            ilev=itree(iptr(2)+ibox-1)
+            bsh = boxsize(ilev)/4
+            rscale=(bsh*2)**eta
+c           nchild of ibox
+            itree(iptr(4)+ibox-1)=mc
+
+            do j=1,mc
+               nnewboxes=nnewboxes+1
+               jbox = nboxes0+nnewboxes
+               do k=1,ndim
+                  centers(k,jbox) = centers(k,ibox)+isgn(k,j)*bsh
+               enddo
+c              parent
+               itree(iptr(3)+jbox-1)=ibox
+c              nchild of jbox
+               itree(iptr(4)+jbox-1)=0
+c              jbox's children
+               do l=1,mc
+                  itree(iptr(5)+mc*(jbox-1)+l-1) = -1
+               enddo
+c              ibox's children
+               itree(iptr(5)+mc*(ibox-1)+j-1)=jbox
+c              jbox's level
+               jlev=ilev+1
+               itree(iptr(2)+jbox-1) = jlev
+               nblock(jlev)=nblock(jlev)+1
+               
+c              evaluate plane wave expansion
+               call gnd_find_msshift_ind(ndim,centers(1,jbox),
+     1             centers(1,ibox),k)
+               call gnd_shiftpw_loc(nd,nexp,rmlexp(iaddr(2,ibox)),
+     1             rmlexp(iaddr(2,jbox)),
+     2             wpwmsshift(1,k,nlevels-ilev))
+               call gnd_pw2pgh(ndim,nd,norder,npw,
+     1             rmlexp(iaddr(2,jbox)),tab_pw2pot(1,1,jlev),
+     2             tab_pw2der(1,1,jlev),tab_pw2dxx(1,1,jlev),
+     3             ifpgh,pot(1,1,jbox),grad(1,1,1,jbox),
+     4             hess(1,1,1,jbox))
+               call ortho_trans_nd(ndim,nd,0,norder,pot(1,1,jbox),
+     1             coefs,umat_nd)
+               call fun_err(nd,npbox,coefs,rmask,
+     1             iptype,rscale,erra)
+               
+               erra = erra/rsum
+               print *, 'erra=',erra, ibox, jbox
+               if(erra.gt.eps*rsc) then
+                  ifrefine(jbox)=1
+               endif
+                  
+            enddo
+         endif
+      enddo
+
+      allocate(nboxid(nnewboxes))
+      ilevstart(0)=0
+      call cumsum(nlevels+1,nblock(0),ilevstart(1))
+      
+      do j=1,nnewboxes
+         jbox=nboxes0+j
+         jlev=itree(iptr(2)+jbox-1)
+         ilevstart(jlev)=ilevstart(jlev)+1
+         nboxid(ilevstart(jlev))=jbox
+      enddo
+      call prinf('nnewboxes=*',nnewboxes,1)
+      
+c     call tree_reorg
+      call fgt_vol_tree_reorg(ndim,nboxes,nd,npbox,nblock,
+     1    nboxid,nnewboxes,nboxes0,
+     1    centers,nlevels,itree(iptr(1)),itree(iptr(2)),
+     2    itree(iptr(3)),itree(iptr(4)),itree(iptr(5)),
+     2    pot)
+      print *, 'nboxes=', itree(2*nlevels+2)
+      
+      call cpu_time(time2)
+C$    time2=omp_get_wtime()  
+      timeinfo(9) = time2-time1
+      
+ 5000 continue
+      if(ifprint .ge. 1)
+     $     call prinf('=== STEP 9 (extra targets) =====*',i,0)
 c
 cc
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
 
-      allocate(coefsp(nd,npbox,nboxes))
       allocate(coefsg(nd,ndim,npbox,nboxes))
       allocate(coefsh(nd,nhess,npbox,nboxes))
 
 c     compute expansion coefficients for potential, gradient, and hessian
-      itype=0
-      if (ifpghtarg.ge.1) then
-         call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
-     1       iptr,boxsize,norder,pot,coefsp,umat_nd)
-      endif
 
       iffast=1
+      itype=0
+      call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
+     1    iptr,boxsize,norder,pot,coefsp,umat_nd)
       if (iffast.eq.0) then
       if (ifpghtarg.ge.1) then
          call treedata_evalt_nd(ndim,nd,ipoly,norder,nboxes,nlevels,
@@ -914,6 +1122,9 @@ c     compute expansion coefficients for potential, gradient, and hessian
       if (iffast.eq.1) then
 c     evaluate the potential, gradient and hessian at targets
 c     using coefficients for potential only
+      itype=0
+      call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
+     1    iptr,boxsize,norder,pot,coefsp,umat_nd)
       if (ifpghtarg.eq.1) then
          call treedata_evalt_nd(ndim,nd,ipoly,norder,nboxes,nlevels,
      1       ltree,itree,iptr,centers,boxsize,coefsp,
@@ -931,19 +1142,19 @@ c     using coefficients for potential only
       
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
-      timeinfo(9) = time2-time1
+      timeinfo(10) = time2-time1
       
       
       if(ifprint.eq.1) then 
-         call prin2('timeinfo=*',timeinfo,9)
+         call prin2('timeinfo=*',timeinfo,10)
          d= 0
-         do i = 1,8
+         do i = 1,9
             d = d + timeinfo(i)
          enddo
          call prin2('time on tensor grid=*',d,1)
          call prin2('tensor grid speed in pps=*',
      1       (nleafbox*npbox*nd+0.0d0)/d,1)
-         d=timeinfo(9)
+         d=timeinfo(10)
          call prin2('time on extra targets=*',d,1)
          call prin2('extra targets speed in pps=*',
      1       (ntarg*nd+0.0d0)/d,1)
@@ -1222,7 +1433,7 @@ c
 c
 c------------------------------------------------------------------    
       subroutine gnd_mpalloc(nd,ndim,laddr,iaddr,
-     1    nlevels,npwlevel,lmptot,npw)
+     1    nboxes,nlevels,npwlevel,lmptot,npw)
 c     This subroutine determines the size of the array
 c     to be allocated for multipole/local expansions
 c
@@ -1264,10 +1475,10 @@ c                 Total length of expansions array required
 c------------------------------------------------------------------
 
       implicit none
-      integer nd,ndim,nlevels,npwlevel,npw
+      integer nd,ndim,nlevels,npwlevel,npw,nboxes
       integer iaddr(2,*), laddr(2,0:nlevels)
       integer *8 lmptot
-      integer ibox,i,istart,nn,itmp,nlevstart
+      integer ibox,i,istart,nn,itmp,nlevstart,jbox
 c
       istart = 1
       if (npwlevel .eq. nlevels) then
@@ -1310,7 +1521,13 @@ c
 C$OMP END PARALLEL DO         
          istart = istart + (laddr(2,i)-laddr(1,i)+1)*nn
       enddo
-            
+
+c     for possible refinement
+      do jbox=laddr(2,nlevels)+1,nboxes
+         iaddr(2,jbox) = istart + nn
+         istart = istart+nn
+      enddo
+      
       lmptot = istart
 
       return

@@ -662,9 +662,10 @@ c
             enddo
 c            call compute_sparse_pattern(eps,n,n,tabx_loc(1,1,k),
 c     1          ind_loc(1,1,k),ifzero)
+c            call prinf('ind_loc=*',ind_loc(1,1,k),2*(n+1))
          endif
       enddo
-      
+
       return
       end subroutine
 c
@@ -1018,6 +1019,9 @@ c        T'_n(1)
          tp1 = (k-1)**2
          fxx(k)=fpp(k)-tp1*(expb+isign*expa)
      1       -2*(b*expb-isign*a*expa)/lambda
+c     ignore the boundary terms
+c         fxx(k)=fpp(k)
+
          isign=-isign
       enddo
 
@@ -1033,9 +1037,11 @@ c     for the source box
 
       do k=2,m,2
          fx(k)=fp(k)-d2/lambda
+c         fx(k)=fp(k)
       enddo
       do k=1,m,2
          fx(k)=fp(k)-d1/lambda
+c         fx(k)=fp(k)
       enddo
 
 
@@ -1072,7 +1078,7 @@ c              0 if the matrix is not the zero matrix
          indc(1,i)=0
          indc(2,i)=-1
       enddo
-      
+
       dmax = 0
       do i=1,n
          do j=1,m

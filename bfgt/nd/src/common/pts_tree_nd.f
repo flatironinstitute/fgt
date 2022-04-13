@@ -90,7 +90,7 @@ c
 
       implicit none
       integer ndim,nlevels,levcut,nboxes,idivflag
-      integer ltree,nboxes8
+      integer ltree
       integer nbmax,nbtot
       integer ns,nt,ndiv,ndiv0
       integer nlmin,iper,ifunif
@@ -391,8 +391,7 @@ C$OMP END PARALLEL DO
 
       endif
 
-      nboxes8 = nboxes
-      ltree = (4+mc+mnbors)*nboxes8 + 2*(nlevels+1) 
+      ltree = (4+mc+mnbors)*nboxes + 2*(nlevels+1) 
 
       return
       end
@@ -1269,22 +1268,22 @@ c
       integer iboxfltmp(2,2**ndim+1),ichild(2**ndim,2**ndim+1)
       integer nboxes
       integer i,ibox,ii,j,jj,mc,k
-      integer, allocatable :: isign(:,:)
+      integer, allocatable :: isgn(:,:)
       
       bsh = boxsize/2.0d0
 
-      allocate(isign(ndim,2**ndim))
+      allocate(isgn(ndim,2**ndim))
 
       mc=2**ndim
       do j=1,ndim
-         isign(j,1)=-1
+         isgn(j,1)=-1
       enddo
 
       do j=1,ndim
          do i=1,mc,2**(j-1)
-            if (i.gt.1) isign(j,i)=-isign(j,i-2**(j-1))
+            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
             do k=1,2**(j-1)-1
-               isign(j,i+k)=isign(j,i)
+               isgn(j,i+k)=isgn(j,i)
             enddo
          enddo
       enddo
@@ -1316,7 +1315,7 @@ C$OMP END PARALLEL DO
 
       do i=1,mc
          do k=1,ndim
-            subcenters(k,i) = center(k)+isign(k,i)*bsh
+            subcenters(k,i) = center(k)+isgn(k,i)*bsh
          enddo
          do k=1,ndim
             centerstmp(k,i+1) = subcenters(k,i)

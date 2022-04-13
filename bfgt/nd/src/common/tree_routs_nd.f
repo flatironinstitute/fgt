@@ -21,22 +21,22 @@ c
 
       integer i,ibox,nel0,j,l,jbox,nel1,nbl,k,mc
       real *8 bsh
-      integer, allocatable :: isign(:,:)
+      integer, allocatable :: isgn(:,:)
       
       bsh = bs/2
 
-      allocate(isign(ndim,2**ndim))
+      allocate(isgn(ndim,2**ndim))
 
       mc=2**ndim
       do j=1,ndim
-         isign(j,1)=-1
+         isgn(j,1)=-1
       enddo
 
       do j=1,ndim
          do i=1,mc,2**(j-1)
-            if (i.gt.1) isign(j,i)=-isign(j,i-2**(j-1))
+            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
             do k=1,2**(j-1)-1
-               isign(j,i+k)=isign(j,i)
+               isgn(j,i+k)=isgn(j,i)
             enddo
          enddo
       enddo
@@ -54,7 +54,7 @@ C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,nbl,j,jbox)
           do j=1,mc
             jbox = nbl+j
             do k=1,ndim
-               centers(k,jbox) = centers(k,ibox)+isign(k,j)*bsh
+               centers(k,jbox) = centers(k,ibox)+isgn(k,j)*bsh
             enddo
             iparent(jbox) = ibox
             nchild(jbox) = 0
@@ -197,7 +197,7 @@ c        Loop over all boxes to evaluate neighbors, list1 and updating
 c        hunglists of targets
 
 C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,dad,i,jbox,j,kbox,ifnbor)
+C$OMP$PRIVATE(ibox,dad,i,jbox,j,kbox,ifnbor,k)
          do ibox = ifirstbox,ilastbox
 c           Find the parent of the current box         
             dad = iparent(ibox)
@@ -371,23 +371,23 @@ c
 
       integer i,ibox,nel0,j,l,jbox,nel1,nbl,k
       integer ii,mc
-      integer, allocatable :: isign(:,:)
+      integer, allocatable :: isgn(:,:)
       
       bsh = bs/2
       mc = 2**ndim
 
-      allocate(isign(ndim,mc))
+      allocate(isgn(ndim,mc))
 
       mc=2**ndim
       do j=1,ndim
-         isign(j,1)=-1
+         isgn(j,1)=-1
       enddo
 
       do j=1,ndim
          do i=1,mc,2**(j-1)
-            if (i.gt.1) isign(j,i)=-isign(j,i-2**(j-1))
+            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
             do k=1,2**(j-1)-1
-               isign(j,i+k)=isign(j,i)
+               isgn(j,i+k)=isgn(j,i)
             enddo
          enddo
       enddo
@@ -411,7 +411,7 @@ C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,nbl,j,jbox)
           do j=1,mc
             jbox = nbl+j
             do k=1,ndim
-               centers(k,jbox) = centers(k,ibox)+isign(k,j)*bsh
+               centers(k,jbox) = centers(k,ibox)+isgn(k,j)*bsh
             enddo
             iparent(jbox) = ibox
             nchild(jbox) = 0
@@ -611,6 +611,252 @@ C$OMP END PARALLEL DO
 c      
 c      
 c      
+c---------------------------------------------------------------      
+      subroutine computelists(ndim,nlevels,nboxes,laddr,boxsize,
+     1                   centers,iparent,nchild,
+     2                   ichild,isep,nnbors,mnbors,nbors,iper,nlist1,
+     3                   mnlist1,list1,nlist2,mnlist2,list2,
+     4                   nlist3,mnlist3,list3,nlist4,mnlist4,list4)
+c     Compute max nuber of boxes in list1,list2,list3,list4
+      implicit none
+      integer ndim,nlevels,nboxes
+      integer iper
+      integer laddr(2,0:nlevels)
+      double precision boxsize(0:nlevels)
+      double precision centers(ndim,nboxes)
+      integer iparent(nboxes),nchild(nboxes),ichild(2**ndim,nboxes)
+      integer mnbors
+      integer nnbors(nboxes),nbors(mnbors,nboxes)
+      integer mnlist1,mnlist2,mnlist3,mnlist4,isep
+      integer nlist1(nboxes),nlist2(nboxes),nlist3(nboxes)
+      integer nlist4(nboxes)
+      integer list1(mnlist1,nboxes),list2(mnlist2,nboxes)
+      integer list3(mnlist3,nboxes),list4(mnlist4,nboxes)
+
+c     Temp variables
+      integer ilev,ibox,jbox,kbox,i,j,k,l,mc
+      integer firstbox,lastbox,dad,iflist1,iflist2,iflist4
+      double precision dis,distest
+
+      mc=2**ndim
+      
+C$OMP PARALLEL DO DEFAULT(SHARED)
+      do i=1,nboxes
+         nlist1(i) = 0
+         nlist2(i) = 0
+         nlist3(i) = 0
+         nlist4(i) = 0
+      enddo
+C$OMP END PARALLEL DO      
+      if(nchild(1).eq.0) then
+         nlist1(1) = 1
+         list1(1,1) = 1
+      else
+         nlist1(1) = 0
+      endif
+      nlist2(1) = 0
+      nlist3(1) = 0
+      nlist4(1) = 0
+
+      do ilev = 1,nlevels
+         firstbox = laddr(1,ilev)
+         lastbox = laddr(2,ilev)
+C$OMP PARALLEL DO DEFAULT(SHARED)
+C$OMP$PRIVATE(ibox,dad,i,jbox,j,kbox,dis,distest,k)
+C$OMP$PRIVATE(iflist1,iflist2,iflist4)
+         do ibox = firstbox,lastbox
+            dad = iparent(ibox)
+            do i=1,nnbors(dad)
+               jbox = nbors(i,dad)
+               distest = 1.05d0*isep*boxsize(ilev)
+               do j=1,mc
+                  kbox = ichild(j,jbox)
+                  if(kbox.gt.0) then
+                     iflist2=0
+                     do k=1,ndim
+                        dis=centers(k,kbox)-centers(k,ibox)
+                        if(abs(dis).ge.distest) then
+                           iflist2=1
+                           exit
+                        endif
+                     enddo
+                     if (iflist2.eq.1) then
+                        nlist2(ibox) = nlist2(ibox) + 1
+                        list2(nlist2(ibox),ibox) = kbox
+                     endif
+                  endif
+               enddo
+            enddo
+c           Compute list1 and list3 of ibox if it is childless
+            if(nchild(ibox).eq.0) then
+               do i=1,nnbors(ibox)
+                  jbox = nbors(i,ibox)
+c
+cc                boxes in list 1 at the same level
+c
+
+                  if(nchild(jbox).eq.0) then
+                     nlist1(ibox) = nlist1(ibox) + 1
+                     list1(nlist1(ibox),ibox) = jbox
+                  else
+c
+cc                     boxes in list1 and list3 at level ilev+1
+c
+                     distest = 1.05d0*(boxsize(ilev)+boxsize(ilev+1))/
+     1                         2.0d0*isep
+                     do j=1,mc
+                        kbox = ichild(j,jbox)
+                        if(kbox.gt.0) then
+                          iflist1=1
+                          do k=1,ndim
+                            dis = dabs(centers(k,kbox)-centers(k,ibox))
+                            if (dis.ge.distest) then
+                               iflist1=0
+                               exit
+                            endif
+                          enddo
+                          if(iflist1.eq.1) then
+                              nlist1(ibox) = nlist1(ibox)+1
+                              list1(nlist1(ibox),ibox) = kbox
+                           else
+                              nlist3(ibox) = nlist3(ibox)+1
+                              list3(nlist3(ibox),ibox) = kbox
+                           endif
+                        endif
+                     enddo
+                  endif
+               enddo
+c
+cc               compute list1 at level ilev-1 
+               do i=1,nnbors(dad)
+                   jbox = nbors(i,dad)
+                   if(nchild(jbox).eq.0) then
+                      distest = 1.05d0*(boxsize(ilev)+boxsize(ilev-1))/
+     1                    2.0d0*isep
+                      iflist1=1
+                      do k=1,ndim
+                         dis = dabs(centers(k,jbox)-centers(k,ibox))
+                         if (dis.ge.distest) then
+                            iflist1=0
+                            exit
+                         endif
+                      enddo
+                      if(iflist1.eq.1) then
+                         nlist1(ibox) = nlist1(ibox)+1
+                         list1(nlist1(ibox),ibox) = jbox
+                      endif
+                   endif
+                enddo
+            endif
+c
+cc           compute list 4 at level ilev-1
+c
+            do i=1,nnbors(dad)
+               jbox = nbors(i,dad)
+               if(nchild(jbox).eq.0) then
+                   distest = 1.05d0*(boxsize(ilev)+boxsize(ilev-1))/
+     1                2.0d0*isep
+                   iflist4=0
+                   do k=1,ndim
+                      dis = dabs(centers(k,jbox)-centers(k,ibox))
+                      if (dis.gt.distest) then
+                         iflist4=1
+                         exit
+                      endif
+                   enddo
+                   if (iflist4.eq.1)then
+                      nlist4(ibox) = nlist4(ibox)+1
+                      list4(nlist4(ibox),ibox)=jbox
+                   endif
+                endif
+             enddo
+          enddo
+C$OMP END PARALLEL DO         
+      enddo
+
+      return
+      end
+c      
+c      
+c      
+      subroutine flag_box_refine(ndim,nlevels,nboxes,laddr,boxsize,
+     1                   centers,iparent,nchild,
+     2                   ichild,isep,nnbors,mnbors,nbors,iper,
+     3                   ifrefine,nrefine)
+c     flag boxes that may require refinement for the box FGT
+      implicit none
+      integer ndim,nlevels,nboxes
+      integer iper
+      integer laddr(2,0:nlevels)
+      double precision boxsize(0:nlevels)
+      double precision centers(ndim,nboxes)
+      integer iparent(nboxes),nchild(nboxes),ichild(2**ndim,nboxes)
+      integer mnbors
+      integer nnbors(nboxes),nbors(mnbors,nboxes)
+      integer isep
+      integer ifrefine(nboxes),nrefine
+
+c     Temp variables
+      integer ilev,ibox,jbox,kbox,i,j,k,l,mc
+      integer firstbox,lastbox,iflist1
+      double precision dis,distest
+
+      mc=2**ndim
+      
+C$OMP PARALLEL DO DEFAULT(SHARED)
+      do i=1,nboxes
+         ifrefine(i)=0
+      enddo
+C$OMP END PARALLEL DO      
+
+      nrefine=0
+      do ilev = 1,nlevels-1
+         firstbox = laddr(1,ilev)
+         lastbox = laddr(2,ilev)
+C$OMP PARALLEL DO DEFAULT(SHARED)
+C$OMP$PRIVATE(ibox,i,jbox,j,kbox,dis,distest,k,iflist1)
+         do 1100 ibox = firstbox,lastbox
+c           Compute list1 and list3 of ibox if it is childless
+            if(nchild(ibox).eq.0) then
+               do i=1,nnbors(ibox)
+                  jbox = nbors(i,ibox)
+                  if(nchild(jbox).ne.0) then
+c     
+cc                     boxes in list1 and list3 at level ilev+1
+c
+                     distest = 1.05d0*(boxsize(ilev)+boxsize(ilev+1))/
+     1                   2.0d0*isep
+                     do j=1,mc
+                        kbox = ichild(j,jbox)
+                        if(kbox.gt.0) then
+                          iflist1=1
+                          do k=1,ndim
+                            dis = dabs(centers(k,kbox)-centers(k,ibox))
+                            if (dis.ge.distest) then
+                               iflist1=0
+                               exit
+                            endif
+                          enddo
+                          if(iflist1.eq.1) then
+                             ifrefine(ibox)=1
+                             nrefine=nrefine+1
+                             goto 1100
+                          endif
+                       endif
+                     enddo
+                  endif
+               enddo
+            endif
+ 1100    continue
+C$OMP END PARALLEL DO         
+      enddo
+
+      return
+      end
+c      
+c      
+c      
+c----------------------------------------------------------------
 c      
       subroutine compute_modified_list1(ndim,npwlevel,nboxes,nlevels,
      1    ltree,itree,iptr,centers,boxsize,iper,mnlist1,nlist1,list1)

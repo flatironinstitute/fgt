@@ -1,6 +1,6 @@
       implicit real *8 (a-h,o-z)
       real *8 dpars(1000)
-      integer iptr(8),ltree
+      integer iptr(8),ltree,ipars(100)
       integer ifpgh,ifpghtarg
       integer, allocatable :: itree(:)
       real *8, allocatable :: fvals(:,:,:),centers(:,:),boxsize(:)
@@ -37,57 +37,65 @@ c
 
       real *8, allocatable :: umat(:,:),umat_nd(:,:,:)
       real *8 alpha,beta
-      character *9 fname1,fname3
+      character *12 fname1
       character *8 fname2
+      character *9 fname3
       real *8, allocatable :: targ(:)
 
       character *1 type
       data ima/(0.0d0,1.0d0)/
 
-      external fgaussn,fgaussnx
+      external fgaussn,fgaussnx,exact_pot
 
 c     dimension of the underlying space
-      ndim=3
+      ndim=1
       eps = 0.5d-12
-      if (ndim.eq.3) eps=0.5d-7
+      if (ndim.eq.3) eps=0.5d-6
 c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
       ipoly=0
 c     polynomial expansion order for each leaf box
-      norder = 16
-
-      iptype = 0
+      norder = 8
+c     number of extra targets
+      ntarg = 10 000
+c     gaussian variance
+      delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
+      delta = 1d-3
+c     number of right-hand sides
+      nd = 1
+c     0: free space; 1: doubly periodic
+      iperiod=0
+c     p in L^p norm
+      iptype = 2
       eta = 1.0d0
-      ipars = ndim
+      
+      ipars(1) = ndim
+c     number of gaussians in the rhs function
+      ng = 2
+      ipars(2) = ng
+c     number of points per box
       npbox = norder**ndim
 
       type = 'f'
       ifpgh= 3
       ifpghtarg=3
-
-      iperiod=0
-      
       
       call prini(6,13)
 cccc  call prini_off()
 
-      
       zk = ima
       done = 1
       pi = atan(done)*4
 c
-c      initialize function parameters
+c     initialize function parameters
 c
-      delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 1d-10
-      
       boxlen = 1.0d0
-      
+c     gaussian variance of the input data
       rsig = 1.0d0/4000.0d0
       rsig = 0.00025d0
       rsig = 1.0d-4
+c     proper normalization of the input data
       rsign=(rsig*delta)**(ndim/2.0d0)
       
-      nd = 1
 c     first gaussian
 c     centers
       dpars(1) = 0.64d0
@@ -123,8 +131,9 @@ c     fourth gaussian
       dpars(19) = rsig/1.2d0
       dpars(20) = 1/pi/rsign
 
+c     for exact solution
+      dpars(51)=delta
 
-      ntarg = 100 000
       nhess = ndim*(ndim+1)/2
       allocate(targs(ndim,ntarg),pote(nd,ntarg))
       allocate(grade(nd,ndim,ntarg),hesse(nd,nhess,ntarg))
@@ -140,17 +149,19 @@ C$      t1 = omp_get_wtime()
 
       call vol_tree_mem(ndim,ipoly,eps,zk,boxlen,norder,iptype,eta,
      1    fgaussn,nd,dpars,zpars,ipars,nboxes,nlevels,ltree,rintl)
+c     1    exact_pot,nd,dpars,zpars,ipars,nboxes,nlevels,ltree,rintl)
 
       call prinf('nboxes=*',nboxes,1)
       call prinf('nlevels=*',nlevels,1)
-
+      
       allocate(fvals(nd,npbox,nboxes),centers(ndim,nboxes))
       allocate(boxsize(0:nlevels),itree(ltree))
 
       call vol_tree_build(ndim,ipoly,eps,zk,boxlen,norder,iptype,eta,
      1    fgaussn,nd,dpars,zpars,ipars,rintl,nboxes,nlevels,ltree,
+c     1    exact_pot,nd,dpars,zpars,ipars,rintl,nboxes,nlevels,ltree,
      2    itree,iptr,centers,boxsize,fvals)
-
+      call prinf('laddr=*',itree,2*(nlevels+1))
       call cpu_time(t2)
 C$      t2 = omp_get_wtime()      
 
@@ -168,14 +179,17 @@ c     compute the number of leaf boxes
      1   (nboxes*npbox+0.0d0)/(t2-t1),1)
 
 c     plot the tree
-c      fname1 = 'tree.data'
-c      fname2 = 'src.data'
-c      fname3 = 'targ.data'
+      ifplot=0
+      if (ifplot.eq.1) then
+         fname1 = 'trgtree.data'
+         fname2 = 'src.data'
+         fname3 = 'targ.data'
       
-c      ns=0
-c      nt=0
-c      call print_tree_matlab(itree,ltree,nboxes,centers,boxsize,nlevels,
-c     1   iptr,ns,src,nt,targ,fname1,fname2,fname3)
+         ns=0
+         nt=0
+         call print_tree_matlab(ndim,itree,ltree,nboxes,centers,
+     1       boxsize,nlevels,iptr,ns,src,nt,targ,fname1,fname2,fname3)
+      endif
       
 c     allocate memory and initialization
 
@@ -231,8 +245,12 @@ c     compute exact solutions on tensor grid
                  targ(k)=centers(k,ibox) + xref(k,j)*bs
                enddo
 
-               call uexact(ndim,nd,delta,targ,dpars,potex(1,j,ibox),
-     1            gradex(1,1,j,ibox),hessex(1,1,j,ibox))
+               call uexact(nd,targ,dpars,zpars,ipars,
+     1             potex(1,j,ibox),gradex(1,1,j,ibox),
+     2             hessex(1,1,j,ibox))
+               call fgaussn(nd,targ,dpars,zpars,ipars,fval)
+
+               write(34,*) targ(1), fval, potex(1,j,ibox), pot(1,j,ibox)
              enddo
           endif
         enddo
@@ -275,8 +293,11 @@ c     compute exact solutions on arbitrary targets
       allocate(hessexe(nd,nhess,ntarg))
 
       do j=1,ntarg
-         call uexact(ndim,nd,delta,targs(1,j),dpars,potexe(1,j),
-     1       gradexe(1,1,j),hessexe(1,1,j))
+         call uexact(nd,targs(1,j),dpars,zpars,ipars,
+     1       potexe(1,j),gradexe(1,1,j),hessexe(1,1,j))
+         call fgaussn(nd,targs(1,j),dpars,zpars,ipars,fval)
+         rerr=abs(potexe(1,j)-pote(1,j))
+         write(35,*) targs(1,j), fval, potexe(1,j), rerr
       enddo
 c
 c     compute relative error
@@ -299,18 +320,19 @@ c
 c
 c
 c 
-      subroutine fgaussn(nd,xyz,dpars,zpars,ndim,f)
+      subroutine fgaussn(nd,xyz,dpars,zpars,ipars,f)
 c     right-hand-side function
 c       consisting of several gaussians, their
 c       centers are given in dpars(1:3), their 
 c       variances in dpars(4), and their strength in dpars(5)
 c
       implicit real *8 (a-h,o-z)
-      integer nd,ndim
+      integer nd,ndim,ipars(*)
       complex *16 zpars
-      real *8 dpars(*),f(nd),xyz(ndim)
+      real *8 dpars(*),f(nd),xyz(*)
 c     number of Gaussians, at most 4
-      ng=2
+      ng=ipars(2)
+      ndim=ipars(1)
       
       do ind=1,nd
          f(ind)=0
@@ -327,22 +349,25 @@ c     number of Gaussians, at most 4
 
       return
       end
-
 c
 c
 c
 c
-c
-c
-      subroutine uexact(ndim,nd,delta,targ,dpars,pot,grad,hess)
+      subroutine uexact(nd,targ,dpars,zpars,ipars,
+     1    pot,grad,hess)
       implicit real*8 (a-h,o-z)
-      real*8 targ(ndim),pot(nd),grad(nd,ndim),hess(nd,ndim*(ndim+1)/2)
-      real*8 gf(ndim),gfp(ndim),dpars(*)
-      real*8 gfpp(ndim)
+      real*8 targ(*),pot(nd),grad(nd,*),hess(nd,*)
+      real*8 gf(10),gfp(10),dpars(*)
+      real*8 gfpp(10)
+      integer ipars(*)
 c
       one=1.0d0
       pi=4*atan(one)
 
+      ndim=ipars(1)
+      ng=ipars(2)
+      delta=dpars(51)
+      
 c-----------------------
       do ind=1,nd
          pot(ind)=0.0d0
@@ -354,7 +379,6 @@ c-----------------------
          enddo
       enddo
 c-----------------------
-      ng=2
       do ind=1,nd
          do i=1,ng
             idp = (i-1)*5
@@ -432,6 +456,56 @@ c
       end
 c
 c 
+      subroutine exact_pot(nd,targ,dpars,zpars,ipars,
+     1    pot)
+      implicit real*8 (a-h,o-z)
+      real*8 targ(*),pot(nd)
+      real*8 gf(10),dpars(*)
+      integer ipars(*)
+c
+      one=1.0d0
+      pi=4*atan(one)
+
+      ndim=ipars(1)
+      ng=ipars(2)
+      delta=dpars(51)
+      
+c-----------------------
+      do ind=1,nd
+         pot(ind)=0.0d0
+      enddo
+c-----------------------
+      do ind=1,nd
+         do i=1,ng
+            idp = (i-1)*5
+            sigma = dpars(idp+4)
+            dc = sigma
+            d = delta
+         
+            do k=1,ndim
+               c=dpars(idp+k)
+               x=targ(k)+0.5d0
+c
+               gf(k)=sqrt(pi)/2.0d0*dexp(-(x-c)**2/(dc+d))
+     1             *(-erf((-dc-d+x*dc+d*c)/d/dc/dsqrt((dc+d)/d/dc))
+     2             +erf((x*dc+d*c)/d/dc/dsqrt((dc+d)/d/dc)))
+     3             /dsqrt(((dc+d)/d/dc))
+            enddo
+
+            str=dpars(idp+5)
+            if (ndim.eq.1) then
+               pot(ind)=pot(ind)+str*gf(1)
+            elseif (ndim.eq.2) then
+               pot(ind)=pot(ind)+str*gf(1)*gf(2)
+            elseif (ndim.eq.3) then
+               pot(ind)=pot(ind)+str*gf(1)*gf(2)*gf(3)
+            endif
+         enddo
+      enddo
+      return
+      end
+c
+c 
       subroutine exact_old(nd,delta,targ,dpars,pot)
 
       implicit real*8 (a-h,o-z)
@@ -472,8 +546,8 @@ c
 c      
 c      
 c      
-      subroutine print_tree_matlab(itree,ltree,nboxes,centers,boxsize,
-     1   nlevels,iptr,ns,src,nt,targ,fname1,fname2,fname3)
+      subroutine print_tree_matlab(ndim,itree,ltree,nboxes,centers,
+     1   boxsize,nlevels,iptr,ns,src,nt,targ,fname1,fname2,fname3)
 c
 c        this subroutine writes the tree info to a file
 c
@@ -515,8 +589,8 @@ c            tree_plot.m
 
       implicit real *8 (a-h,o-z)
       integer itree(ltree),ltree,nboxes,nlevels,iptr(12),ns,nt
-      real *8 centers(2,nboxes),boxsize(0:nlevels),src(2,ns),targ(2,nt)
-      real *8 x(5),y(5)
+      real *8 centers(ndim,nboxes),boxsize(0:nlevels)
+      real *8 x(5),y(5),src(ndim,ns),targ(ndim,nt)
       character (len=*) fname1,fname2,fname3
 
       open(unit=33,file=trim(fname1))
@@ -535,10 +609,16 @@ c            tree_plot.m
            x1 = centers(1,ibox) - bs/2
            x2 = centers(1,ibox) + bs/2
 
-           y1 = centers(2,ibox) - bs/2
-           y2 = centers(2,ibox) + bs/2
-           
-           write(33,1111) x1,x2,x2,x1,x1,y1,y1,y2,y2,y1
+           if (ndim.eq.2) then
+              y1 = centers(2,ibox) - bs/2
+              y2 = centers(2,ibox) + bs/2
+           endif
+
+           if (ndim.eq.2) then
+              write(33,1111) x1,x2,x2,x1,x1,y1,y1,y2,y2,y1
+           else
+              write(33,1111) x1,x2
+           endif
          endif
       enddo
       close(33)
@@ -568,20 +648,23 @@ c
 c
 c
 c
-c
-c
-c
-c
       subroutine derr(vec1,vec2,n,erra)
       implicit real *8 (a-h,o-z)
       real *8 vec1(*),vec2(*)
 
       ra = 0
       erra = 0
+      
       do i=1,n
          ra = ra + vec1(i)**2
+c         if (ra .lt. abs(vec1(i))) ra=abs(vec1(i))
+c         if (erra.lt.abs(vec1(i)-vec2(i))) then
+c            erra=abs(vec1(i)-vec2(i))
+c         endif
          erra = erra + (vec1(i)-vec2(i))**2
       enddo
+
+c      erra=erra/ra
 
       if (sqrt(ra)/n .lt. 1d-10) then
          call prin2('vector norm =*', sqrt(ra)/n,1)

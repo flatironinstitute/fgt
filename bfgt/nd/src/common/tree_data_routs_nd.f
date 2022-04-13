@@ -71,6 +71,9 @@ c
 
       do ilev = 0,nlevels
         sc = 2.0d0/boxsize(ilev)
+C$OMP PARALLEL DO DEFAULT (SHARED)
+C$OMP$PRIVATE(ibox,nchild,j,ind)
+C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
@@ -85,6 +88,7 @@ c
              endif
           endif
         enddo
+C$OMP END PARALLEL DO
       enddo
 
 
@@ -142,6 +146,9 @@ c
 
       do ilev = 0,nlevels
         sc = 2.0d0/boxsize(ilev)
+C$OMP PARALLEL DO DEFAULT (SHARED)
+C$OMP$PRIVATE(ibox,nchild,j,ind)
+C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
@@ -149,6 +156,7 @@ c
      1           grad(1,1,1,ibox),vmat,vpmat)             
           endif
         enddo
+C$OMP END PARALLEL DO
       enddo
 
 
@@ -213,6 +221,9 @@ c            and uxx,uyy,uzz,uxy,uxz,uyz in 3d. nhess=ndim*(ndim+1)/2
       
       do ilev = 0,nlevels
         sc = 2.0d0/boxsize(ilev)
+C$OMP PARALLEL DO DEFAULT (SHARED)
+C$OMP$PRIVATE(ibox,nchild)
+C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
@@ -221,6 +232,7 @@ c            and uxx,uyy,uzz,uxy,uxz,uyz in 3d. nhess=ndim*(ndim+1)/2
      2           vmat,vpmat,vppmat)
           endif
         enddo
+C$OMP END PARALLEL DO
       enddo
 
       return
@@ -280,6 +292,9 @@ c
       
       do ilev = 0,nlevels
         sc = 2.0d0/boxsize(ilev)
+C$OMP PARALLEL DO DEFAULT (SHARED)
+C$OMP$PRIVATE(ibox,nchild)
+C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
@@ -287,6 +302,7 @@ c
      1           coefs(1,1,ibox),sc,rlap(1,1,ibox),vmat,vppmat)             
           endif
         enddo
+C$OMP END PARALLEL DO
       enddo
 
       return
@@ -373,6 +389,9 @@ c
       itype=0
       do ilev = 0,nlevels
         sc=2.0d0/boxsize(ilev)
+C$OMP PARALLEL DO DEFAULT (SHARED)
+C$OMP$PRIVATE(ibox,nchild,j,ind)
+C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
@@ -405,6 +424,7 @@ c
              endif
           endif
         enddo
+C$OMP END PARALLEL DO
       enddo
 
       return
@@ -456,6 +476,9 @@ c
 
       do ilev = 0,nlevels
         sc = 2.0d0/boxsize(ilev)
+C$OMP PARALLEL DO DEFAULT (SHARED)
+C$OMP$PRIVATE(ibox,nchild,j,i,ind)
+C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
@@ -470,6 +493,7 @@ c
              enddo
           endif
         enddo
+C$OMP END PARALLEL DO
       enddo
 
       return
@@ -624,6 +648,9 @@ c
 c     
       do ilev = 0,nlevels
          sc = 2.0d0/boxsize(ilev)
+C$OMP PARALLEL DO DEFAULT (SHARED)
+C$OMP$PRIVATE(ibox,nchild,istart,iend,npts,j,i,cen,xyz)
+C$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
             nchild = itree(iptr(4)+ibox-1)
             if (nchild.eq.0) then
@@ -645,6 +672,7 @@ c
                endif
             endif
         enddo
+C$OMP END PARALLEL DO
       enddo
 c
 c     resort the output arrays in input order
@@ -734,6 +762,9 @@ c
 c     
       do ilev = 0,nlevels
          sc = 2.0d0/boxsize(ilev)
+C$OMP PARALLEL DO DEFAULT (SHARED)
+C$OMP$PRIVATE(ibox,nchild,istart,iend,npts,j,i,cen,xyz)
+C$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
             nchild = itree(iptr(4)+ibox-1)
             if (nchild.eq.0) then
@@ -756,6 +787,7 @@ c
                endif
             endif
         enddo
+C$OMP END PARALLEL DO
       enddo
 c
 c     resort the output arrays in input order
@@ -849,6 +881,9 @@ c
 c
       do ilev = 0,nlevels
          sc = 2.0d0/boxsize(ilev)
+C$OMP PARALLEL DO DEFAULT (SHARED)
+C$OMP$PRIVATE(ibox,nchild,istart,iend,cen,xyz,j,i)
+C$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
             nchild = itree(iptr(4)+ibox-1)
             if (nchild.eq.0) then
@@ -871,6 +906,7 @@ c
                endif
             endif
         enddo
+C$OMP END PARALLEL DO
       enddo
 c     
 c     resort the output arrays in input order
@@ -931,6 +967,9 @@ c
       nleaf=0
 
       do ilev = 0,nlevels
+C$OMP PARALLEL DO DEFAULT (SHARED)
+C$OMP$PRIVATE(ibox,nchild,j,ind)
+C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
@@ -945,11 +984,104 @@ c             call prin2('fex=*',fex(1,1,ibox),nd*npbox)
 c             call prin2('fcomp=*',fcomp(1,1,ibox),nd*npbox)
           endif
         enddo
+C$OMP END PARALLEL DO
       enddo
 
       abserr=sqrt(abserr)
       rnorm=sqrt(rnorm)
 
+      return
+      end
+c
+c
+c
+c
+      
+      subroutine treedata_lpnorm(ndim,iptype,ipoly,nd,nlevels,itree,
+     1    iptr,boxsize,norder,npbox,fvals,rnorm,nleaf)
+c
+c     computes the lp norm of the tree date fvals
+c 
+c       input
+c
+c         nd - integer,   number of functions
+c         nlevels - integer
+c            number of levels
+c         itree - integer(ltree)
+c            array containing the tree structure
+c         iptr - integer(8)
+c            pointer to various parts of the tree structure
+c           iptr(1) - laddr
+c           iptr(2) - ilevel
+c           iptr(3) - iparent
+c           iptr(4) - nchild
+c           iptr(5) - ichild
+c           iptr(6) - ncoll
+c           iptr(7) - coll
+c           iptr(8) - ltree
+c         npbox - integer
+c           number of points in each leaf box
+c         fvals - double (nd,npbox,nboxes)
+c           values of the tree data on each leaf box
+c     output:
+c         rnorm - lp norm of fex
+c         nleaf  - total number of leaf boxes
+c      
+      implicit real *8 (a-h,o-z)
+      integer nd
+      integer nlevels
+      integer itree(*),iptr(8)
+      real *8 boxsize(0:nlevels)
+      real *8 fvals(nd,npbox,*)
+
+      real *8 wts(npbox),xs(ndim,npbox)
+
+      itype = 1
+      call polytens_exps_nd(ndim,ipoly,itype,norder,'f',xs,
+     1    utmp,1,vtmp,1,wts)
+      
+      rnorm=0
+      nleaf=0
+
+      if (iptype.eq.0) then
+         do ilev = 0,nlevels
+C$OMP PARALLEL DO DEFAULT (SHARED)
+C$OMP$PRIVATE(ibox,nchild,j,ind)
+C$OMP$SCHEDULE(DYNAMIC)
+            do ibox = itree(2*ilev+1),itree(2*ilev+2)
+               nchild = itree(iptr(4) + ibox-1)
+               if(nchild.eq.0) then
+                  nleaf=nleaf+1
+                  rtmp=maxval(fvals(1:nd,1:npbox,ibox))
+                  if (rtmp.gt.rnorm) rnorm=rtmp
+               endif
+            enddo
+C$OMP END PARALLEL DO
+         enddo
+
+      else
+         do ilev = 0,nlevels
+            sc = (boxsize(ilev)/2)**ndim
+C$OMP PARALLEL DO DEFAULT (SHARED)
+C$OMP$PRIVATE(ibox,nchild,j,ind)
+C$OMP$SCHEDULE(DYNAMIC)
+            do ibox = itree(2*ilev+1),itree(2*ilev+2)
+               nchild = itree(iptr(4) + ibox-1)
+               if(nchild.eq.0) then
+                  nleaf=nleaf+1
+                  do i=1,npbox
+                     do ind=1,nd
+                        rnorm=rnorm
+     1                      +abs(fvals(ind,i,ibox))**iptype*wts(i)*sc
+                     enddo
+                  enddo
+               endif
+            enddo
+C$OMP END PARALLEL DO
+         enddo
+         rnorm=rnorm**(1.0d0/iptype)
+      endif
+      
       return
       end
 c

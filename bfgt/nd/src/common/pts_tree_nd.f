@@ -1268,25 +1268,11 @@ c
       integer iboxfltmp(2,2**ndim+1),ichild(2**ndim,2**ndim+1)
       integer nboxes
       integer i,ibox,ii,j,jj,mc,k
-      integer, allocatable :: isgn(:,:)
+      integer isgn(ndim,2**ndim)
+      
+      call get_child_box_sign(ndim,isgn)
       
       bsh = boxsize/2.0d0
-
-      allocate(isgn(ndim,2**ndim))
-
-      mc=2**ndim
-      do j=1,ndim
-         isgn(j,1)=-1
-      enddo
-
-      do j=1,ndim
-         do i=1,mc,2**(j-1)
-            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
-            do k=1,2**(j-1)-1
-               isgn(j,i+k)=isgn(j,i)
-            enddo
-         enddo
-      enddo
 
       nboxes = mc+1
 

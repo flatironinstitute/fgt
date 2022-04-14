@@ -413,18 +413,8 @@ c
         endif
       endif
 
-c     now flag boxes that may require refinement for the box fgt
-c     added by Shidong Jiang on 04/11/2022
-      isep=1
-      allocate(ifrefine(nboxes))
-      call flag_box_refine(ndim,nlevels,nboxes,laddr,boxsize,
-     1                   centers,iparent,nchild,
-     2                   ichild,isep,nnbors,mnbors,nbors,iper,
-     3                   ifrefine,nrefine)
-
-      call prinf('nboxes in tree_mem=*',nboxes,1)
-      call prinf('nrefine=*',nrefine,1)
-c      nboxes = nboxes+nrefine*mc
+c     double the number of boxes for possible refinement
+c     added by Shidong Jiang 04/13/2022
       nboxes = nboxes*2
       
       ltree = (4+mc+mnbors)*nboxes + 2*(nlevels+1)
@@ -820,26 +810,12 @@ c
       integer i,ibox,nel0,j,l,jbox,nel1,nbl,k,mc
 
       real *8 bsh
-      integer, allocatable :: isgn(:,:)
+      integer isgn(ndim,2**ndim)
       external fun
       
-      allocate(isgn(ndim,2**ndim))
+      call get_child_box_sign(ndim,isgn)
 
       mc=2**ndim
-      do j=1,ndim
-         isgn(j,1)=-1
-      enddo
-
-      do j=1,ndim
-         do i=1,mc,2**(j-1)
-            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
-            do k=1,2**(j-1)-1
-               isgn(j,i+k)=isgn(j,i)
-            enddo
-         enddo
-      enddo
-
-
 
       allocate(isum(nbloc))
       call cumsum(nbloc,irefinebox,isum)
@@ -1900,25 +1876,13 @@ c
       integer i,ibox,nel,j,l,jbox,nbl,ii,k,mc
 
       real *8 bsh
-      integer, allocatable :: isgn(:,:)
+      integer isgn(ndim,2**ndim)
+
       external fun
-      
-      allocate(isgn(ndim,2**ndim))
+
+      call get_child_box_sign(ndim,isgn)
 
       mc=2**ndim
-      do j=1,ndim
-         isgn(j,1)=-1
-      enddo
-
-      do j=1,ndim
-         do i=1,mc,2**(j-1)
-            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
-            do k=1,2**(j-1)-1
-               isgn(j,i+k)=isgn(j,i)
-            enddo
-         enddo
-      enddo
-
 
       ilastbox = ifirstbox+nbloc-1
 
@@ -2192,3 +2156,736 @@ c     using the mapping iboxtocurbox
 
       return
       end
+c
+c
+c
+c
+      subroutine vol_tree_coarsen(nd,ndim,eps,ipoly,norder,npbox,
+     1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,
+     2    fvals,fcoefs,ifdelete,idelboxid,ndelete)
+
+c    This subroutine marks all boxes that can be coarsened
+c    and computes the expansion coefficients for parent boxes
+c    when its children are to be deleted in a subsequent call
+c    to tree_reorg.
+c
+c    input:
+c         nd - integer
+c            number of right hand sides
+c         ndim - integer
+c            dimension of the underlying space
+c         eps - double precision
+c            precision requested
+c         ipoly - integer
+c            0: Legendre polynomials
+c            1: Chebyshev polynomials
+c         norder - integer
+c           order of expansions for input function value array
+c         npbox - integer
+c           number of points per box where potential is to be dumped = (norder**ndim)
+c         nboxes - integer
+c            number of boxes
+c       input and output
+c         nlevels - integer
+c            number of levels
+c         ltree - integer
+c            length of array containing the tree structure
+c         itree - integer(ltree)
+c            array containing the tree structure
+c         iptr - integer(8)
+c            pointer to various parts of the tree structure
+c           iptr(1) - laddr
+c           iptr(2) - ilevel
+c           iptr(3) - iparent
+c           iptr(4) - nchild
+c           iptr(5) - ichild
+c           iptr(6) - ncoll
+c           iptr(7) - coll
+c           iptr(8) - ltree
+c         centers - double precision (ndim,nboxes)
+c           xyz coordintes of boxes in the tree structure
+c         boxsize - double precision (0:nlevels)
+c           size of boxes at each of the levels
+c
+c     input/output:
+c         fvals - double precision (nd,npbox,nboxes)
+c           function values of the given tree data on each leaf box
+c         fcoefs - double precision (nd,npbox,nboxes)
+c           expansion coefficients of the given tree data on each leaf box
+c
+c     output:
+c         ifdelete - integer nboxes
+c                    1 - box can be deleted
+c                    0 - box should be kept
+c         idelboxid - indices of the boxes to be removed
+c
+c         ndelete - total of number of removable boxes
+c
+c
+c
+c
+      implicit real *8 (a-h,o-z)
+      real *8 eps
+      integer nboxes,nlevels
+      integer iptr(8),ltree,ifdelete(nboxes),idelboxid(nboxes)
+      integer itree(ltree),norder,npbox
+      real *8 fvals(nd,npbox,nboxes),fcoefs(nd,npbox,nboxes)
+
+      real *8 centers(ndim,nboxes),boxsize(0:nlevels)
+
+      real *8 fvals2(nd,npbox/2**ndim)
+      real *8, allocatable :: polyv(:,:,:,:) 
+
+      real *8 umat_nd(norder,norder,ndim)
+
+      real *8 rmask(npbox)
+      
+      integer isgn(ndim,2**ndim)
+
+      mc=2**ndim
+      n2=norder/2
+      
+      call get_child_box_sign(ndim,isgn)
+      allocate(polyv(norder,norder/2,ndim,mc))
+      call get_c2p_interp_matrices(ndim,ipoly,norder,isgn,polyv)
+      call get_val2coefs_matrices(ndim,ipoly,norder,umat_nd)
+
+      do i=1,nboxes
+         ifdelete(i)=0
+      enddo
+      
+      iptype=0
+      eta=1.0d0
+
+      call tens_prod_get_rmask(ndim,iptype,norder,npbox,
+     1    rmask,rsum)
+      
+      if(iptype.eq.2) rsc = sqrt(1.0d0/boxsize(0)**ndim)
+      if(iptype.eq.1) rsc = (1.0d0/boxsize(0)**ndim)
+      if(iptype.eq.0) rsc = 1.0d0
+
+c     compute the L_{iptype} norm of the pot by going throught each leaf box
+      call treedata_lpnorm(ndim,iptype,ipoly,nd,nlevels,itree,
+     1    iptr,boxsize,norder,npbox,fvals,rnorm,nleaf)
+      call prin2('l2 norm of the function=*',rnorm,1)
+      
+      rsc = rsc*rnorm
+
+      ndelete=0
+      
+      itype=0
+      do ilev = nlevels-1,0,-1
+         sc = boxsize(ilev)/2
+         rscale=sc**eta
+         do ibox = itree(2*ilev+1),itree(2*ilev+2)
+            nchild = itree(iptr(4) + ibox-1)
+            if(nchild.eq.mc) then
+               do j=1,mc
+                  jbox=itree(iptr(5)+mc*(ibox-1)+j-1)
+                  
+                  call ortho_eval_nd(ndim,nd,norder,fcoefs(1,1,jbox),
+     1                n2,fvals2,polyv(1,1,1,j))
+                  call tree_data_c2p_copy_nd(ndim,nd,norder,fvals2,
+     1                fvals(1,1,ibox),j)
+               enddo
+               call ortho_trans_nd(ndim,nd,itype,norder,fvals(1,1,ibox),
+     1             fcoefs(1,1,ibox),umat_nd)
+               call fun_err(nd,npbox,fcoefs(1,1,ibox),
+     1            rmask,iptype,rscale,erra)
+cccc               print *, 'erra=',erra, eps*rsc
+               
+               erra = erra/rsum
+               if(erra.le.eps*rsc) then
+                  do j=1,mc
+                     ndelete=ndelete+1
+
+                     jbox=itree(iptr(5)+mc*(ibox-1)+j-1)
+
+                     idelboxid(ndelete)=jbox
+                     
+c                    parent
+                     itree(iptr(3)+jbox-1)=-1
+c                    nchild of jbox
+                     itree(iptr(4)+jbox-1)=0
+c                    jbox's children
+                     do l=1,mc
+                        itree(iptr(5)+mc*(jbox-1)+l-1) = -1
+                     enddo
+                     
+                     ifdelete(jbox)=1
+                  enddo
+c                 nchild of ibox
+                  itree(iptr(4)+ibox-1)=0
+                  do j=1,mc
+                     itree(iptr(5)+mc*(ibox-1)+j-1)=-1
+                  enddo
+               endif
+            endif
+         enddo
+      enddo
+      
+      return
+      end
+c
+c
+c
+c
+      subroutine get_child_box_sign(ndim,isgn)
+c     This subroutine computes the signs of all child boxes
+c     The convention is as follows.
+c      
+c     1d - 1:m 2:p
+c      
+c     2d - 1:mm 
+c          2:pm
+c          3:mp
+c          4:pp
+c      
+c     3d - 1:mmm
+c          2:pmm
+c          3:mpm
+c          4:ppm
+c          5:mmp
+c          6:pmp
+c          7:mpp
+c          8:ppp
+c
+c     input:
+c     ndim - dimension of the underlying space
+c
+c     output:
+c     isgn - integer(ndim,2**ndim)
+c            the signs of the center coordinates of each child box,
+c            when the center of the parent box is at the origin
+c
+      implicit real *8 (a-h,o-z)
+      integer isgn(ndim,2**ndim)
+
+      mc = 2**ndim
+      do j=1,ndim
+         isgn(j,1)=-1
+      enddo
+
+      do j=1,ndim
+         do i=1,mc,2**(j-1)
+            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
+            do k=1,2**(j-1)-1
+               isgn(j,i+k)=isgn(j,i)
+            enddo
+         enddo
+      enddo
+
+      return
+      end
+c     
+c      
+c      
+c      
+c
+      subroutine tree_data_c2p_copy_nd(ndim,nd,norder,fvals2,fvals,k)
+c     This subroutine copies the function values on the kth child box
+c     to the proper locations of arrays for the parent box
+c      
+c     input:
+c     ndim - dimension of the underlying space
+c     nd - number of vectors
+c     norder - number of point along each dimension for the data on the 
+c              parent box
+c     k - child box index
+c     fvals2 - function values on a subset of the tensor grid of the parent box
+c              that are in the kth child box
+c
+c     output:
+c     fvals - function values on the tensor product grid of the parent box
+c
+      implicit real *8 (a-h,o-z)
+      real *8 fvals2(nd,(norder/2)**ndim)
+      real *8 fvals(nd,norder**ndim)
+
+      if (ndim.eq.1) then
+         call tree_data_c2p_copy_1d(nd,norder,fvals2,fvals,k)
+      elseif (ndim.eq.2) then
+         call tree_data_c2p_copy_2d(nd,norder,fvals2,fvals,k)
+      elseif (ndim.eq.3) then
+         call tree_data_c2p_copy_3d(nd,norder,fvals2,fvals,k)
+      endif
+
+      return
+      end
+c     
+c      
+c      
+c      
+c
+      subroutine tree_data_c2p_copy_1d(nd,norder,fvals2,fvals,k)
+      implicit real *8 (a-h,o-z)
+      real *8 fvals2(nd,norder/2)
+      real *8 fvals(nd,norder)
+
+      n=norder/2
+
+      if (k.eq.1) then
+         do i=1,n
+         do ind=1,nd
+            fvals(ind,i)=fvals2(ind,i)
+         enddo
+         enddo
+      elseif (k.eq.2) then
+         do i=1,n
+         do ind=1,nd
+            fvals(ind,i+n)=fvals2(ind,i)
+         enddo
+         enddo
+      endif
+
+      return
+      end
+c     
+c      
+c      
+c      
+c
+      subroutine tree_data_c2p_copy_2d(nd,norder,fvals2,fvals,k)
+      implicit real *8 (a-h,o-z)
+      real *8 fvals2(nd,norder/2,norder/2)
+      real *8 fvals(nd,norder,norder)
+
+      n=norder/2
+
+      if (k.eq.1) then
+         do i=1,n
+         do j=1,n
+         do ind=1,nd
+            fvals(ind,j,i)=fvals2(ind,j,i)
+         enddo
+         enddo
+         enddo
+      elseif (k.eq.2) then
+         do i=1,n
+         do j=1,n
+         do ind=1,nd
+            fvals(ind,j+n,i)=fvals2(ind,j,i)
+         enddo
+         enddo
+         enddo
+      elseif (k.eq.3) then
+         do i=1,n
+         do j=1,n
+         do ind=1,nd
+            fvals(ind,j,i+n)=fvals2(ind,j,i)
+         enddo
+         enddo
+         enddo
+      elseif (k.eq.4) then
+         do i=1,n
+         do j=1,n
+         do ind=1,nd
+            fvals(ind,j+n,i+n)=fvals2(ind,j,i)
+         enddo
+         enddo
+         enddo
+      endif
+
+      return
+      end
+c     
+c      
+c      
+c      
+c      
+c      
+c
+      subroutine tree_data_c2p_copy_3d(nd,norder,fvals2,fvals,k)
+      implicit real *8 (a-h,o-z)
+      real *8 fvals2(nd,norder/2,norder/2,norder/2)
+      real *8 fvals(nd,norder,norder,norder)
+
+      n=norder/2
+
+      if (k.eq.1) then
+         do i=1,n
+         do j=1,n
+         do k=1,n
+         do ind=1,nd
+            fvals(ind,k,j,i)=fvals2(ind,k,j,i)
+         enddo
+         enddo
+         enddo
+         enddo
+      elseif (k.eq.2) then
+         do i=1,n
+         do j=1,n
+         do k=1,n
+         do ind=1,nd
+            fvals(ind,k+n,j,i)=fvals2(ind,k,j,i)
+         enddo
+         enddo
+         enddo
+         enddo
+      elseif (k.eq.3) then
+         do i=1,n
+         do j=1,n
+         do k=1,n
+         do ind=1,nd
+            fvals(ind,k,j+n,i)=fvals2(ind,k,j,i)
+         enddo
+         enddo
+         enddo
+         enddo
+      elseif (k.eq.4) then
+         do i=1,n
+         do j=1,n
+         do k=1,n
+         do ind=1,nd
+            fvals(ind,k+n,j+n,i)=fvals2(ind,k,j,i)
+         enddo
+         enddo
+         enddo
+         enddo
+      elseif (k.eq.5) then
+         do i=1,n
+         do j=1,n
+         do k=1,n
+         do ind=1,nd
+            fvals(ind,k,j,i+n)=fvals2(ind,k,j,i)
+         enddo
+         enddo
+         enddo
+         enddo
+      elseif (k.eq.6) then
+         do i=1,n
+         do j=1,n
+         do k=1,n
+         do ind=1,nd
+            fvals(ind,k+n,j,i+n)=fvals2(ind,k,j,i)
+         enddo
+         enddo
+         enddo
+         enddo
+      elseif (k.eq.7) then
+         do i=1,n
+         do j=1,n
+         do k=1,n
+         do ind=1,nd
+            fvals(ind,k,j+n,i+n)=fvals2(ind,k,j,i)
+         enddo
+         enddo
+         enddo
+         enddo
+      elseif (k.eq.8) then
+         do i=1,n
+         do j=1,n
+         do k=1,n
+         do ind=1,nd
+            fvals(ind,k+n,j+n,i+n)=fvals2(ind,k,j,i)
+         enddo
+         enddo
+         enddo
+         enddo
+      endif
+
+      return
+      end
+c     
+c      
+c      
+c      
+c
+      subroutine vol_tree_p2c_interp(nd,ndim,ipoly,norder,
+     1    npbox,itree,iptr,centers,boxsize,isgn,polyv,umat_nd,
+     2    fvals,fcoefs,iparentbox,listcid)
+
+c     This subroutine computes the data on each child box using the data on the parent box
+c     by interpolation and update parent,child,level,centers info of the tree.
+c
+c     input:
+c     nd - integer
+c            number of right hand sides
+c     ndim - integer
+c            dimension of the underlying space
+c     ipoly - integer
+c            0: Legendre polynomials
+c            1: Chebyshev polynomials
+c     norder - integer
+c           order of expansions for input function value array
+c     iptr - integer(8)
+c            pointer to various parts of the tree structure
+c           iptr(1) - laddr
+c           iptr(2) - ilevel
+c           iptr(3) - iparent
+c           iptr(4) - nchild
+c           iptr(5) - ichild
+c           iptr(6) - ncoll
+c           iptr(7) - coll
+c           iptr(8) - ltree
+c
+c     centers - double precision (ndim,nboxes)
+c           xyz coordintes of boxes in the tree structure
+c     boxsize - double precision (0:nlevels)
+c           size of boxes at each of the levels
+c
+c     isgn - integer (ndim,2**ndim)
+c           contains the signs of center coordinates of child boxes
+c           when the parent box is centered at the origin
+c     polyv - precomputed matrices for carrying out interpolation from the parent
+c                 box to its child boxes
+c     umat_nd - precomputed matrices for converting function values on a tensor
+c                 grid to its polynomial expansion coefficients
+c
+c     iparentbox - the index of the parent box to be refined
+c     listcid - the indices of the child boxes
+c
+c     input and output:
+c     itree - integer(ltree)
+c            array containing the tree structure
+c
+c     input/output:
+c         fvals - double precision (nd,npbox,nboxes)
+c           function values of the given tree data on each leaf box
+c         fcoefs - double precision (nd,npbox,nboxes)
+c           expansion coefficients of the given tree data on each leaf box
+c
+c
+      implicit real *8 (a-h,o-z)
+      real *8 eps
+      integer iptr(8)
+      integer itree(*),norder,npbox
+      integer listcid(2**ndim)
+      
+      real *8 fvals(nd,npbox,nboxes),fcoefs(nd,npbox,nboxes)
+
+      real *8 centers(ndim,nboxes),boxsize(0:nlevels)
+
+      integer isgn(ndim,2**ndim)
+      real *8 polyv(norder,norder/2,ndim,2**ndim)
+      real *8 umat_nd(norder,norder,ndim)
+      
+      mc=2**ndim
+
+      itype=0
+      ilev = itree(iptr(2)+iparentbox-1)
+c     nchild of ibox
+      itree(iptr(4)+iparentbox-1)=mc
+      jlev = ilev+1
+      bsh = boxsize(jlev)/2
+      
+      do j=1,mc
+         jbox=listcid(j)
+         itree(iptr(2)+jbox-1) = jlev
+         do k=1,ndim
+            centers(k,jbox) = centers(k,iparentbox)+isgn(k,i)*bsh
+         enddo
+         
+         call ortho_eval_nd(ndim,nd,norder,fcoefs(1,1,iparentbox),
+     1       norder,fvals(1,1,jbox),polyv(1,1,1,j))
+
+         call ortho_trans_nd(ndim,nd,itype,norder,fvals(1,1,jbox),
+     1       fcoefs(1,1,jbox),umat_nd)
+                     
+c        parent
+         itree(iptr(3)+jbox-1)=ibox
+c        nchild of jbox
+         itree(iptr(4)+jbox-1)=0
+c        jbox's children
+         do l=1,mc
+            itree(iptr(5)+mc*(jbox-1)+l-1) = -1
+         enddo
+c        ichild of ibox
+         itree(iptr(5)+mc*(iparentbox-1)+j-1)=jbox
+      enddo
+      
+      return
+      end
+c
+c
+c
+c
+      subroutine get_p2c_interp_matrices(ndim,ipoly,norder,isgn,polyv)
+c     This subroutine returns to the user a list of matrices needed to
+c     carry out interpolation from the parent box to its 2**ndim children.
+c
+c     input:
+c     ndim - integer
+c            dimension of the underlying space
+c     ipoly - integer
+c            0: Legendre polynomials
+c            1: Chebyshev polynomials
+c     norder - integer
+c           order of expansions for input function value array
+c     isgn - integer (ndim,2**ndim)
+c           contains the signs of center coordinates of child boxes
+c           when the parent box is centered at the origin
+c
+c     output:
+c     polyv - double precision (norder,norder,ndim,2**ndim)
+c             polyv(1,1,1,j) contains ndim matrices where each of them contains
+c             polynomial values in a tensor grid of the jth child box along
+c             each dimension
+c
+      implicit real *8 (a-h,o-z)
+      real *8 polyv(norder,norder,ndim,2**ndim) 
+
+      real *8 xs(norder)
+      real *8 xp(norder),xm(norder)
+      real *8 polyvp(norder,norder),polyvm(norder,norder)
+      
+      integer isgn(ndim,2**ndim)
+
+      mc=2**ndim
+      norder2=norder*norder
+      
+      itype=0
+      if (ipoly.eq.0) then
+         call legeexps(itype,norder,xs,u,v,ws)
+      elseif (ipoly.eq.1) then
+         call chebexps(itype,norder,xs,u,v,ws)
+      endif
+
+      do i=1,norder
+         xm(i) = xs(i)/2-0.5d0
+         xp(i) = xs(i)/2+0.5d0
+      enddo
+
+      do i=1,norder
+         if (ipoly.eq.0) then
+            call legepols(xp(i),norder-1,polyvp(1,i))
+            call legepols(xm(i),norder-1,polyvm(1,i))
+         elseif (ipoly.eq.1) then
+            call chebpols(xp(i),norder-1,polyvp(1,i))
+            call chebpols(xm(i),norder-1,polyvm(1,i))
+         endif
+      enddo
+
+      do j=1,mc
+         do k=1,ndim
+            if (isgn(k,j).lt.0) then
+               call dcopy_f77(norder2,polyvm,1,polyv(1,1,k,j),1)
+            else
+               call dcopy_f77(norder2,polyvp,1,polyv(1,1,k,j),1)
+            endif
+         enddo
+      enddo
+
+      return
+      end
+c      
+c            
+c      
+      subroutine get_c2p_interp_matrices(ndim,ipoly,norder,isgn,polyv)
+c     This subroutine returns to the user a list of matrices needed to
+c     carry out interpolation from child boxes to the parent box.
+c
+c     input:
+c     ndim - integer
+c            dimension of the underlying space
+c     ipoly - integer
+c            0: Legendre polynomials
+c            1: Chebyshev polynomials
+c     norder - integer
+c           order of expansions for input function value array
+c     isgn - integer (ndim,2**ndim)
+c           contains the signs of center coordinates of child boxes
+c           when the parent box is centered at the origin
+c
+c     output:
+c     polyv - double precision (norder,norder/2,ndim,2**ndim)
+c             the parent box had a norder**ndim tensor grid. When norder is even,
+c             this tensor grid has (norder/2)**ndim tensor grid points in each of
+c             its child box.
+c             polyv(1,1,1,j) contains ndim matrices where each of them contains
+c             polynomial values in the small tensor grid of the jth child box along
+c             each dimension
+c
+c
+      implicit real *8 (a-h,o-z)
+      real *8 polyv(norder,norder/2,ndim,2**ndim) 
+
+      real *8 xs(norder)
+      real *8 xp(norder/2),xm(norder/2)
+      real *8 polyvp(norder,norder/2),polyvm(norder,norder/2)
+      
+      integer isgn(ndim,2**ndim)
+
+      mc=2**ndim
+      n2=norder/2
+      
+      itype=0
+      if (ipoly.eq.0) then
+         call legeexps(itype,norder,xs,u,v,ws)
+      elseif (ipoly.eq.1) then
+         call chebexps(itype,norder,xs,u,v,ws)
+      endif
+
+      do i=1,n2
+         xm(i) = xs(i)*2+1.0d0
+         xp(i) = xs(n2+i)*2-1.0d0
+      enddo
+
+      do i=1,n2
+         if (ipoly.eq.0) then
+            call legepols(xp(i),norder-1,polyvp(1,i))
+            call legepols(xm(i),norder-1,polyvm(1,i))
+         elseif (ipoly.eq.1) then
+            call chebpols(xp(i),norder-1,polyvp(1,i))
+            call chebpols(xm(i),norder-1,polyvm(1,i))
+         endif
+      enddo
+
+      do j=1,mc
+         do k=1,ndim
+            if (isgn(k,j).lt.0) then
+               call dcopy_f77(norder*n2,polyvm,1,polyv(1,1,k,j),1)
+            else
+               call dcopy_f77(norder*n2,polyvp,1,polyv(1,1,k,j),1)
+            endif
+         enddo
+      enddo
+
+      return
+      end
+c      
+c            
+c
+      subroutine get_val2coefs_matrices(ndim,ipoly,norder,umat_nd)
+c     This subroutine returns to the user transformation matrices
+c     converting function values to polynomial expansion coefficients.
+c
+c     input:
+c     ndim - integer
+c            dimension of the underlying space
+c     ipoly - integer
+c            0: Legendre polynomials
+c            1: Chebyshev polynomials
+c     norder - integer
+c           order of expansions for input function value array
+c
+c     output:
+c     umat_nd - double precision (norder,norder,ndim)
+c             umat_nd(1,1,k) is the transformation matrix converting function
+c             values on a tensor grid to its polynomial expansion coefficients
+c             along the kth dimension.
+c
+c
+      implicit real *8 (a-h,o-z)
+      real *8 umat_nd(norder,norder,ndim)
+
+      real *8 xs(norder),ws(norder)
+      real *8 umat(norder,norder),vmat(norder,norder)
+      
+      itype=2
+      if (ipoly.eq.0) then
+         call legeexps(itype,norder,xs,umat,vmat,ws)
+      elseif (ipoly.eq.1) then
+         call chebexps(itype,norder,xs,umat,vmat,ws)
+      endif
+
+      n2=norder*norder
+      do k=1,ndim
+         call dcopy_f77(n2,umat,1,umat_nd(1,1,k),1)
+      enddo
+
+      return
+      end
+c      
+c            
+c            

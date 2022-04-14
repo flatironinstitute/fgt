@@ -21,26 +21,12 @@ c
 
       integer i,ibox,nel0,j,l,jbox,nel1,nbl,k,mc
       real *8 bsh
-      integer, allocatable :: isgn(:,:)
+      integer isgn(ndim,2**ndim)
+
+      call get_child_box_sign(ndim,isgn)
       
       bsh = bs/2
 
-      allocate(isgn(ndim,2**ndim))
-
-      mc=2**ndim
-      do j=1,ndim
-         isgn(j,1)=-1
-      enddo
-
-      do j=1,ndim
-         do i=1,mc,2**(j-1)
-            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
-            do k=1,2**(j-1)-1
-               isgn(j,i+k)=isgn(j,i)
-            enddo
-         enddo
-      enddo
-      
       allocate(isum(nbloc))
       if(nbloc.gt.0) call cumsum(nbloc,irefinebox,isum)
       
@@ -371,28 +357,13 @@ c
 
       integer i,ibox,nel0,j,l,jbox,nel1,nbl,k
       integer ii,mc
-      integer, allocatable :: isgn(:,:)
+      integer isgn(ndim,2**ndim)
+
+      call get_child_box_sign(ndim,isgn)
       
       bsh = bs/2
       mc = 2**ndim
 
-      allocate(isgn(ndim,mc))
-
-      mc=2**ndim
-      do j=1,ndim
-         isgn(j,1)=-1
-      enddo
-
-      do j=1,ndim
-         do i=1,mc,2**(j-1)
-            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
-            do k=1,2**(j-1)-1
-               isgn(j,i+k)=isgn(j,i)
-            enddo
-         enddo
-      enddo
-
-      
       allocate(isum(nbloc),itmp(nbloc))
       do i=1,nbloc
         ibox = ifirstbox+i-1

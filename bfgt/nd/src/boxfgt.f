@@ -347,8 +347,6 @@ c
       integer, allocatable :: nlist_loc(:),list_loc(:,:)
       integer, allocatable :: nlistpw(:), listpw(:,:)
       integer, allocatable :: ifhung(:),iflocal(:)
-      integer, allocatable :: ifrefine0(:),ifrefine(:)
-      integer laddrtail(2,0:nlevels)
 
       integer ndirect
       integer ixyz(ndim)
@@ -379,9 +377,11 @@ c     for asymptotic calculations
       real *8, allocatable :: hvals(:,:,:,:)
 
 c     for checking whether the potential is resolved
-      real *8, allocatable :: coefs(:,:)
-      integer nblock(0:nlevels),ilevstart(0:nlevels+1)
+      integer, allocatable :: ifrefine(:),irefinelev(:),imaxrefinelev(:)
       integer, allocatable :: nboxid(:)
+      integer nblock(0:nlevels),ilevstart(0:nlevels+1)
+      integer isgn(ndim,2**ndim)
+      integer, allocatable :: ifdelete(:),idelboxid(:)
       
 c     1d direct evaluation tables
       real *8, allocatable :: tab_loc(:,:,:,:)
@@ -389,8 +389,6 @@ c     1d direct evaluation tables
       real *8, allocatable :: tabxx_loc(:,:,:,:)
       integer, allocatable :: ind_loc(:,:,:,:)
 
-      integer, allocatable :: isgn(:,:)
-      integer, allocatable :: iflag(:)
       
       ifprint = 1
 
@@ -600,6 +598,10 @@ C$    time2=omp_get_wtime()
       if (ifprint.eq.1)
      1    call prinf('laddr=*',itree(iptr(1)),2*(nlevels+1))
 
+
+
+
+      
 c
 c
 c        step 1: convert function values to planewave expansions
@@ -631,6 +633,11 @@ C$OMP END PARALLEL DO
       call cpu_time(time2)
 C$       time2 = omp_get_wtime()
       timeinfo(2) = time2-time1
+
+
+
+
+
 
       
       if(ifprint .ge. 1)
@@ -664,6 +671,11 @@ C$OMP END PARALLEL DO
 C$    time2=omp_get_wtime()
       timeinfo(3)=time2-time1
 c
+
+
+
+
+      
       
       if(ifprint.ge.1)
      1    call prinf('=== Step 3 (mp to loc) ===*',i,0)
@@ -700,6 +712,12 @@ C$    time2=omp_get_wtime()
 
 cccc      call prin2('timeinfo4=*',time2-time1,1)
 
+
+
+
+
+
+      
       if(ifprint.ge.1)
      1    call prinf('=== Step 4 (split loc) ===*',i,0)
 
@@ -726,13 +744,17 @@ C$OMP$SCHEDULE(DYNAMIC)
 C$OMP END PARALLEL DO        
  1400 continue
 
+
+
+
+
       
       call cpu_time(time2)
 C$    time2=omp_get_wtime()
       timeinfo(5) = time2-time1
       
       if(ifprint.ge.1)
-     1    call prinf('=== step 5 (eval loc) ===*',i,0)
+     1    call prinf('=== step 5 (eval loc pwexp) ===*',i,0)
 
 c     ... step 5, evaluate all local expansions
       call cpu_time(time1)
@@ -765,12 +787,16 @@ C$OMP END PARALLEL DO
       call cpu_time(time2)
 C$    time2 = omp_get_wtime()      
       timeinfo(6) = time2 - time1
+
+
+
+
       
       
  1800 continue
 
       if(ifprint .ge. 1)
-     1     call prinf('=== STEP 6 (direct) =====*',i,0)
+     1     call prinf('=== STEP 6 (direct interactions) =====*',i,0)
 c
 cc
       call cpu_time(time1)
@@ -811,10 +837,14 @@ c
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(7) = time2-time1
-      allocate(coefsp(nd,npbox,nboxes))
       goto 4000
 ccc      goto 3000
 
+
+
+
+
+      
  3000 continue
       if(ifprint .ge. 1)
      $     call prinf('=== STEP 7 (asymptotic regime) =====*',i,0)
@@ -876,11 +906,15 @@ c     also use asymptotic expansion to evaluate gradient and hessian
      1          nlevels,itree,iptr,boxsize,norder,hvals,hess)
       endif
       endif
-      
-      
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(8) = time2-time1
+      
+
+
+
+
+      
  4000 continue
       if(ifprint .ge. 1)
      $     call prinf('=== STEP 8 (refine if necessary) =====*',i,0)
@@ -888,6 +922,8 @@ C$    time2=omp_get_wtime()
 C$    time1=omp_get_wtime()
 
 c     find the list of source boxes for each target box
+c     does not seem needed since all boxes that require refinement have no direct
+c     interaction sources?
       allocate(nlist_loc(nboxes))
       allocate(list_loc(mnlist1,nboxes))
       do i=1,nboxes
@@ -914,42 +950,25 @@ cccc              jbox is the target box
       enddo
 c      
 
-      allocate(isgn(ndim,2**ndim))
 
       mc=2**ndim
-      do j=1,ndim
-         isgn(j,1)=-1
-      enddo
+      call get_child_box_sign(ndim,isgn)
 
-      do j=1,ndim
-         do i=1,mc,2**(j-1)
-            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
-            do k=1,2**(j-1)-1
-               isgn(j,i+k)=isgn(j,i)
-            enddo
-         enddo
-      enddo
-      
-
-      allocate(ifrefine0(nboxes))
       allocate(ifrefine(nboxes))
-      call flag_box_refine(ndim,nlevels,nboxes,itree(iptr(1)),boxsize,
-     1    centers,itree(iptr(3)),itree(iptr(4)),itree(iptr(5)),
-     2    isep,itree(iptr(6)),mnbors,itree(iptr(7)),iper,
-     3    ifrefine0,mrefine)
-      call prinf('mrefine=*',mrefine,1)
+      allocate(irefinelev(nboxes))
+      allocate(imaxrefinelev(nboxes))
 
-      allocate(rmask(npbox))
-      call tens_prod_get_rmask(ndim,iptype,norder,npbox,
-     1    rmask,rsum)
-      call prin2('rmask=*',rmask,npbox)
-      call prin2('rsum=*',rsum,1)
-      
-c     call fun_err on each relevant leaf box
       isep=1
       iper=0
       iptype=0
       eta=1.0d0
+
+      allocate(rmask(npbox))
+      call tens_prod_get_rmask(ndim,iptype,norder,npbox,
+     1    rmask,rsum)
+cccc      call prin2('rmask=*',rmask,npbox)
+cccc      call prin2('rsum=*',rsum,1)
+      
       
       
       if(iptype.eq.2) rsc = sqrt(1.0d0/boxsize(0)**ndim)
@@ -966,52 +985,89 @@ c     compute the L_{iptype} norm of the pot by going throught each leaf box
       nboxes0 = itree(2*nlevels+2)
       call prinf('nboxes0=*',nboxes0,1)
 
-      do ibox=1,nboxes
-         ifrefine(ibox)=0
-      enddo
 
       do i=0,nlevels
          nblock(i)=0
       enddo
 
-      allocate(coefs(nd,npbox))
+      do ibox=1,nboxes
+         ifrefine(ibox)=0
+         irefinelev(ibox)=0
+         imaxrefinelev(ibox)=0
+      enddo
+      maxrefinelev=0
+
+c     convert potential to its polynomial expansion coefficients
+      allocate(coefsp(nd,npbox,nboxes))
+      itype=0
+      call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
+     1    iptr,boxsize,norder,pot,coefsp,umat_nd)
+
+
+      allocate(ifdelete(nboxes))
+      allocate(idelboxid(nboxes))
+      call vol_tree_coarsen(nd,ndim,eps,ipoly,norder,npbox,
+     1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,
+     2    pot,coefsp,ifdelete,idelboxid,ndelete)
+      print *, 'ndelete', ndelete
+      pause
       
       nrefine=0
+      nmaxrefine=0
+c     no need to check leaf boxes at the finest level
       do ilev = 0,nlevels-1
          sc = boxsize(ilev)/2
          rscale=sc**eta
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
-            if (ifrefine0(ibox).eq.1) then
-               call ortho_trans_nd(ndim,nd,0,norder,pot(1,1,ibox),
-     1             coefs,umat_nd)
-               call fun_err(nd,npbox,coefs,rmask,
-     1             iptype,rscale,erra)
+            if (itree(iptr(4)+ibox-1).eq.0) then
+c              call fun_err on each leaf box
+               call fun_err(nd,npbox,coefsp(1,1,ibox),
+     1            rmask,iptype,rscale,erra)
      
                erra = erra/rsum
-
                if(erra.gt.eps*rsc) then
                   ifrefine(ibox)=1
                   nrefine=nrefine+1
+c                 empirical formula determining the maximum level of refinement
+                  ii = ceiling(log(erra/(eps*rsc))/log(2.0d0)/norder+1)
+                  imaxrefinelev(ibox)=ii
+                  if (ii.gt.maxrefinelev) then
+                     maxrefinelev=ii
+                     nmaxrefine=1
+                  elseif (ii.eq.maxrefinelev) then
+                     nmaxrefine=nmaxrefine+1
+                  endif
                endif
             endif
          enddo
       enddo
       call prinf('nrefine=*',nrefine,1)
+      call prinf('nmaxrefine=*',nmaxrefine,1)
+      call prinf('maxrefinelev=*',maxrefinelev,1)
 cccc      call prinf('ifrefine=*',ifrefine,nboxes)
-
+cccc      do i=1,nboxes
+cccc         if (ifrefine(i).gt.0) then
+cccc            print *, i, imaxrefinelev(i)
+cccc         endif
+cccc      enddo
+      
 c     recalculate pot, grad, hessian if necessary
       nnewboxes=0
       do ibox = 1,nboxes
-         if (ifrefine(ibox).eq.1) then
+         if (ifrefine(ibox).eq.1 .and.
+     1       irefinelev(ibox).le.maxrefinelev) then
+            irefinelev(ibox)=irefinelev(ibox)+1
             ilev=itree(iptr(2)+ibox-1)
             bsh = boxsize(ilev)/4
             rscale=(bsh*2)**eta
 c           nchild of ibox
             itree(iptr(4)+ibox-1)=mc
-
+            
             do j=1,mc
                nnewboxes=nnewboxes+1
                jbox = nboxes0+nnewboxes
+               irefinelev(jbox)=irefinelev(ibox)+1
+cccc               print *, ibox, jbox
                do k=1,ndim
                   centers(k,jbox) = centers(k,ibox)+isgn(k,j)*bsh
                enddo
@@ -1042,14 +1098,27 @@ c              evaluate plane wave expansion
      3             ifpgh,pot(1,1,jbox),grad(1,1,1,jbox),
      4             hess(1,1,1,jbox))
                call ortho_trans_nd(ndim,nd,0,norder,pot(1,1,jbox),
-     1             coefs,umat_nd)
-               call fun_err(nd,npbox,coefs,rmask,
+     1             coefsp(1,1,jbox),umat_nd)
+               call fun_err(nd,npbox,coefsp(1,1,jbox),rmask,
      1             iptype,rscale,erra)
                
                erra = erra/rsum
-               print *, 'erra=',erra, ibox, jbox
+cccc               print *, 'erra=',erra, ibox, jbox
                if(erra.gt.eps*rsc) then
                   ifrefine(jbox)=1
+c                 the following lines are trying to prevent excessive refinement
+                  nrefinelev=1
+                  kbox=jbox
+                  do k=1,maxrefinelev
+                     kdad=itree(iptr(3)+kbox-1)
+                     if (kdad.le.nboxes0) exit
+                     kbox=kdad
+                  enddo
+                  
+                  if (k.ge.imaxrefinelev(kdad)) then
+cccc                     print *, k, kdad, imaxrefinelev(kdad)
+                     ifrefine(jbox)=0
+                  endif
                endif
                   
             enddo
@@ -1075,10 +1144,17 @@ c     call tree_reorg
      2    itree(iptr(3)),itree(iptr(4)),itree(iptr(5)),
      2    pot)
       print *, 'nboxes=', itree(2*nlevels+2)
+
       
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(9) = time2-time1
+
+
+
+
+
+
       
  5000 continue
       if(ifprint .ge. 1)
@@ -1094,9 +1170,6 @@ C$    time1=omp_get_wtime()
 c     compute expansion coefficients for potential, gradient, and hessian
 
       iffast=1
-      itype=0
-      call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
-     1    iptr,boxsize,norder,pot,coefsp,umat_nd)
       if (iffast.eq.0) then
       if (ifpghtarg.ge.1) then
          call treedata_evalt_nd(ndim,nd,ipoly,norder,nboxes,nlevels,

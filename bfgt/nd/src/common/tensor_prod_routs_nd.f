@@ -333,6 +333,165 @@ c
 c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c
+c     evaluate function on a general tensor grid given its coefficients 
+c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      subroutine ortho_eval_nd(ndim,nd,n1,fin,n2,fout,umat)
+c
+c     this subroutine transform the input data given on a tensor product grid
+c     to the output data. 
+c
+c     input:
+c     nd - number of input data
+c     n1 - number of points in each direction for input data
+c     fin - input data
+c     umat - 1D transformation matrices along each direction
+c     n2 - number of points in each direction for output data
+c     output:
+c     fout - the transform data, see the above explanation.
+c
+      implicit real *8 (a-h,o-z)
+      real *8 fin(nd,n1**ndim)
+      real *8 fout(nd,n2**ndim)
+      real *8 umat(n1,n2,ndim)
+
+      if (ndim.eq.1) then
+         call ortho_eval_1d(nd,itype,n1,fin,n2,fout,umat)
+      elseif (ndim.eq.2) then
+         call ortho_eval_2d(nd,itype,n1,fin,n2,fout,umat)
+      elseif (ndim.eq.3) then
+         call ortho_eval_3d(nd,itype,n1,fin,n2,fout,umat)
+      endif
+      
+      return
+      end
+c
+c
+c
+c
+      subroutine ortho_eval_1d(nd,itype,n1,fin,n2,fout,umat)
+      implicit real *8 (a-h,o-z)
+      real *8 fin(nd,n1)
+      real *8 fout(nd,n2)
+      real *8 umat(n1,n2)
+
+      do k=1,n2
+         do ind=1,nd
+            dd=0
+            do k1=1,n1
+               dd=dd+umat(k1,k)*fin(ind,k1)
+            enddo
+            fout(ind,k)=dd
+         enddo
+      enddo
+      
+      return
+      end
+c
+c
+c
+c
+      subroutine ortho_eval_2d(nd,itype,n1,fin,n2,fout,umat)
+      implicit real *8 (a-h,o-z)
+      real *8 fin(nd,n1,n1)
+      real *8 fout(nd,n2,n2)
+      real *8 umat(n1,n2,2)
+      real *8, allocatable :: work(:,:,:)
+      
+      allocate(work(nd,n2,n1))
+
+c     transform in x
+      do j=1,n1
+      do k=1,n2
+         do ind=1,nd
+            dd=0
+            do k1=1,n1
+               dd=dd+umat(k1,k,1)*fin(ind,k1,j)
+            enddo
+            work(ind,k,j)=dd
+         enddo
+      enddo
+      enddo
+c     transform in y
+      do i=1,n2
+      do k=1,n2
+         do ind=1,nd
+            dd=0
+            do i1=1,n1
+               dd=dd+umat(i1,i,2)*work(ind,k,i1)
+            enddo
+            fout(ind,k,i)=dd
+         enddo
+      enddo
+      enddo
+
+      return
+      end
+c
+c
+c
+c
+      subroutine ortho_eval_3d(nd,itype,n1,fin,n2,fout,umat)
+      implicit real *8 (a-h,o-z)
+      real *8 fin(nd,n1,n1,n1)
+      real *8 fout(nd,n2,n2,n2)
+      real *8 umat(n1,n2,3)
+      real *8, allocatable :: work(:,:,:,:)
+      real *8, allocatable :: work2(:,:,:,:)
+      
+      allocate(work(nd,n2,n1,n1))
+      allocate(work2(nd,n2,n2,n1))
+
+c     transform in x
+      do i=1,n1
+      do j=1,n1
+      do k=1,n2
+         do ind=1,nd
+            dd=0
+            do k1=1,n1
+               dd=dd+umat(k1,k,1)*fin(ind,k1,j,i)
+            enddo
+            work(ind,k,j,i)=dd
+         enddo
+      enddo
+      enddo
+      enddo
+c     transform in y
+      do i=1,n1
+      do j=1,n2
+      do k=1,n2
+         do ind=1,nd
+            dd=0
+            do j1=1,n1
+               dd=dd+umat(j1,j,2)*work(ind,k,j1,i)
+            enddo
+            work2(ind,k,j,i)=dd
+         enddo
+      enddo
+      enddo
+      enddo
+c     transform in z
+      do i=1,n2
+      do j=1,n2
+      do k=1,n2
+         do ind=1,nd
+            dd=0
+            do i1=1,n1
+               dd=dd+umat(i1,i,3)*work2(ind,k,j,i1)
+            enddo
+            fout(ind,k,j,i)=dd
+         enddo
+      enddo
+      enddo
+      enddo
+      
+      return
+      end
+c
+c
+c
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c
 c     evaluate gradient at tensor grid given potential coefficients
 c
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

@@ -48,7 +48,7 @@ c
       external fgaussn,fgaussnx,exact_pot
 
 c     dimension of the underlying space
-      ndim=1
+      ndim=2
       eps = 0.5d-12
       if (ndim.eq.3) eps=0.5d-6
 c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
@@ -65,7 +65,7 @@ c     number of right-hand sides
 c     0: free space; 1: doubly periodic
       iperiod=0
 c     p in L^p norm
-      iptype = 2
+      iptype = 0
       eta = 1.0d0
       
       ipars(1) = ndim

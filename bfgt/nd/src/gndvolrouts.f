@@ -1411,7 +1411,7 @@ c----------------------------------------------------------------------c
          call g2d_tens_prod_to_pghloc(nd,n,fvals,pot,grad,hess,
      1    tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
       elseif (ndim.eq.3) then
-         call g3d_tens_prod_to_pghloc(nd,n,fvals,pot,grad,hess,
+         call g3d_tens_prod_to_pghloc_slow(nd,n,fvals,pot,grad,hess,
      1    tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
       endif
          

@@ -7,7 +7,7 @@
       real *8, allocatable :: xref(:,:)
       real *8 rintl(0:200),wts
 c
-      real *8 timeinfo(10)
+      real *8 timeinfo(100)
       complex *16 zpars
 
       real *8, allocatable :: pot(:,:,:), potex(:,:,:)
@@ -48,15 +48,15 @@ c
       external fgaussn,fgaussnx,exact_pot
 
 c     dimension of the underlying space
-      ndim=2
+      ndim=3
       eps = 0.5d-12
       if (ndim.eq.3) eps=0.5d-6
 c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
       ipoly=0
 c     polynomial expansion order for each leaf box
-      norder = 8
+      norder = 16
 c     number of extra targets
-      ntarg = 10 000
+      ntarg = 1000 000
 c     gaussian variance
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
       delta = 1d-3

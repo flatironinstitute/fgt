@@ -1167,7 +1167,6 @@ C$    time2=omp_get_wtime()
       timeinfo(10) = time2-time1
       call prinf('after coarsening, nlevels=*', nlevels,1)
       call prinf('and nboxes=*', itree(2*nlevels+2),1)
-      
 
 
 

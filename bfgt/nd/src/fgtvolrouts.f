@@ -1,24 +1,8 @@
 c     This file contains a set of subroutines that build various 1D tables
-c     used in the box FGT in all dimensions.
-c
-c
-c     mk_leg2pw: builds the table converting Legendre expansion coefficients
-c                to planewave expansion coefficients
-c
-c     mk_pw2pot: builds the table converting planewave expansion coefficients
-c                to potential values on Legendre nodes
-c
-c     mk_loctab_coll: builds the table converting Legendre expansion coefficients
-c                in the source box to potential values on Legendre nodes in the
-c                target box at the same level, three of them for each level.
-c
-c     mk_loctab_stob: builds the table converting Legendre expansion coefficients
-c                in a small source box to potential values on Legendre nodes in a
-c                large target box at the coarse level. four of them for each level.
-c
-c     mk_loctab_btos: builds the table converting Legendre expansion coefficients
-c                in a large source box to potential values on Legendre nodes in a
-c                small target box at the fine level. four of them for each level.
+c     used in the box FGT in all dimensions, including polynomial values
+c     to plane wave expansion, polynomial values to potential/gradient/hessian,
+c     and plane wave expansion to potential/gradient/hessian.
+c      
 c
 C*********************************************************************C
       subroutine mk_poly2pw_tables(n,ipoly,npw,nnodes,ws,ts,delta,

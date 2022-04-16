@@ -70,16 +70,13 @@ SOURCES =  test_boxfgt.f \
   $(SRC)/common/fmmcommon2d.f \
   $(SRC)/common/pts_tree_nd.f \
   $(SRC)/common/lapack_f77.f \
-  $(SRC)/fgtterms.f \
-  $(SRC)/gndvolrouts.f \
   $(SRC)/common/tree_routs_nd.f \
   $(SRC)/common/tree_vol_coeffs_nd.f \
+  $(SRC)/fgtterms.f \
   $(SRC)/fgtvolrouts.f \
-  $(SRC)/boxfgt.f \
-#  $(SRC)/bfgt2d.f \
-#  $(SRC)/common/tree_vol_coeffs_cheb.f \
-#  $(SRC)/bfgt2d_cheb.f \
-#  $(SRC)/fgtvolrouts_cheb_vals.f \
+  $(SRC)/gndpwrouts.f \
+  $(SRC)/gndlocal.f \
+  $(SRC)/boxfgt.f 
 
 ifeq ($(WITH_SECOND),1)
 SOURCES += $(SRC)/second-r8.f

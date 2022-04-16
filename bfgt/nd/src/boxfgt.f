@@ -925,7 +925,7 @@ C$    time2=omp_get_wtime()
 C$    time1=omp_get_wtime()
 
 c     find the list of source boxes for each target box
-c     does not seem needed since all boxes that require refinement have no direct
+c     does not seem needed since boxes that require refinement have no direct
 c     interaction sources?
       allocate(nlist_loc(nboxes))
       allocate(list_loc(mnlist1,nboxes))

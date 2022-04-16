@@ -355,7 +355,7 @@ c
       real *8, allocatable :: xq(:),wts(:),umat(:,:),vmat(:,:)
       real *8, allocatable :: umat_nd(:,:,:)
 
-      real *8 ws(100),ts(100),pwexp(npw**ndim*nd)
+      real *8 ws(100),ts(100)
       
       complex *16, allocatable :: wpwshift(:,:)
       complex *16, allocatable :: wpwmsshift(:,:,:)
@@ -837,6 +837,9 @@ c
 C$    time2=omp_get_wtime()  
       timeinfo(7) = time2-time1
       allocate(coefsp(nd,npbox,nboxes))
+c     all direct evaluations, which means delta is very small
+c     in this case, no need to refine or coarsen
+      if (npwlevel .ge. nlevels) goto 5000
       goto 4000
 ccc      goto 3000
 
@@ -1026,6 +1029,8 @@ c                 empirical formula determining the maximum level of refinement
       call prinf('nrefine=*',nrefine,1)
       call prinf('nmaxrefine=*',nmaxrefine,1)
       call prinf('maxrefinelev=*',maxrefinelev,1)
+
+      if (nrefine*1.0d0/nboxes0 .lt.1d-2) goto 5000
 cccc      call prinf('ifrefine=*',ifrefine,nboxes)
       do i=1,nboxes
          if (ifrefine(i).gt.0) then
@@ -1114,6 +1119,8 @@ cccc                     print *, k, kdad, imaxrefinelev(kdad)
       allocate(nboxid(nboxes))
       ilevstart(0)=0
       call cumsum(nlevels+1,nblock(0),ilevstart(1))
+
+      if (nnewboxes.eq.0) goto 5000
       
       do j=1,nnewboxes
          jbox=nboxes0+j
@@ -1123,16 +1130,15 @@ cccc                     print *, k, kdad, imaxrefinelev(kdad)
       enddo
       if(ifprint .ge. 1) call prinf('nnewboxes=*',nnewboxes,1)
 
-      if (nnewboxes.gt.0) then
-c        call tree_reorg
-         call fgt_vol_tree_reorg(ndim,nboxes,nd,npbox,
-     1       nblock,nboxid,nnewboxes,nboxes0,
-     2       centers,nlevels,itree(iptr(1)),itree(iptr(2)),
-     3       itree(iptr(3)),itree(iptr(4)),itree(iptr(5)),
-     4       ifpgh,pot,coefsp,grad,hess)
-         call prinf('after refinement, nlevels=*', nlevels,1)
-         call prinf('and nboxes=*', itree(2*nlevels+2),1)
-      endif
+
+c     call tree_reorg
+      call fgt_vol_tree_reorg(ndim,nboxes,nd,npbox,
+     1    nblock,nboxid,nnewboxes,nboxes0,
+     2    centers,nlevels,itree(iptr(1)),itree(iptr(2)),
+     3    itree(iptr(3)),itree(iptr(4)),itree(iptr(5)),
+     4    ifpgh,pot,coefsp,grad,hess)
+      call prinf('after refinement, nlevels=*', nlevels,1)
+      call prinf('and nboxes=*', itree(2*nlevels+2),1)
       
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
@@ -1148,6 +1154,7 @@ C$    time2=omp_get_wtime()
 c
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
+
       allocate(ifdelete(nboxes))
       call vol_tree_coarsen(nd,ndim,reps,ipoly,norder,npbox,
      1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,
@@ -1167,7 +1174,6 @@ C$    time2=omp_get_wtime()
       timeinfo(10) = time2-time1
       call prinf('after coarsening, nlevels=*', nlevels,1)
       call prinf('and nboxes=*', itree(2*nlevels+2),1)
-
 
 
 

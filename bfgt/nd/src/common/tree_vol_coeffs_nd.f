@@ -2562,8 +2562,7 @@ c     Rearrange old arrays now
                curbox = curbox + 1
             endif
          enddo
-         nb = tladdr(2,ilev)-tladdr(1,ilev)+1-nblock(ilev)
-         if (nb.gt.0) then
+         if (curbox.gt.laddr(1,ilev)) then
             laddr(2,ilev) = curbox-1
          else
             laddr(2,ilev) = curbox

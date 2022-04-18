@@ -2657,3 +2657,664 @@ c
 c      
 c      
 c
+c-------------------------------------------------------------      
+      subroutine vol_tree_fix_lr_interp(ndim,nd,ipoly,norder,npbox,
+     1    ifpgh,fvals,coefs,grad,hess,
+     2    nbmax,nlmax,centers,boxsize,nboxes,nlevels,
+     3    laddr,ilevel,iparent,nchild,ichild,nnbors,nbors)
+c
+c     convert an adaptive tree into a level restricted tree
+c     
+c     difference between this routine and vol_tree_fix_lr: vol_tree_fix_lr
+c     assumes that the input data is given by a function handle that be evaluated
+c     anywhere in the box, while this routine assume that the input data is
+c     a tree data whose value at arbitrary points can only be obtained via
+c     interpolation. Evaluation at tensor grid is accererated vix tensor product
+c     structure, which in general should be faster than many direct function
+c     evaluators.
+c
+c     grad and hessian are optional input arguments so that it can be used
+c     for general box code output.
+c
+      implicit real *8 (a-h,o-z)
+      integer nd,norder,npbox,nlevels,nboxes,nlmax
+      integer nbmax,ndim
+      real *8 fvals(nd,npbox,nbmax)
+      real *8 coefs(nd,npbox,*)
+      real *8 grad(nd,ndim,npbox,*)
+      real *8 hess(nd,ndim*(ndim+1)/2,npbox,*)
+      real *8 centers(ndim,nbmax),boxsize(0:nlmax)
+      integer laddr(2,0:nlmax),ilevel(nbmax),iparent(nbmax)
+      integer nchild(nbmax),ichild(2**ndim,nbmax),nnbors(nbmax)
+      integer nbors(3**ndim,nbmax)
+
+      integer isgn(ndim,2**ndim)
+      real *8, allocatable :: polyv(:,:,:,:)
+      real *8 umat_nd(norder,norder,ndim)
+      
+      integer laddrtail(2,0:nlmax),isum
+
+      integer, allocatable :: iflag(:)
+
+      integer i,j,k,l,ibox,jbox,kbox,ilev,idad,igranddad
+      integer nbloc,ict,iper,mc,mnbors,ifnbor
+      real *8 dis,distest
+
+
+      mc=2**ndim
+      mnbors=3**ndim
+
+      allocate(polyv(norder,norder,ndim,mc))
+      call get_child_box_sign(ndim,isgn)
+      call get_p2c_interp_matrices(ndim,ipoly,norder,isgn,polyv)
+      call get_val2coefs_matrices(ndim,ipoly,norder,umat_nd)
+
+      
+      allocate(iflag(nbmax))
+
+c     Initialize flag array
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i)
+      do i=1,nboxes
+         iflag(i) = 0
+      enddo
+C$OMP END PARALLEL DO     
+
+
+
+c     Flag boxes that violate level restriction by "1"
+c     Violatioin refers to any box that is directly touching
+c     a box that is more than one level finer
+c
+c     Method:
+c     1) Carry out upward pass. For each box B, look at
+c     the colleagues of B's grandparent
+c     2) See if any of those colleagues are childless and in
+c     contact with B.
+c
+c     Note that we only need to get up to level two, as
+c     we will not find a violation at level 0 and level 1
+c
+c     For such boxes, we set iflag(i) = 1
+c
+      do ilev=nlevels,2,-1
+c        This is the distance to test if two boxes separated
+c        by two levels are touching
+         distest = 1.05d0*(boxsize(ilev-1) + boxsize(ilev-2))/2.0d0
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,idad,igranddad,i,jbox)         
+C$OMP$ PRIVATE(ict,dis,k)
+         do ibox = laddr(1,ilev),laddr(2,ilev) 
+            idad = iparent(ibox)
+            igranddad = iparent(idad)
+            
+c           Loop over colleagues of granddad            
+            do i=1,nnbors(igranddad)
+               jbox = nbors(i,igranddad)
+c              Check if the colleague of grandad
+c              is a leaf node. This automatically
+c              eliminates the granddad
+               if(nchild(jbox).eq.0.and.iflag(jbox).eq.0) then
+                  ict = 0
+                  do k=1,ndim
+                     dis = centers(k,jbox) - centers(k,idad)
+                     if(abs(dis).le.distest) ict = ict + 1
+                  enddo
+                  if(ict.eq.ndim) then
+                     iflag(jbox) = 1
+                  endif
+               endif
+c              End of checking criteria for the colleague of
+c              granddad
+            enddo
+c           End of looping over colleagues of
+c           granddad
+         enddo
+c        End of looping over boxes at ilev         
+C$OMP END PARALLEL DO
+      enddo
+c     End of looping over levels and flagging boxes
+
+
+c     Find all boxes that need to be given a flag+
+c     A flag+ box will be denoted by setting iflag(box) = 2
+c     This refers to any box that is not already flagged and
+c     is bigger than and is contacting a flagged box
+c     or another box that has already been given a flag +.
+c     It is found by performing an upward pass and looking
+c     at the flagged box's parents colleagues and a flag+
+c     box's parents colleagues and seeing if they are
+c     childless and present the case where a bigger box 
+c     is contacting a flagged or flag+ box.
+
+      do ilev = nlevels,1,-1
+c        This is the distance to test if two boxes separated
+c        by one level are touching
+         distest = 1.05d0*(boxsize(ilev) + boxsize(ilev-1))/2.0d0
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,idad,i,jbox,dis)
+C$OMP$PRIVATE(ict,k)
+         do ibox = laddr(1,ilev),laddr(2,ilev)
+            if(iflag(ibox).eq.1.or.iflag(ibox).eq.2) then
+               idad = iparent(ibox)
+c              Loop over dad's colleagues               
+               do i=1,nnbors(idad)
+                  jbox = nbors(i,idad)
+c                 Check if the colleague of dad
+c                 is a leaf node. This automatically
+c                 eliminates the dad
+                  if(nchild(jbox).eq.0.and.iflag(jbox).eq.0) then
+                     ict = 0
+                     do k=1,ndim
+                        dis = centers(k,jbox) - centers(k,ibox)
+                        if(abs(dis).le.distest) ict = ict + 1
+                     enddo
+                     if(ict.eq.ndim) then
+                        iflag(jbox) = 2
+                     endif
+                  endif
+c                 End of checking criteria for the colleague of
+c                dad
+               enddo
+c              End of looping over dad's colleagues               
+            endif
+c           End of checking if current box is relevant for
+c           flagging flag+ boxes
+         enddo
+c        End of looping over boxes at ilev        
+C$OMP END PARALLEL DO 
+      enddo
+c     End of looping over levels
+
+c     Subdivide all flag and flag+ boxes. Flag all the children
+c     of flagged boxes as flag++. Flag++ boxes are denoted
+c     by setting iflag(box) = 3. The flag++ boxes need 
+c     to be checked later to see which of them need further
+c     refinement. While creating new boxes, we will
+c     need to update all the tree structures as well.
+c     Note that all the flagged boxes live between
+c     levels 1 and nlevels - 2. We process the boxes via a
+c     downward pass. We first determine the number of boxes
+c     that are going to be subdivided at each level and 
+c     everything else accordingly
+      do ilev = 0,nlevels
+         laddrtail(1,ilev) = 0
+         laddrtail(2,ilev) = -1
+      enddo
+
+      do ilev = 1,nlevels-2
+c        First subdivide all the flag and flag+
+c        boxes with boxno nboxes+1, nboxes+ 2
+c        and so on. In the second step, we reorganize
+c        all the structures again to bring it back
+c        in the standard format
+
+         laddrtail(1,ilev+1) = nboxes+1
+
+         nbloc = laddr(2,ilev)-laddr(1,ilev)+1
+         call vol_tree_refine_boxes_flag_interp(ndim,iflag,nd,norder,
+     1    npbox,ifpgh,fvals,coefs,grad,hess,nbmax,laddr(1,ilev),nbloc,
+     2    centers,boxsize(ilev+1),nboxes,ilev,ilevel,iparent,nchild,
+     3    ichild,isgn,polyv,umat_nd)
+
+         laddrtail(2,ilev+1) = nboxes
+      enddo
+c     Reorganize the tree to get it back in the standard format
+
+      call vol_tree_reorg_pgh(ndim,nd,npbox,centers,nboxes,nlevels,
+     1    laddr,laddrtail,ilevel,iparent,nchild,ichild,
+     2    ifpgh,fvals,coefs,grad,hess,iflag)
+
+c     Compute colleague information again      
+
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j)
+      do i=1,nboxes
+         nnbors(i) = 0
+         do j=1,mnbors
+            nbors(j,i) = -1
+         enddo
+      enddo
+C$OMP END PARALLEL DO     
+      iper = 0
+      call computecoll(ndim,nlevels,nboxes,laddr, boxsize,
+     1                   centers,iparent,nchild,
+     2                   ichild,iper,nnbors,nbors)
+
+c     Processing of flag and flag+ boxes is done
+c     Start processing flag++ boxes. We will use a similar
+c     strategy as before. We keep checking the flag++
+c     boxes that require subdivision if they still
+c     violate the level restriction criterion, create
+c     the new boxes, append them to the end of the list to begin
+c     with and in the end reorganize the tree structure.
+c     We shall accomplish this via a downward pass
+c     as new boxes that get added in the downward pass
+c     will also be processed simultaneously.
+c     We shall additionally also need to keep on updating
+c     the colleague information as we proceed in the 
+c     downward pass
+
+c     Reset the flags array to remove all the flag and flag+
+c     cases. This is to ensure reusability of the subdivide
+c     _flag routine to handle the flag++ case
+
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox)
+      do ibox=1,nboxes
+         if(iflag(ibox).ne.3) iflag(ibox) = 0
+      enddo
+C$OMP END PARALLEL DO      
+ 
+      do ilev = 0,nlevels
+         laddrtail(1,ilev) = 0
+         laddrtail(2,ilev) = -1
+      enddo
+
+      do ilev = 2,nlevels-2
+
+c     Step 1: Determine which of the flag++ boxes need
+c     further division. In the even a flag++ box needs
+c     further subdivision then flag the box with iflag(box) = 1
+c     This will again ensure that the subdivide_flag routine
+c     will take care of handling the flag++ case
+         call vol_updateflags(ndim,ilev,nboxes,nlevels,laddr,
+     1       nchild,ichild,nnbors,nbors,centers,boxsize,iflag)
+
+         call vol_updateflags(ndim,ilev,nboxes,nlevels,laddrtail,
+     1       nchild,ichild,nnbors,nbors,centers,boxsize,iflag)
+         
+c      Step 2: Subdivide all the boxes that need subdivision
+c      in the laddr set and the laddrtail set as well
+         laddrtail(1,ilev+1) = nboxes + 1
+
+         nbloc = laddr(2,ilev)-laddr(1,ilev)+1
+         call vol_tree_refine_boxes_flag_interp(ndim,iflag,nd,norder,
+     1    npbox,ifpgh,fvals,coefs,grad,hess,nbmax,laddr(1,ilev),nbloc,
+     2    centers,boxsize(ilev+1),nboxes,ilev,ilevel,iparent,nchild,
+     3    ichild,isgn,polyv,umat_nd)
+
+         nbloc = laddrtail(2,ilev)-laddrtail(1,ilev)+1
+         call vol_tree_refine_boxes_flag_interp(ndim,iflag,nd,norder,
+     1    npbox,ifpgh,fvals,coefs,grad,hess,nbmax,laddr(1,ilev),nbloc,
+     2    centers,boxsize(ilev+1),nboxes,ilev,ilevel,iparent,nchild,
+     3    ichild,isgn,polyv,umat_nd)
+
+          laddrtail(2,ilev+1) = nboxes         
+c      Step 3: Update the colleague information for the newly
+c      created boxes
+
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,i,idad,jbox,j,kbox)
+C$OMP$PRIVATE(k,ifnbor)
+          do ibox = laddrtail(1,ilev+1),laddrtail(2,ilev+1)
+            nnbors(ibox) = 0
+c           Find the parent of the current box         
+            idad = iparent(ibox)
+c           Loop over the neighbors of the parent box
+c           to find out colleagues
+            do i=1,nnbors(idad)
+                jbox = nbors(i,idad)
+                do j=1,mc
+c               ichild(j,jbox) is one of the children of the
+c               neighbors of the parent of the current
+c               box
+                   kbox = ichild(j,jbox)
+                   if(kbox.gt.0) then
+c     Check if kbox is a nearest neighbor or in list 2
+                      ifnbor=1
+                      do k=1,ndim
+                         if((abs(centers(k,kbox)-centers(k,ibox)).gt.
+     1                   1.05*boxsize(ilev+1))) then
+                            ifnbor=0
+                            exit
+                         endif
+                      enddo
+                      if (ifnbor.eq.1) then
+                         nnbors(ibox) = nnbors(ibox)+1
+                         nbors(nnbors(ibox),ibox) = kbox
+                      endif
+                   endif
+                enddo
+            enddo
+c           End of computing colleagues of box i
+         enddo
+C$OMP END PARALLEL DO         
+      enddo
+
+c     Reorganize tree once again and we are all done      
+      call vol_tree_reorg_pgh(ndim,nd,npbox,centers,nboxes,nlevels,
+     1    laddr,laddrtail,ilevel,iparent,nchild,ichild,
+     2    ifpgh,fvals,coefs,grad,hess,iflag)
+
+c     Compute colleague information again      
+
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j)
+      do i=1,nboxes
+         nnbors(i) = 0
+         do j=1,mnbors
+            nbors(j,i) = -1
+         enddo
+      enddo
+C$OMP END PARALLEL DO    
+
+      call computecoll(ndim,nlevels,nboxes,laddr, boxsize,
+     1                   centers,iparent,nchild,
+     2                   ichild,iper,nnbors,nbors)
+      
+
+      return
+      end
+      
+
+c-------------------------------------------------------------      
+      subroutine vol_tree_reorg_pgh(ndim,nd,npbox,centers,nboxes,
+     1    nlevels,laddr,laddrtail,ilevel,iparent,nchild,ichild,
+     2    ifpgh,fvals,coefs,grad,hess,iflag)
+
+c    This subroutine reorganizes the current data in all the tree
+c    arrays to rearrange them in the standard format.
+c    The boxes on input are assumed to be arranged in the following
+c    format
+c    boxes on level i are the boxes from laddr(1,i) to 
+c    laddr(2,i) and also from laddrtail(1,i) to laddrtail(2,i)
+c
+c    At the end of the sorting, the boxes on level i
+c    are arranged from laddr(1,i) to laddr(2,i)  
+c
+c    add ifpgh option by Shidong Jiang on 04/18/2022
+c
+c
+c
+c
+c
+c    INPUT/OUTPUT arguments
+c    nboxes         in: integer
+c                   number of boxes
+c
+c    nd             in: integer
+c                   number of real value functions
+c
+c    npbox          in: integer
+c                   number of grid points per function
+c
+c    centers        in/out: double precision(3,nboxes)
+c                   x and y coordinates of the center of boxes
+c
+c    nlevels        in: integer
+c                   Number of levels in the tree
+c
+c    laddr          in/out: integer(2,0:nlevels)
+c                   boxes at level i are numbered between
+c                   laddr(1,i) to laddr(2,i)
+c
+c    laddrtail      in: integer(2,0:nlevels)
+c                   new boxes to be added to the tree
+c                   structure are numbered from
+c                   laddrtail(1,i) to laddrtail(2,i)
+c
+c    ilevel      in/out: integer(nboxes)
+c                ilevel(i) is the level of box i
+c
+c    iparent     in/out: integer(nboxes)
+c                 iparent(i) is the parent of box i
+c
+c    nchild      in/out: integer(nboxes)
+c                nchild(i) is the number of children 
+c                of box i
+c
+c    ichild       in/out: integer(8,nboxes)
+c                 ichild(j,i) is the jth child of box i
+c
+c    iflag        in/out: integer(nboxes)
+c                 iflag(i) is a flag for box i required to generate
+c                 level restricted tree from adaptive tree
+
+      implicit real *8 (a-h,o-z)
+c     Calling sequence variables and temporary variables
+      integer ndim,nboxes,nlevels,npbox,nd
+      double precision centers(ndim,nboxes)
+      integer laddr(2,0:nlevels), tladdr(2,0:nlevels)
+      integer laddrtail(2,0:nlevels)
+      integer ilevel(nboxes)
+      integer iparent(nboxes)
+      integer nchild(nboxes)
+      integer ichild(2**ndim,nboxes)
+      integer iflag(nboxes)
+      double precision fvals(nd,npbox,nboxes)
+      double precision coefs(nd,npbox,*)
+      double precision grad(nd,ndim,npbox,*)
+      double precision hess(nd,ndim*(ndim+1)/2,npbox,*)
+      
+      integer, allocatable :: tilevel(:),tiparent(:),tnchild(:)
+      integer, allocatable :: tichild(:,:),tiflag(:)
+      integer, allocatable :: iboxtocurbox(:),ilevptr(:),ilevptr2(:)
+
+      double precision, allocatable :: tfvals(:,:,:),tcenters(:,:)
+      double precision, allocatable :: tcoefs(:,:,:)
+      double precision, allocatable :: tgrad(:,:,:,:)
+      double precision, allocatable :: thess(:,:,:,:)
+
+c     Temporary variables
+      integer i,j,k,l
+      integer ibox,ilev, curbox,idim,nblev,mc
+
+      mc=2**ndim
+
+      nhess=ndim*(ndim+1)/2
+
+      if (ifpgh.ge.2) allocate(tgrad(nd,ndim,npbox,nboxes))
+      if (ifpgh.ge.3) allocate(thess(nd,nhess,npbox,nboxes))
+      
+      allocate(tilevel(nboxes),tiparent(nboxes),tnchild(nboxes))
+      allocate(tichild(mc,nboxes),tiflag(nboxes),iboxtocurbox(nboxes))
+      allocate(tfvals(nd,npbox,nboxes),tcenters(ndim,nboxes))
+      allocate(tcoefs(nd,npbox,nboxes))
+
+      do ilev = 0,nlevels
+         tladdr(1,ilev) = laddr(1,ilev)
+         tladdr(2,ilev) = laddr(2,ilev)
+      enddo
+      call vol_tree_copy(ndim,nd,nboxes,npbox,centers,ilevel,
+     1    iparent,nchild,ichild,fvals,tcenters,tilevel,
+     2    tiparent,tnchild,tichild,tfvals)
+
+      ntot=nd*npbox*nboxes
+      call dcopy_f77(ntot,coefs,1,tcoefs,1)
+      ntotg=ntot*ndim
+      if (ifpgh.ge.2) call dcopy_f77(ntotg,grad,1,tgrad,1)
+      ntoth=ntot*nhess
+      if (ifpgh.ge.3) call dcopy_f77(ntoth,hess,1,thess,1)
+      
+      
+      do ibox=1,nboxes
+         tiflag(ibox) = iflag(ibox)
+      enddo
+     
+c     Rearrange old arrays now
+
+      do ilev = 0,1
+         do ibox = laddr(1,ilev),laddr(2,ilev)
+           iboxtocurbox(ibox) = ibox
+         enddo
+      enddo
+
+      allocate(ilevptr(nlevels+1),ilevptr2(nlevels))
+
+      ilevptr(2) = laddr(1,2)
+
+      np=nd*npbox
+      ng=np*ndim
+      nh=np*nhess
+
+      do ilev=2,nlevels
+        nblev = laddr(2,ilev)-laddr(1,ilev)+1
+        ilevptr2(ilev) = ilevptr(ilev) + nblev
+        nblev = laddrtail(2,ilev)-laddrtail(1,ilev)+1
+        ilevptr(ilev+1) = ilevptr2(ilev) + nblev
+      enddo
+
+      curbox = laddr(1,2)
+      do ilev=2,nlevels
+         laddr(1,ilev) = curbox
+         do ibox = tladdr(1,ilev),tladdr(2,ilev)
+            ilevel(curbox) = tilevel(ibox)
+            nchild(curbox) = tnchild(ibox)
+            do k=1,ndim
+               centers(k,curbox) = tcenters(k,ibox)
+            enddo
+            call dcopy_f77(np,tfvals(1,1,ibox),1,fvals(1,1,curbox),1)
+            call dcopy_f77(np,tcoefs(1,1,ibox),1,
+     1          coefs(1,1,curbox),1)
+            if (ifpgh.ge.2) call dcopy_f77(ng,tgrad(1,1,1,ibox),1,
+     1          grad(1,1,1,curbox),1)
+            if (ifpgh.ge.3) call dcopy_f77(nh,thess(1,1,1,ibox),1,
+     1             hess(1,1,1,curbox),1)
+            
+            iflag(curbox) = tiflag(ibox)
+            iboxtocurbox(ibox) = curbox
+
+            curbox = curbox + 1
+         enddo
+         do ibox = laddrtail(1,ilev),laddrtail(2,ilev)
+            ilevel(curbox) = tilevel(ibox)
+            do k=1,ndim
+               centers(k,curbox) = tcenters(k,ibox)
+            enddo
+            nchild(curbox) = tnchild(ibox)
+            call dcopy_f77(np,tfvals(1,1,ibox),1,fvals(1,1,curbox),1)
+            call dcopy_f77(np,tcoefs(1,1,ibox),1,
+     1          coefs(1,1,curbox),1)
+            if (ifpgh.ge.2) call dcopy_f77(ng,tgrad(1,1,1,ibox),1,
+     1          grad(1,1,1,curbox),1)
+            if (ifpgh.ge.3) call dcopy_f77(nh,thess(1,1,1,ibox),1,
+     1             hess(1,1,1,curbox),1)
+
+            iflag(curbox) = tiflag(ibox)
+            iboxtocurbox(ibox) = curbox
+
+            curbox = curbox + 1
+         enddo
+         laddr(2,ilev) = curbox-1
+      enddo
+
+c     Handle the parent children part of the tree 
+c     using the mapping iboxtocurbox
+
+      do ibox=1,nboxes
+         if(tiparent(ibox).eq.-1) iparent(iboxtocurbox(ibox)) = -1
+         if(tiparent(ibox).gt.0) 
+     1    iparent(iboxtocurbox(ibox)) = iboxtocurbox(tiparent(ibox))
+         do i=1,mc
+            if(tichild(i,ibox).eq.-1) ichild(i,iboxtocurbox(ibox)) = -1
+            if(tichild(i,ibox).gt.0) 
+     1      ichild(i,iboxtocurbox(ibox)) = iboxtocurbox(tichild(i,ibox))
+         enddo
+      enddo
+
+      return
+      end
+c
+c
+c
+c
+c
+      subroutine vol_tree_refine_boxes_flag_interp(ndim,iflag,nd,norder,
+     1    npbox,ifpgh,fvals,coefs,grad,hess,nboxes,ifirstbox,nbloc,
+     2    centers,bs,nbctr,nlctr,ilevel,iparent,nchild,ichild,
+     3    isgn,polyv,umat_nd)
+      implicit real *8 (a-h,o-z)
+      integer ndim,nd,npbox,nboxes
+      real *8 fvals(nd,npbox,nboxes)
+      real *8 coefs(nd,npbox,*)
+      real *8 grad(nd,ndim,npbox,*)
+      real *8 hess(nd,ndim*(ndim+1)/2,npbox,*)
+
+      integer nbloc,nbctr,nlctr
+      real *8 centers(ndim,nboxes),bs,xyz(ndim)
+      integer ilevel(nboxes),iparent(nboxes)
+      integer ichild(2**ndim,nboxes),nchild(nboxes)
+      integer iflag(nboxes)
+      integer ifirstbox,ilastbox
+      integer, allocatable :: isum(:)
+
+      integer i,ibox,nel,j,l,jbox,nbl,ii,k,mc
+
+      real *8 bsh
+      integer isgn(ndim,2**ndim)
+      real *8 polyv(norder,norder,ndim,2**ndim)
+      real *8 umat_nd(norder,norder,ndim)
+
+      real *8, allocatable :: gcoefs(:,:,:),hcoefs(:,:,:)
+
+      mc=2**ndim
+      nhess=ndim*(ndim+1)/2
+
+      if (ifpgh.ge.2) allocate(gcoefs(nd,ndim,npbox))
+      if (ifpgh.ge.3) allocate(hcoefs(nd,nhess,npbox))
+
+      ng = nd*ndim
+      nh = nd*nhess
+      
+      ilastbox = ifirstbox+nbloc-1
+
+
+      bsh = bs/2
+
+      allocate(isum(nbloc))
+
+      call cumsum_nz(nbloc,iflag(ifirstbox),isum)
+
+      
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,j,jbox,nbl,l)
+C$OMP$PRIVATE(xyz,k)
+      do ibox = ifirstbox,ilastbox
+        if(iflag(ibox).gt.0) then
+          if (ifpgh.ge.2) then
+             call ortho_trans_nd(ndim,ng,0,norder,grad(1,1,1,ibox),
+     1           gcoefs,umat_nd)
+          endif
+          if (ifpgh.ge.3) then
+             call ortho_trans_nd(ndim,nh,0,norder,hess(1,1,1,ibox),
+     1           hcoefs,umat_nd)
+          endif
+          
+          nchild(ibox) = mc
+          nbl = nbctr + (isum(ibox-ifirstbox+1)-1)*mc
+          do j=1,mc
+            jbox = nbl+j
+            do k=1,ndim
+               centers(k,jbox) = centers(k,ibox)+isgn(k,j)*bsh
+            enddo
+c           get the data on the child box by interpolation
+            call ortho_eval_nd(ndim,nd,norder,coefs(1,1,ibox),
+     1          norder,fvals(1,1,jbox),polyv(1,1,1,j))
+            call ortho_trans_nd(ndim,nd,0,norder,fvals(1,1,jbox),
+     1          coefs(1,1,jbox),umat_nd)
+            if (ifpgh.ge.2) then
+               call ortho_eval_nd(ndim,ng,norder,gcoefs,
+     1             norder,grad(1,1,1,jbox),polyv(1,1,1,j))
+            endif
+            if (ifpgh.ge.3) then
+               call ortho_eval_nd(ndim,nh,norder,hcoefs,
+     1             norder,hess(1,1,1,jbox),polyv(1,1,1,j))
+            endif
+            
+            iparent(jbox) = ibox
+            nchild(jbox) = 0
+            do l=1,mc
+              ichild(l,jbox) = -1
+            enddo
+            ichild(j,ibox) = jbox
+            ilevel(jbox) = nlctr+1 
+            if(iflag(ibox).eq.1) iflag(jbox) = 3
+            if(iflag(ibox).eq.2) iflag(jbox) = 0
+          enddo
+        endif
+      enddo
+C$OMP END PARALLEL DO
+      
+      if(nbloc.gt.0) nbctr = nbctr + isum(nbloc)*mc
+
+
+      return
+      end
+c
+c
+c
+c
+c

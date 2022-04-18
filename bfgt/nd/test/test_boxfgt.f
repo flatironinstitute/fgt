@@ -48,18 +48,18 @@ c
       external fgaussn,fgaussnx,exact_pot
 
 c     dimension of the underlying space
-      ndim=2
+      ndim=3
       eps = 0.5d-12
       if (ndim.eq.3) eps=0.5d-6
 c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
       ipoly=0
 c     polynomial expansion order for each leaf box
-      norder = 8
+      norder = 10
 c     number of extra targets
       ntarg = 1000 000
 c     gaussian variance
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 1d-4
+      delta = 1d-2
 c     number of right-hand sides
       nd = 1
 c     0: free space; 1: doubly periodic

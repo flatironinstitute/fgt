@@ -920,7 +920,7 @@ C$    time2=omp_get_wtime()
       
  4000 continue
       if(ifprint .ge. 1)
-     $     call prinf('=== STEP 8 (refine if necessary) =====*',i,0)
+     $     call prinf('=== STEP 8 (refine if needed) =====*',i,0)
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
 
@@ -1173,14 +1173,30 @@ C$    time1=omp_get_wtime()
 C$    time2=omp_get_wtime()  
       timeinfo(10) = time2-time1
       call prinf('after coarsening, nlevels=*', nlevels,1)
-      call prinf('and nboxes=*', itree(2*nlevels+2),1)
+      nboxes0=itree(2*nlevels+2)
+      call prinf('and nboxes=*', nboxes0,1)
 
 
+      if(ifprint .ge. 1)
+     1    call prinf('=== STEP 10 (2:1 rebalance) =====*',i,0)
+c
+      call cpu_time(time1)
+C$    time1=omp_get_wtime()
+      call vol_tree_fix_lr_interp(ndim,nd,ipoly,norder,npbox,
+     1    ifpgh,pot,coefsp,grad,hess,
+     2    nboxes,nlevels,centers,boxsize,nboxes0,nlevels,
+     3    itree(iptr(1)),itree(iptr(2)),itree(iptr(3)),itree(iptr(4)),
+     4    itree(iptr(5)),itree(iptr(6)),itree(iptr(7)))
+      call cpu_time(time2)
+C$    time2=omp_get_wtime()  
+      timeinfo(11) = time2-time1
+      nboxes=itree(2*nlevels+2)
+      call prinf('after 2:1 rebalancing, nboxes=*', nboxes,1)
 
       
  5000 continue
       if(ifprint .ge. 1)
-     $     call prinf('=== STEP 10 (extra targets) =====*',i,0)
+     $     call prinf('=== STEP 11 (extra targets) =====*',i,0)
 c
 cc
       call cpu_time(time1)
@@ -1239,19 +1255,19 @@ c     using coefficients for potential only
       
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
-      timeinfo(11) = time2-time1
+      timeinfo(12) = time2-time1
       
       
       if(ifprint.eq.1) then 
          call prin2('timeinfo=*',timeinfo,11)
          d= 0
-         do i = 1,10
+         do i = 1,11
             d = d + timeinfo(i)
          enddo
          call prin2('time on tensor grid=*',d,1)
          call prin2('tensor grid speed in pps=*',
      1       (nleafbox*npbox*nd+0.0d0)/d,1)
-         d=timeinfo(11)
+         d=timeinfo(12)
          call prin2('time on extra targets=*',d,1)
          call prin2('extra targets speed in pps=*',
      1       (ntarg*nd+0.0d0)/d,1)

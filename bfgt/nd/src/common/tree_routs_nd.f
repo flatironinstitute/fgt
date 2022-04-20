@@ -827,26 +827,30 @@ C$OMP END PARALLEL DO
 c      
 c      
 c      
+c      
 c----------------------------------------------------------------
 c      
-      subroutine compute_modified_list1(ndim,npwlevel,nboxes,nlevels,
-     1    ltree,itree,iptr,centers,boxsize,iper,mnlist1,nlist1,list1)
+      subroutine gnd_compute_modified_list1(ndim,npwlevel,ifpwexp,
+     1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,iper,
+     2    mnlist1,nlist1,list1)
 c
 c
 c     This subroutine computes the modified list1 of a given tree
 c     structure
 c
-c     Note: new definition of list 1 - (1) for ilev < npwlevel,             
-c                  list1 is the same as before; (2) for ilev =
-c                  npwlevel, boxes at the finer level in list1 
-c                  are replaced by their parent, i.e., the colleague 
-c                  of ibox; (3) for ilev > npwlevel, list1 has
-c                  no use in the FGT.
+c     Note: new definition of list 1 - for ilev <= npwlevel,             
+c     list1 of a leaf box contains all childless neighbors at or
+c     above npwlevel. ifpwexp(ibox)=1, then ibox is excluded from 
+c     list1 since then the self interaction is handled via
+c     plane wave expansions.
 c                  
 c     Assume that the tree is level-restricted. Then the
 c     new list1 of source ibox contains all target boxes 
-c     that require the evaluation of direct interaction with ibox 
-c     in the point FGT.  
+c     that require the evaluation of direct interactions with ibox 
+c     in the box FGT.  
+c      
+c      
+c     haven't tested iper=1 case.
 c      
 c      
 c     INPUT arguments
@@ -855,7 +859,9 @@ c                 Number of levels
 c
 c     npwlevel    in: integer
 c                 Cutoff level
-c
+c     ifpwexp     in: integer(nboxes)
+c                 1: requires pwexp; 0: does not require pwexp
+c      
 c     nboxes      in: integer
 c                 Total number of boxes
 c
@@ -893,11 +899,11 @@ c                 list1 of box i.
 c                  
 c      
 c---------------------------------------------------------------
-      implicit none
+      implicit real *8 (a-h,o-z)
       integer nlevels,npwlevel,nboxes,ndim
       integer iptr(8),ltree
       integer iper
-      integer itree(ltree)
+      integer itree(ltree),ifpwexp(nboxes)
       real *8 boxsize(0:nlevels)
       real *8 centers(ndim,nboxes)
       integer mnlist1
@@ -928,90 +934,203 @@ c     Setting parameters for level = 0
          nlist1(1) = 0
       endif
 
-      
-      do ilev = 1,nlevels
-c        Find the first and the last box at level ilev      
+      do ilev = 1,npwlevel
          ifirstbox = itree(2*ilev+1)
          ilastbox = itree(2*ilev+2)
-
 C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,dad,i,jbox,j,kbox,distest,dis,iflist1,dp1,k)
+C$OMP$PRIVATE(ibox,dad,i,jbox,j,kbox,dis,distest,k)
+C$OMP$PRIVATE(iflist1)
          do ibox = ifirstbox,ilastbox
             dad = itree(iptr(3)+ibox-1)
-
-c           Compute list 1 and list 3 of ibox if ibox is childless
+c           Compute list1 of ibox if it is childless
             if(itree(iptr(4)+ibox-1).eq.0) then
-c              Loop over all colleagues of ibox              
                do i=1,itree(iptr(6)+ibox-1)
                   jbox = itree(iptr(7)+mnbors*(ibox-1)+i-1)
+c
+cc                boxes in list 1 at the same level
+c
 
-                  if (ilev .ge. npwlevel) then
-                     if (itree(iptr(4)+jbox-1).eq.0) then
-                        nlist1(ibox) = nlist1(ibox)+1
+                  if (itree(iptr(4)+jbox-1).eq.0) then
+                     if ((ifpwexp(ibox).ne.1) .or. (jbox.ne.ibox)) then
+                        nlist1(ibox) = nlist1(ibox) + 1
                         list1(nlist1(ibox),ibox) = jbox
                      endif
                   else
-c                    If the colleague box is childless, then
-c                    colleague box is in list 1
-                     if(itree(iptr(4)+jbox-1).eq.0) then
-                        nlist1(ibox) = nlist1(ibox)+1
-                        list1(nlist1(ibox),ibox) = jbox
-
-c                    If colleague box is not childless, then
-c                    test to see if children of colleague
-c                    box are in list1 or list 3. 
-
-                     else
-                        distest = 1.05d0*(boxsize(ilev) + 
-     1                                 boxsize(ilev+1))/2.0d0
-c                       Loop over children of colleague box              
-                        do j=1,itree(iptr(4)+jbox-1)
+c
+cc                     boxes in list1 at level ilev+1
+c
+                     if (ilev.lt.npwlevel) then
+                        distest = 1.05d0*(boxsize(ilev)+boxsize(ilev+1))
+     1                      /2.0d0
+                        do j=1,mc
                            kbox = itree(iptr(5)+mc*(jbox-1)+j-1)
-                           iflist1=1
-                           do k=1,ndim
-                             dis = dabs(centers(k,kbox)-centers(k,ibox))
-                             if (iper .eq. 1) then
-                              dp1 = bs-dis
-                              if (dp1.lt.dis) dis=dp1
-                             endif
-                             if (dis.ge.distest) then
-                                iflist1=0
-                                exit
-                             endif
-                           enddo
-c                       Test to see if child of colleague box
-c                       is in list1
-                           if(iflist1.eq.1) then
-                              nlist1(ibox) = nlist1(ibox)+1
-                              list1(nlist1(ibox),ibox)=kbox
-
-                              nlist1(kbox) = nlist1(kbox)+1
-                              list1(nlist1(kbox),kbox) = ibox
+                           if(itree(iptr(4)+kbox-1).eq.0) then
+                              iflist1=1
+                              do k=1,ndim
+                                 dis = dabs(centers(k,kbox)
+     1                               -centers(k,ibox))
+                                 if (iper .eq. 1) then
+                                    dp1 = bs-dis
+                                    if (dp1.lt.dis) dis=dp1
+                                 endif
+                                 
+                                 if (dis.ge.distest) then
+                                    iflist1=0
+                                    exit
+                                 endif
+                              enddo
+                              if(iflist1.eq.1) then
+                                 nlist1(ibox) = nlist1(ibox)+1
+                                 list1(nlist1(ibox),ibox) = kbox
+                              endif
                            endif
-c                       End of figuring out whether child 
-c                       of colleague box is in list 1 or list3
                         enddo
-c                    End of looping over of children of colleague
-c                    box
                      endif
-c                    End of checking if colleague box has children
                   endif
                enddo
-c              End of looping over colleague boxes
-            endif 
-c           End of checking of current box is childless
-         enddo
+c
+cc               compute list1 at level ilev-1 
+               do i=1,itree(iptr(6)+dad-1)
+                  jbox = itree(iptr(7)+mnbors*(dad-1)+i-1)
+                  if(itree(iptr(4)+jbox-1).eq.0) then
+                     distest = 1.05d0*(boxsize(ilev)+boxsize(ilev-1))/
+     1                   2.0d0
+                     iflist1=1
+                     do k=1,ndim
+                        dis = dabs(centers(k,jbox)-centers(k,ibox))
+                        if (iper .eq. 1) then
+                           dp1 = bs-dis
+                           if (dp1.lt.dis) dis=dp1
+                        endif
+                        if (dis.ge.distest) then
+                           iflist1=0
+                           exit
+                        endif
+                     enddo
+                     if(iflist1.eq.1) then
+                        nlist1(ibox) = nlist1(ibox)+1
+                        list1(nlist1(ibox),ibox) = jbox
+                     endif
+                  endif
+               enddo
+            endif
+          enddo
 C$OMP END PARALLEL DO         
       enddo
-c     End of looping over levels      
 
       return
       end
+c      
+c
+c
+cc      
+c      
+c      
+c----------------------------------------------------------------
+c      
+      subroutine gnd_find_pwexp_boxes(ndim,npwlevel,nboxes,
+     1    nlevels,ltree,itree,iptr,iper,ifpwexp)
+c
+c
+c     Determine whether a box needs plane wave expansions
+c     in the box fgt.
+c
+c     1. all boxes below npwlevel need plane wave expansions
+c     2. at the cutoff level, i.e., npwlevel, a box needs
+c     plane wave expansion if one of its colleagues is a nonleaf 
+c     box. 
+c                  
+c     Thus, a leaf box at the cutoff level may or may not 
+c     have plane wave expansion.
+c     But if it has plane wave expansion, then the self interaction
+c     is handled by the plane wave expansion instead of 
+c     direct evaluation. 
+c      
+c     haven't implemented iper=1 case.
+c      
+c      
+c     INPUT arguments
+c     npwlevel    in: integer
+c                 Cutoff level
+c
+c     nboxes      in: integer
+c                 Total number of boxes
+c
+c     nlevels     in: integer
+c                 Number of levels
+c
+c     itree       in: integer(ltree)
+c                   array containing tree info - see start of file
+c                   for documentation
+c     ltree       in: integer
+c                   length of itree array
+c 
+c     iptr        in: integer(8)
+c                   pointer for various arrays in itree
+c
+c     iper        in: integer
+c                 flag for periodic implementations. Currently not used.
+c                 Feature under construction
+c 
+c--------------------------------------------------------------
+c     OUTPUT arguments:
+c     ifpwexp     out: integer(nboxes)
+c                 ifpwexp(ibox)=1, ibox needs plane wave expansion
+c                 ifpwexp(ibox)=0, ibox does not need pwexp
+c      
+c---------------------------------------------------------------
+      implicit real *8 (a-h,o-z)
+      integer nlevels,npwlevel,nboxes,ndim
+      integer iptr(8),ltree
+      integer iper
+      integer itree(ltree)
+      integer ifpwexp(nboxes)
+
+      mnbors=3**ndim
+      
+      do i=1,nboxes
+         ifpwexp(i)=0
+      enddo
+      
+      if (npwlevel .ge. 0 .and. npwlevel .le. nlevels) then
+c     At the cutoff level, a box will have plane wave expansion if 1. it's a nonleaf
+c     box; or 2. it's a leaf box but has a nonleaf colleague.
+c     Note that we also use plane wave expansion to compute the self interaction of 
+c     this box as well
+         do ilev=npwlevel,npwlevel
+            do 1000 ibox=itree(2*ilev+1),itree(2*ilev+2)
+               nchild = itree(iptr(4)+ibox-1)
+               if (nchild .eq. 0) then
+                  ncoll = itree(iptr(6)+ibox-1)
+                  do j=1,ncoll
+                     jbox = itree(iptr(7) + (ibox-1)*mnbors+j-1)
+                     nchild = itree(iptr(4)+jbox-1)
+                     jlev = itree(iptr(2)+jbox-1)
+                     if (nchild .gt. 0 .and. jlev.eq.ilev) then
+                        ifpwexp(ibox)=1
+                        exit
+                     endif
+                  enddo
+               else
+                  ifpwexp(ibox)=1
+               endif
+ 1000       continue
+         enddo
+c     below the cutoff level, all boxes are handled via plane wave expansions
+         do ilev=npwlevel+1,nlevels
+            do ibox=itree(2*ilev+1),itree(2*ilev+2)
+               ifpwexp(ibox)=1
+            enddo
+         enddo
+      endif      
+
+      return
+      end
+c      
 c
 c
 c
-c
-      subroutine gtnd_compute_mnlistpw(ndim,nboxes,nlevels,ltree,itree,
+      subroutine gnd_compute_mnlistpw(ndim,nboxes,nlevels,ltree,itree,
      1   iptr,centers,boxsize,iper,mnlistpw)
 c
 c     determine maximum number of elements in listpw
@@ -1033,7 +1152,7 @@ c
 c
 c
 c
-      subroutine gtnd_compute_listpw(ndim,npwlevel,nboxes,nlevels,
+      subroutine gnd_compute_listpw(ndim,npwlevel,nboxes,nlevels,
      1    ltree,itree,iptr,centers,boxsize,laddr,
      2    mnlistpw,nlistpw,listpw)
 c     this subroutine returns lists of pw interaction boxes
@@ -1080,6 +1199,12 @@ c
               if (jbox.ne.ibox .and. ilev.eq.jlev .and. 
      1            (itree(iptr(4)+jbox-1).gt.0
      2            .or. itree(iptr(4)+ibox-1).gt.0)) then
+c             The pw list of ibox at the cutoff level contains its
+c             colleague jbox at the cutoff level if either of them
+c             has children. If both of them are leaf boxes, their
+c             interaction will be computed directly. Self interaction
+c             is always directly copied from mp exp to the loc exp and
+c             thus is not in the pw list.
                  nlistpw(ibox)=nlistpw(ibox)+1
                  listpw(nlistpw(ibox),ibox) = jbox
               endif

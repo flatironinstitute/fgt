@@ -346,7 +346,7 @@ c
       integer, allocatable :: nlist1(:),list1(:,:)
       integer, allocatable :: nlist_loc(:),list_loc(:,:)
       integer, allocatable :: nlistpw(:), listpw(:,:)
-      integer, allocatable :: ifhung(:),iflocal(:)
+      integer, allocatable :: ifpwexp(:)
 
       integer ndirect
       integer ixyz(ndim)
@@ -429,13 +429,9 @@ c     compute the number of leaf boxes
           if(itree(iptr(4)+ibox-1).eq.0) nleafbox = nleafbox+1
         enddo
       enddo
-      call prinf('nleafbox=*',nleafbox,1)
+      if(ifprint.eq.1) call prinf('nleafbox=*',nleafbox,1)
       
-      allocate(ifhung(nboxes))
-      do i=1,nboxes
-         ifhung(i)=0
-      enddo
-
+c     estimate number of direct evaluation boxes
       ndirect=0
       do ilev = 0,nlevend
 C$OMP PARALLEL DO DEFAULT (SHARED)
@@ -443,13 +439,14 @@ C$OMP$PRIVATE(ibox,nchild)
 C$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
             nchild = itree(iptr(4)+ibox-1)
-c           Check if the current box is a nonempty leaf box            
+c           Check if the current box is a leaf box            
             if(nchild.eq.0) then
-               ifhung(ibox) = 1
                ndirect = ndirect+1
             endif
          enddo
       enddo
+      if(ifprint.eq.1) call 
+     1    prinf('number of direct evaluation source boxes=*',ndirect,1)
 
       nasym=3
       sigma=(delta/boxsize(nlevels)**2)**nasym/8
@@ -459,8 +456,6 @@ c           Check if the current box is a nonempty leaf box
 cccc      if (nleafbox.eq.ndirect .and. sigma.le.2*eps) goto 3000
 cccc      goto 3000
       
-      if(ifprint.eq.1) call 
-     1    prinf('number of direct evaluation source boxes=*',ndirect,1)
 
       do i=1,10
          timeinfo(i)=0
@@ -469,6 +464,12 @@ c
 c
 c       compute list info
 c
+c     check whether we need to create and evaluate planewave expansions 
+c     for boxes
+      allocate(ifpwexp(nboxes))
+      call gnd_find_pwexp_boxes(ndim,npwlevel,nboxes,
+     1    nlevels,ltree,itree,iptr,iperiod,ifpwexp)
+
       isep = 1
       call compute_mnlist1(ndim,nboxes,nlevels,itree(iptr(1)),centers,
      1    boxsize,itree(iptr(3)),itree(iptr(4)),itree(iptr(5)),
@@ -477,8 +478,12 @@ c
       allocate(list1(mnlist1,nboxes),nlist1(nboxes))
 
 c     modified list1 for direct evaluation
-      call compute_modified_list1(ndim,npwlevel,nboxes,nlevels,
-     1    ltree,itree,iptr,centers,boxsize,iperiod,mnlist1,nlist1,list1)
+c     list1 of a childless source box ibox at ilev<=npwlevel
+c     contains all childless target boxes that are neighbors of ibox
+c     at or above npwlevel
+      call gnd_compute_modified_list1(ndim,npwlevel,ifpwexp,
+     1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,iperiod,
+     2    mnlist1,nlist1,list1)
 
 c     compute the tables converting Legendre polynomial expansion to potential
 c     values, used in direct evaluation
@@ -496,32 +501,6 @@ c     values, used in direct evaluation
       enddo
 
 c
-c     check whether we need to create and evaluate planewave expansions 
-c     for boxes at the cutoff level
-      allocate(iflocal(nboxes))
-      if (npwlevel .ge. 0 .and. npwlevel .le. nlevels) then
-         do i=1,nboxes
-            iflocal(i)=0
-         enddo
-
-         do ilev=npwlevel,npwlevel
-            do ibox=itree(2*ilev+1),itree(2*ilev+2)
-               nchild = itree(iptr(4)+ibox-1)
-               if (nchild .eq. 0) then
-                  ncoll = itree(iptr(6)+ibox-1)
-                  do j=1,ncoll
-                     jbox = itree(iptr(7) + (ibox-1)*mnbors+j-1)
-                     nchild = itree(iptr(4)+jbox-1)
-                     jlev = itree(iptr(2)+jbox-1)
-                     if (nchild .gt. 0 .and. jlev.eq.ilev) then
-                        iflocal(ibox)=1
-                        exit
-                     endif
-                  enddo
-               endif
-            enddo
-         enddo
-      endif
       
 c     direct evaluation if the cutoff level is >= the maximum level 
       if (npwlevel .ge. nlevels) goto 1800
@@ -580,11 +559,11 @@ c
 c
 c     compute list info
 c
-      call gtnd_compute_mnlistpw(ndim,nboxes,nlevels,ltree,itree,
+      call gnd_compute_mnlistpw(ndim,nboxes,nlevels,ltree,itree,
      1    iptr,centers,boxsize,iper,mnlistpw)
       allocate(nlistpw(nboxes),listpw(mnlistpw,nboxes))
 c     listpw contains source boxes in the pw interaction
-      call gtnd_compute_listpw(ndim,npwlevel,nboxes,nlevels,
+      call gnd_compute_listpw(ndim,npwlevel,nboxes,nlevels,
      1    ltree,itree,iptr,centers,boxsize,itree(iptr(1)),
      3    mnlistpw,nlistpw,listpw)      
 c
@@ -617,7 +596,7 @@ C$OMP PARALLEL DO DEFAULT (SHARED)
 C$OMP$PRIVATE(ibox,nchild)
 C$OMP$SCHEDULE(DYNAMIC)
         do ibox=itree(2*ilev+1),itree(2*ilev+2)
-          if (ilev .ne. npwlevel .or. iflocal(ibox).eq.1) then
+          if (ifpwexp(ibox).eq.1) then
             nchild = itree(iptr(4)+ibox-1)
 c           Check if current box is a leaf box            
             if(nchild.eq.0) then
@@ -690,16 +669,16 @@ C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,jbox,j,ind)
 C$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
-           call gnd_copy_pwexp(nd,nexp,rmlexp(iaddr(1,ibox)),
+            call gnd_copy_pwexp(nd,nexp,rmlexp(iaddr(1,ibox)),
      1          rmlexp(iaddr(2,ibox)))
-c          shift PW expansions
-           do j=1,nlistpw(ibox)
-              jbox=listpw(j,ibox)
-              call gnd_find_pwshift_ind(ndim,iperiod,centers(1,ibox),
+c           shift PW expansions
+            do j=1,nlistpw(ibox)
+               jbox=listpw(j,ibox)
+               call gnd_find_pwshift_ind(ndim,iperiod,centers(1,ibox),
      1             centers(1,jbox),bs0,xmin,nmax,ind)
-              call gnd_shiftpw(nd,nexp,rmlexp(iaddr(1,jbox)),
+               call gnd_shiftpw(nd,nexp,rmlexp(iaddr(1,jbox)),
      1             rmlexp(iaddr(2,ibox)),wpwshift(1,ind))
-           enddo
+            enddo
         enddo
 C$OMP END PARALLEL DO        
  1300 continue
@@ -732,14 +711,14 @@ C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
            nchild = itree(iptr(4)+ibox-1)
            if (nchild.gt.0) then
-           do i=1,nchild
-             jbox = itree(iptr(5)+mc*(ibox-1)+i-1)
-             call gnd_find_msshift_ind(ndim,centers(1,jbox),
-     1           centers(1,ibox),k)
-             call gnd_shiftpw_loc(nd,nexp,rmlexp(iaddr(2,ibox)),
-     1           rmlexp(iaddr(2,jbox)),wpwmsshift(1,k,nlevels-ilev))
-          enddo
-          endif
+              do i=1,nchild
+                 jbox = itree(iptr(5)+mc*(ibox-1)+i-1)
+                 call gnd_find_msshift_ind(ndim,centers(1,jbox),
+     1               centers(1,ibox),k)
+                 call gnd_shiftpw_loc(nd,nexp,rmlexp(iaddr(2,ibox)),
+     1               rmlexp(iaddr(2,jbox)),wpwmsshift(1,k,nlevels-ilev))
+              enddo
+           endif
         enddo
 C$OMP END PARALLEL DO        
  1400 continue
@@ -765,12 +744,9 @@ C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,nchild)
 C$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
-           if (ilev .eq. npwlevel .and. iflocal(ibox).eq.0) then
-c            do nothing here
-           else    
+           if (ifpwexp(ibox).eq.1) then
              nchild = itree(iptr(4)+ibox-1)
              if(nchild.eq.0) then
-               ifpghloc=1
                call gnd_pw2pgh(ndim,nd,norder,npw,
      1            rmlexp(iaddr(2,ibox)),tab_pw2pot(1,1,ilev),
      2            tab_pw2der(1,1,ilev),tab_pw2dxx(1,1,ilev),ifpgh,
@@ -778,8 +754,6 @@ c            do nothing here
              endif
            endif
         enddo
-cccc 222    format ('ilev=', i1,4x, 'nb=',i6, 4x,'pweval=', f5.2)         
-cccc        write(6,222) ilev,nb,dt
 C$OMP END PARALLEL DO        
  1500 continue
       
@@ -807,28 +781,20 @@ C$OMP$SCHEDULE(DYNAMIC)
          bs = boxsize(ilev)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
 c        ibox is the source box            
-            if (ifhung(ibox) .eq. 1) then
-               
-               nl1 = nlist1(ibox)
-               do j=1,nl1
-cccc              jbox is the target box
-                  jbox = list1(j,ibox)
-                  jlev = itree(iptr(2)+jbox-1)
-                  if ((ilev .ne. jlev) .or.
-     1                ((iflocal(ibox).ne.1) .or. (jbox.ne.ibox))) then
-                     call gnd_find_loctab_ind(ndim,iperiod,
-     1                   centers(1,jbox),centers(1,ibox),
-     2                   bs,bs0,ixyz)
-                     ifpghloc=1
-                     call gnd_tens_prod_to_pghloc(ndim,nd,norder,
-     1                   fvals(1,1,ibox),ifpgh,pot(1,1,jbox),
-     2                   grad(1,1,1,jbox),hess(1,1,1,jbox),
-     3                   tab_loc(1,1,-6,jlev),tabx_loc(1,1,-6,jlev),
-     4                   tabxx_loc(1,1,-6,jlev),ind_loc(1,1,-6,jlev),
-     3                   ixyz)
-                  endif
-               enddo
-            endif
+            nl1 = nlist1(ibox)
+            do j=1,nl1
+cccc        jbox is the target box
+               jbox = list1(j,ibox)
+               jlev = itree(iptr(2)+jbox-1)
+               call gnd_find_loctab_ind(ndim,iperiod,
+     1             centers(1,jbox),centers(1,ibox),bs,bs0,ixyz)
+               call gnd_tens_prod_to_pghloc(ndim,nd,norder,
+     1             fvals(1,1,ibox),ifpgh,pot(1,1,jbox),
+     2             grad(1,1,1,jbox),hess(1,1,1,jbox),
+     3             tab_loc(1,1,-6,jlev),tabx_loc(1,1,-6,jlev),
+     4             tabxx_loc(1,1,-6,jlev),ind_loc(1,1,-6,jlev),
+     3             ixyz)
+            enddo
          enddo
 C$OMP END PARALLEL DO         
  2000 continue
@@ -837,10 +803,7 @@ c
 C$    time2=omp_get_wtime()  
       timeinfo(7) = time2-time1
       allocate(coefsp(nd,npbox,nboxes))
-c     all direct evaluations, which means delta is very small
-c     in this case, no need to refine or coarsen
-      if (npwlevel .ge. nlevels) goto 5000
-      goto 4000
+      goto 5000
 ccc      goto 3000
 
 
@@ -860,55 +823,60 @@ c     1    nlevels,itree,iptr,boxsize,norder,fvals,pot)
 
       itype=0
       iffast=1
-      if (iffast.eq.1) then
+      if (iffast.eq.0) goto 3200 
 c     use spectral differentiation to evaluate gradient and hessian
-         if (ifpgh.eq.2) then
-            allocate(fcoefs(nd,npbox,nboxes))
-            call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
-     1          iptr,boxsize,norder,pot,fcoefs,umat_nd)
-            call treedata_evalg_nd(ndim,nd,ipoly,nlevels,itree,iptr,
-     1          boxsize,norder,fcoefs,grad)
-         endif
+      if (ifpgh.eq.2) then
+         allocate(fcoefs(nd,npbox,nboxes))
+         call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
+     1       iptr,boxsize,norder,pot,fcoefs,umat_nd)
+         call treedata_evalg_nd(ndim,nd,ipoly,nlevels,itree,iptr,
+     1       boxsize,norder,fcoefs,grad)
+      endif
       
-         if (ifpgh.eq.3) then
-            allocate(fcoefs(nd,npbox,nboxes))
-            call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
-     1          iptr,boxsize,norder,pot,fcoefs,umat_nd)
-            call treedata_evalgh_nd(ndim,nd,ipoly,nlevels,itree,iptr,
-     1          boxsize,norder,fcoefs,grad,hess)
-         endif
-      elseif (iffast.eq.0) then
+      if (ifpgh.eq.3) then
+         allocate(fcoefs(nd,npbox,nboxes))
+         call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
+     1       iptr,boxsize,norder,pot,fcoefs,umat_nd)
+         call treedata_evalgh_nd(ndim,nd,ipoly,nlevels,itree,iptr,
+     1       boxsize,norder,fcoefs,grad,hess)
+      endif
+      goto 3500
+      
+ 3200 continue
+
+c     slow version of asymptotics
 c     also use asymptotic expansion to evaluate gradient and hessian
-         if (ifpgh.eq.2) then
-            allocate(fcoefs(nd,npbox,nboxes))
-            allocate(gvals(nd,ndim,npbox,nboxes))
+      if (ifpgh.eq.2) then
+         allocate(fcoefs(nd,npbox,nboxes))
+         allocate(gvals(nd,ndim,npbox,nboxes))
 
-            call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
-     1          iptr,boxsize,norder,fvals,fcoefs,umat_nd)
-            call treedata_evalg_nd(ndim,nd,ipoly,nlevels,itree,iptr,
-     1          boxsize,norder,fcoefs,gvals)
-            ng=nd*ndim
-            call treedata_eval_pot_nd_asym(ndim,ng,delta,ipoly,nasym,
-     1          nlevels,itree,iptr,boxsize,norder,gvals,grad)
-         endif
+         call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
+     1       iptr,boxsize,norder,fvals,fcoefs,umat_nd)
+         call treedata_evalg_nd(ndim,nd,ipoly,nlevels,itree,iptr,
+     1       boxsize,norder,fcoefs,gvals)
+         ng=nd*ndim
+         call treedata_eval_pot_nd_asym(ndim,ng,delta,ipoly,nasym,
+     1       nlevels,itree,iptr,boxsize,norder,gvals,grad)
+      endif
       
-         if (ifpgh.eq.3) then
-            allocate(fcoefs(nd,npbox,nboxes))
-            allocate(gvals(nd,ndim,npbox,nboxes))
-            allocate(hvals(nd,nhess,npbox,nboxes))
+      if (ifpgh.eq.3) then
+         allocate(fcoefs(nd,npbox,nboxes))
+         allocate(gvals(nd,ndim,npbox,nboxes))
+         allocate(hvals(nd,nhess,npbox,nboxes))
+         
+         call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
+     1       iptr,boxsize,norder,fvals,fcoefs,umat_nd)
+         call treedata_evalgh_nd(ndim,nd,ipoly,nlevels,itree,iptr,
+     1       boxsize,norder,fcoefs,gvals,hvals)
+         ng=nd*ndim
+         nh=nd*nhess
+         call treedata_eval_pot_nd_asym(ndim,ng,delta,ipoly,nasym,
+     1       nlevels,itree,iptr,boxsize,norder,gvals,grad)
+         call treedata_eval_pot_nd_asym(ndim,nh,delta,ipoly,nasym,
+     1       nlevels,itree,iptr,boxsize,norder,hvals,hess)
+      endif
 
-            call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
-     1          iptr,boxsize,norder,fvals,fcoefs,umat_nd)
-            call treedata_evalgh_nd(ndim,nd,ipoly,nlevels,itree,iptr,
-     1          boxsize,norder,fcoefs,gvals,hvals)
-            ng=nd*ndim
-            nh=nd*nhess
-            call treedata_eval_pot_nd_asym(ndim,ng,delta,ipoly,nasym,
-     1          nlevels,itree,iptr,boxsize,norder,gvals,grad)
-            call treedata_eval_pot_nd_asym(ndim,nh,delta,ipoly,nasym,
-     1          nlevels,itree,iptr,boxsize,norder,hvals,hess)
-      endif
-      endif
+ 3500 continue
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(8) = time2-time1
@@ -943,7 +911,7 @@ cccc              jbox is the target box
                   jbox = list1(j,ibox)
                   jlev = itree(iptr(2)+jbox-1)
                   if ((ilev .ne. jlev) .or.
-     1                ((iflocal(ibox).ne.1) .or. (jbox.ne.ibox))) then
+     1                ((ifpwexp(ibox).ne.1) .or. (jbox.ne.ibox))) then
                      nlist_loc(jbox)=nlist_loc(jbox)+1
                      list_loc(nlist_loc(jbox),jbox)=ibox
                   endif
@@ -1030,7 +998,6 @@ c                 empirical formula determining the maximum level of refinement
       call prinf('nmaxrefine=*',nmaxrefine,1)
       call prinf('maxrefinelev=*',maxrefinelev,1)
 
-      if (nrefine*1.0d0/nboxes0 .lt.1d-2) goto 5000
 cccc      call prinf('ifrefine=*',ifrefine,nboxes)
       do i=1,nboxes
          if (ifrefine(i).gt.0) then
@@ -1076,7 +1043,7 @@ c              jbox's level
                jlev=ilev+1
                itree(iptr(2)+jbox-1) = jlev
                nblock(jlev)=nblock(jlev)+1
-               
+
 c              evaluate plane wave expansion
                call gnd_find_msshift_ind(ndim,centers(1,jbox),
      1             centers(1,ibox),k)
@@ -1106,7 +1073,7 @@ c                 the following lines are trying to prevent excessive refinement
                      kbox=kdad
                   enddo
                   
-                  if (k.ge.imaxrefinelev(kdad)) then
+                  if (k.gt.imaxrefinelev(kdad)) then
 cccc                     print *, k, kdad, imaxrefinelev(kdad)
                      ifrefine(jbox)=0
                   endif
@@ -1120,8 +1087,6 @@ cccc                     print *, k, kdad, imaxrefinelev(kdad)
       ilevstart(0)=0
       call cumsum(nlevels+1,nblock(0),ilevstart(1))
 
-      if (nnewboxes.eq.0) goto 5000
-      
       do j=1,nnewboxes
          jbox=nboxes0+j
          jlev=itree(iptr(2)+jbox-1)
@@ -1143,7 +1108,6 @@ c     call tree_reorg
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(9) = time2-time1
-
 
 
       
@@ -1177,6 +1141,12 @@ C$    time2=omp_get_wtime()
       call prinf('and nboxes=*', nboxes0,1)
 
 
+
+
+
+
+
+      
       if(ifprint .ge. 1)
      1    call prinf('=== STEP 10 (2:1 rebalance) =====*',i,0)
 c
@@ -1192,6 +1162,13 @@ C$    time2=omp_get_wtime()
       timeinfo(11) = time2-time1
       nboxes=itree(2*nlevels+2)
       call prinf('after 2:1 rebalancing, nboxes=*', nboxes,1)
+
+
+
+
+
+
+
 
       
  5000 continue
@@ -1213,7 +1190,8 @@ c     compute expansion coefficients for potential, gradient, and hessian
       call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
      1    iptr,boxsize,norder,pot,coefsp,umat_nd)
 
-      if (iffast.eq.0) then
+      if (iffast.eq.1) goto 5200
+      
       if (ifpghtarg.ge.1) then
          call treedata_evalt_nd(ndim,nd,ipoly,norder,nboxes,nlevels,
      1       ltree,itree,iptr,centers,boxsize,coefsp,
@@ -1233,9 +1211,9 @@ c     compute expansion coefficients for potential, gradient, and hessian
      1       nlevels,ltree,itree,iptr,centers,boxsize,coefsh,
      2       ntarg,targs,hesse)
       endif
-      endif
-
-      if (iffast.eq.1) then
+      goto 5500
+      
+ 5200 continue
 c     evaluate the potential, gradient and hessian at targets
 c     using coefficients for potential only
       if (ifpghtarg.eq.1) then
@@ -1251,12 +1229,19 @@ c     using coefficients for potential only
      1       ltree,itree,iptr,centers,boxsize,coefsp,
      2       ntarg,targs,pote,grade,hesse)
       endif
-      endif
-      
+
+ 5500 continue
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(12) = time2-time1
       
+
+
+
+
+
+
+
       
       if(ifprint.eq.1) then 
          call prin2('timeinfo=*',timeinfo,11)

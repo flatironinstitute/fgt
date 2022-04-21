@@ -356,11 +356,11 @@ c
       real *8 umat(n1,n2,ndim)
 
       if (ndim.eq.1) then
-         call ortho_eval_1d(nd,itype,n1,fin,n2,fout,umat)
+         call ortho_eval_1d(nd,n1,fin,n2,fout,umat)
       elseif (ndim.eq.2) then
-         call ortho_eval_2d(nd,itype,n1,fin,n2,fout,umat)
+         call ortho_eval_2d(nd,n1,fin,n2,fout,umat)
       elseif (ndim.eq.3) then
-         call ortho_eval_3d(nd,itype,n1,fin,n2,fout,umat)
+         call ortho_eval_3d(nd,n1,fin,n2,fout,umat)
       endif
       
       return
@@ -369,7 +369,7 @@ c
 c
 c
 c
-      subroutine ortho_eval_1d(nd,itype,n1,fin,n2,fout,umat)
+      subroutine ortho_eval_1d(nd,n1,fin,n2,fout,umat)
       implicit real *8 (a-h,o-z)
       real *8 fin(nd,n1)
       real *8 fout(nd,n2)
@@ -391,7 +391,7 @@ c
 c
 c
 c
-      subroutine ortho_eval_2d(nd,itype,n1,fin,n2,fout,umat)
+      subroutine ortho_eval_2d(nd,n1,fin,n2,fout,umat)
       implicit real *8 (a-h,o-z)
       real *8 fin(nd,n1,n1)
       real *8 fout(nd,n2,n2)
@@ -431,7 +431,7 @@ c
 c
 c
 c
-      subroutine ortho_eval_3d(nd,itype,n1,fin,n2,fout,umat)
+      subroutine ortho_eval_3d(nd,n1,fin,n2,fout,umat)
       implicit real *8 (a-h,o-z)
       real *8 fin(nd,n1,n1,n1)
       real *8 fout(nd,n2,n2,n2)

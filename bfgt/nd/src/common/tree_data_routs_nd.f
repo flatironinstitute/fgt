@@ -652,16 +652,18 @@ C$OMP PARALLEL DO DEFAULT (SHARED)
 C$OMP$PRIVATE(ibox,nchild,istart,iend,npts,j,i,cen,xyz)
 C$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
+cccc            call prinf('ibox=*',ibox,1)
             nchild = itree(iptr(4)+ibox-1)
             if (nchild.eq.0) then
                istart = itargse(1,ibox) 
                iend = itargse(2,ibox) 
                npts = iend-istart+1
-
+cccc               print *, ibox, istart,iend,npts
                if (npts.gt.0) then
                   do j=1,ndim
                      cen(j)=tcenters(j,ibox)
                   enddo
+cccc                  print *, cen(1),cen(2)
                   do i=istart,iend
                      do j=1,ndim
                         xyz(j) = (targsort(j,i)-cen(j))*sc

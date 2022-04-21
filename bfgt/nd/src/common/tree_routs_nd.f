@@ -934,7 +934,9 @@ c     Setting parameters for level = 0
          nlist1(1) = 0
       endif
 
-      do ilev = 1,npwlevel
+      nlevend=nlevels
+      if (npwlevel.lt.nlevels) nlevend=npwlevel
+      do ilev = 1,nlevend
          ifirstbox = itree(2*ilev+1)
          ilastbox = itree(2*ilev+2)
 C$OMP PARALLEL DO DEFAULT(SHARED)

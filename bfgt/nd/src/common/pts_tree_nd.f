@@ -691,10 +691,12 @@ c
       ip(1)=0
       call cumsum(mc,nsrc,ip(2))
 
+cccc      print *, ibox, isrcse(1,ibox),isrcse(2,ibox)
       do i=1,mc
          jbox = ichild(i,ibox)
          isrcse(1,jbox) = istart+ip(i)
          isrcse(2,jbox) = istart+ip(i+1)-1
+cccc         print *, jbox, isrcse(1,jbox),isrcse(2,jbox)
       enddo
 
       do iss=isrcse(1,ibox),isrcse(2,ibox)

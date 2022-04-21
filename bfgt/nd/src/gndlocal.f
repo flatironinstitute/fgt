@@ -12,7 +12,7 @@ C     local direction interactions by precomputed 1D tables
 C
 C*********************************************************************C
       subroutine gnd_tens_prod_to_pghloc(ndim,nd,n,fvals,
-     1    ifpgh,pot,grad,hess,
+     1    ifpgh,pot,grad,hess,ntab,
      2    tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
 C*********************************************************************C
 c     This routine computes the volume Gauss transform in general n dimensions
@@ -80,10 +80,10 @@ c----------------------------------------------------------------------c
       real *8 grad(nd,ndim,n**ndim)
       real *8 hess(nd,ndim*(ndim+1)/2,n**ndim)
 
-      real *8 tab_loc(n,n,-6:6)
-      real *8 tabx_loc(n,n,-6:6)
-      real *8 tabxx_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      real *8 tabx_loc(n,n,-ntab:ntab)
+      real *8 tabxx_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ixyz(ndim)
 
       if (ifpgh.eq.1) goto 1100
@@ -92,26 +92,26 @@ c----------------------------------------------------------------------c
 
  1100 continue
       if (ndim.eq.1) then
-         call g1d_tens_prod_to_potloc(nd,n,fvals,pot,
+         call g1d_tens_prod_to_potloc(nd,n,fvals,pot,ntab,
      1    tab_loc,ind_loc,ixyz)
       elseif (ndim.eq.2) then
-         call g2d_tens_prod_to_potloc(nd,n,fvals,pot,
+         call g2d_tens_prod_to_potloc(nd,n,fvals,pot,ntab,
      1    tab_loc,ind_loc,ixyz)
       elseif (ndim.eq.3) then
-         call g3d_tens_prod_to_potloc_fast(nd,n,fvals,pot,
+         call g3d_tens_prod_to_potloc_fast(nd,n,fvals,pot,ntab,
      1    tab_loc,ind_loc,ixyz)
       endif
       return
       
  2200 continue
       if (ndim.eq.1) then
-         call g1d_tens_prod_to_pgloc(nd,n,fvals,pot,grad,
+         call g1d_tens_prod_to_pgloc(nd,n,fvals,pot,grad,ntab,
      1    tab_loc,tabx_loc,ind_loc,ixyz)
       elseif (ndim.eq.2) then
-         call g2d_tens_prod_to_pgloc(nd,n,fvals,pot,grad,
+         call g2d_tens_prod_to_pgloc(nd,n,fvals,pot,grad,ntab,
      1    tab_loc,tabx_loc,ind_loc,ixyz)
       elseif (ndim.eq.3) then
-         call g3d_tens_prod_to_pgloc(nd,n,fvals,pot,grad,
+         call g3d_tens_prod_to_pgloc(nd,n,fvals,pot,grad,ntab,
      1    tab_loc,tabx_loc,ind_loc,ixyz)
       endif
       return
@@ -119,13 +119,13 @@ c----------------------------------------------------------------------c
  3300 continue
       if (ndim.eq.1) then
          call g1d_tens_prod_to_pghloc(nd,n,fvals,pot,grad,hess,
-     1    tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
+     1    ntab,tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
       elseif (ndim.eq.2) then
          call g2d_tens_prod_to_pghloc(nd,n,fvals,pot,grad,hess,
-     1    tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
+     1    ntab,tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
       elseif (ndim.eq.3) then
          call g3d_tens_prod_to_pghloc(nd,n,fvals,pot,grad,hess,
-     1    tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
+     1    ntab,tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
       endif
          
       return
@@ -142,7 +142,7 @@ c     1d tens_prod_to_potloc,pgloc,pghloc
 c
 C*********************************************************************C
       subroutine g1d_tens_prod_to_potloc(nd,n,fvals,pot,
-     1    tab_loc,ind_loc,ix)
+     1    ntab,tab_loc,ind_loc,ix)
 C*********************************************************************C
 c     This routine computes the 1D volume Gauss transform over a 
 c     single box source distribution given as function values on
@@ -161,8 +161,8 @@ c     pot           potential values on tensor product grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n),pot(nd,n)
-      real *8 tab_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ix
 c
       
@@ -189,7 +189,7 @@ C
 c
 C*********************************************************************C
       subroutine g1d_tens_prod_to_pgloc(nd,n,fvals,pot,grad,
-     1    tab_loc,tabx_loc,ind_loc,ix)
+     1    ntab,tab_loc,tabx_loc,ind_loc,ix)
 C*********************************************************************C
 c     This routine computes the 1D volume Gauss transform over a 
 c     single box source distribution given as function values on
@@ -210,9 +210,9 @@ c     grad         gradient values on tensor product grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n),pot(nd,n),grad(nd,n)
-      real *8 tab_loc(n,n,-6:6)
-      real *8 tabx_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      real *8 tabx_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ix
 c
       
@@ -242,7 +242,7 @@ C
 c
 C*********************************************************************C
       subroutine g1d_tens_prod_to_pghloc(nd,n,fvals,pot,grad,hess,
-     1    tab_loc,tabx_loc,tabxx_loc,ind_loc,ix)
+     1    ntab,tab_loc,tabx_loc,tabxx_loc,ind_loc,ix)
 C*********************************************************************C
 c     This routine computes the 1D volume Gauss transform over a 
 c     single box source distribution given as function values on
@@ -265,10 +265,10 @@ c     hess         hessian values on tensor product grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n),pot(nd,n),grad(nd,n),hess(nd,n)
-      real *8 tab_loc(n,n,-6:6)
-      real *8 tabx_loc(n,n,-6:6)
-      real *8 tabxx_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      real *8 tabx_loc(n,n,-ntab:ntab)
+      real *8 tabxx_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ix
 c
       
@@ -305,7 +305,7 @@ c     2d tens_prod_to_potloc,pgloc,pghloc
 c
 C*********************************************************************C
       subroutine g2d_tens_prod_to_potloc(nd,n,fvals,pot,
-     1    tab_loc,ind_loc,ixy)
+     1    ntab,tab_loc,ind_loc,ixy)
 C*********************************************************************C
 c     This routine computes the 2D volume Gauss transform over a 
 c     single box source distribution given as function values on
@@ -324,8 +324,8 @@ c     pot           potential values on tensor product grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n,n),pot(nd,n,n)
-      real *8 tab_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ixy(2)
       real *8 ff(n,n)
 c
@@ -369,7 +369,7 @@ C
 c
 C*********************************************************************C
       subroutine g2d_tens_prod_to_pgloc(nd,n,fvals,pot,grad,
-     1    tab_loc,tabx_loc,ind_loc,ixy)
+     1    ntab,tab_loc,tabx_loc,ind_loc,ixy)
 C*********************************************************************C
 c     This routine computes the 2D volume Gauss transform over a 
 c     single box source distribution given as function values on
@@ -390,9 +390,9 @@ c     grad         gradient values on tensor product grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n,n),pot(nd,n,n),grad(nd,2,n,n)
-      real *8 tab_loc(n,n,-6:6)
-      real *8 tabx_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      real *8 tabx_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ixy(2)
       real *8 ff(n,n)
       real *8 ffx(n,n)
@@ -445,7 +445,7 @@ c
 C
 c
       subroutine g2d_tens_prod_to_pghloc(nd,n,fvals,pot,grad,hess,
-     1    tab_loc,tabx_loc,tabxx_loc,ind_loc,ixy)
+     1    ntab,tab_loc,tabx_loc,tabxx_loc,ind_loc,ixy)
 C*********************************************************************C
 c     This routine computes the 2D volume Gauss transform over a 
 c     single box source distribution given as function values on
@@ -468,10 +468,10 @@ c     hess          hessian values on tensor product grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n,n),pot(nd,n,n),grad(nd,2,n,n),hess(nd,3,n,n)
-      real *8 tab_loc(n,n,-6:6)
-      real *8 tabx_loc(n,n,-6:6)
-      real *8 tabxx_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      real *8 tabx_loc(n,n,-ntab:ntab)
+      real *8 tabxx_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ixy(2)
       real *8 ff(n,n)
       real *8 ffx(n,n)
@@ -545,7 +545,7 @@ c     3d tens_prod_to_potloc,pgloc,pghloc
 c
 C*********************************************************************C
       subroutine g3d_tens_prod_to_potloc(nd,n,fvals,pot,
-     1    tab_loc,ind_loc,ixyz)
+     1    ntab,tab_loc,ind_loc,ixyz)
 C*********************************************************************C
 c     This routine computes 3D volume Gauss transform over a 
 c     single box source distribution given as function values
@@ -566,8 +566,8 @@ c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n,n,n)
       real *8 pot(nd,n,n,n)
-      real *8 tab_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ixyz(3)
 
       real *8 ff(n,n,n),ff2(n,n,n)
@@ -634,7 +634,7 @@ C
 c
 C*********************************************************************C
       subroutine g3d_tens_prod_to_pgloc(nd,n,fvals,pot,grad,
-     1    tab_loc,tabx_loc,ind_loc,ixyz)
+     1    ntab,tab_loc,tabx_loc,ind_loc,ixyz)
 C*********************************************************************C
 c     This routine computes 3D volume Gauss transform over a 
 c     single box source distribution given as function values
@@ -657,9 +657,9 @@ c----------------------------------------------------------------------c
       real *8 fvals(nd,n,n,n)
       real *8 pot(nd,n,n,n)
       real *8 grad(nd,3,n,n,n)
-      real *8 tab_loc(n,n,-6:6)
-      real *8 tabx_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      real *8 tabx_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ixyz(3)
 
       real *8 ff(n,n,n),ff2(n,n,n)
@@ -746,7 +746,7 @@ c
 c
 c
       subroutine g3d_tens_prod_to_pghloc(nd,n,fvals,pot,grad,hess,
-     1    tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
+     1    ntab,tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
 C*********************************************************************C
 c     This routine computes 3D volume Gauss transform over a 
 c     single box source distribution given as function values
@@ -773,10 +773,10 @@ c----------------------------------------------------------------------c
       real *8 grad(nd,3,n,n,n)
       real *8 hess(nd,6,n,n,n)
 
-      real *8 tab_loc(n,n,-6:6)
-      real *8 tabx_loc(n,n,-6:6)
-      real *8 tabxx_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      real *8 tabx_loc(n,n,-ntab:ntab)
+      real *8 tabxx_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ixyz(3)
 
       real *8 ff(n,n,n)
@@ -912,7 +912,7 @@ c     end of the ind loop
       end subroutine
 c
       subroutine g3d_tens_prod_to_pghloc_slow(nd,n,fvals,pot,grad,hess,
-     1    tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
+     1    ntab,tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
 C*********************************************************************C
 c     This routine computes 3D volume Gauss transform over a 
 c     single box source distribution given as function values
@@ -939,10 +939,10 @@ c----------------------------------------------------------------------c
       real *8 grad(nd,3,n,n,n)
       real *8 hess(nd,6,n,n,n)
 
-      real *8 tab_loc(n,n,-6:6)
-      real *8 tabx_loc(n,n,-6:6)
-      real *8 tabxx_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      real *8 tabx_loc(n,n,-ntab:ntab)
+      real *8 tabxx_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ixyz(3)
 
       real *8 ff(n,n,n)
@@ -1083,7 +1083,7 @@ c     fast version - use sparse patterns of local tables
 C
 c******************************************************************************
       subroutine gnd_tens_prod_to_potloc_fast(ndim,nd,n,fvals,pot,
-     1    tab_loc,ind_loc,ixyz)
+     1    ntab,tab_loc,ind_loc,ixyz)
 C*********************************************************************C
 c     This routine computes the volume Gauss transform in general n dimensions
 c     over a single box source distribution given as function values on a
@@ -1146,18 +1146,18 @@ c     pot         output on tensor product grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n**ndim),pot(nd,n*ndim)
-      real *8 tab_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ixyz(ndim)
 
       if (ndim.eq.1) then
-         call g1d_tens_prod_to_potloc_fast(nd,n,fvals,pot,
+         call g1d_tens_prod_to_potloc_fast(nd,n,fvals,pot,ntab,
      1    tab_loc,ind_loc,ixyz)
       elseif (ndim.eq.2) then
-         call g2d_tens_prod_to_potloc_fast(nd,n,fvals,pot,
+         call g2d_tens_prod_to_potloc_fast(nd,n,fvals,pot,ntab,
      1    tab_loc,ind_loc,ixyz)
       elseif (ndim.eq.3) then
-         call g3d_tens_prod_to_potloc_fast(nd,n,fvals,pot,
+         call g3d_tens_prod_to_potloc_fast(nd,n,fvals,pot,ntab,
      1    tab_loc,ind_loc,ixyz)
       endif
       
@@ -1171,7 +1171,7 @@ C
 C
 C*********************************************************************C
       subroutine g1d_tens_prod_to_potloc_fast(nd,n,fvals,pot,
-     1    tab_loc,ind_loc,ix)
+     1    ntab,tab_loc,ind_loc,ix)
 C*********************************************************************C
 c     This routine computes the 1D volume Gauss transform over a 
 c     single box source distribution given as function values on
@@ -1191,8 +1191,8 @@ c     pot         output on tensor product grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n),pot(nd,n)
-      real *8 tab_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ix
 c
       
@@ -1220,7 +1220,7 @@ C
 c
 C*********************************************************************C
       subroutine g2d_tens_prod_to_potloc_fast(nd,n,fvals,pot,
-     1    tab_loc,ind_loc,ixy)
+     1    ntab,tab_loc,ind_loc,ixy)
 C*********************************************************************C
 c     This routine computes the 2D volume Gauss transform over a 
 c     single box source distribution given as function values on
@@ -1240,8 +1240,8 @@ c     pot         output on tensor product grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n,n),pot(nd,n,n)
-      real *8 tab_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ixy(2)
       real *8 ff(n,n)
 c
@@ -1312,7 +1312,7 @@ C
 c
 C*********************************************************************C
       subroutine g3d_tens_prod_to_potloc_fast(nd,n,fvals,pot,
-     1    tab_loc,ind_loc,ixyz)
+     1    ntab,tab_loc,ind_loc,ixyz)
 C*********************************************************************C
 c     This routine computes 3D volume Gauss transform over a 
 c     single box source distribution given as function values
@@ -1334,8 +1334,8 @@ c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n,n,n)
       real *8 pot(nd,n,n,n)
-      real *8 tab_loc(n,n,-6:6)
-      integer ind_loc(2,n+1,-6:6)
+      real *8 tab_loc(n,n,-ntab:ntab)
+      integer ind_loc(2,n+1,-ntab:ntab)
       integer ixyz(3)
 
       real *8 ff(n,n,n),ff2(n,n,n)
@@ -1614,7 +1614,7 @@ C
 c
 C
       subroutine gnd_find_loctab_ind(ndim,iperiod,tcenter,scenter,
-     1    sboxsize,bs0,ixyz)
+     1    sboxsize,bs0,mrefinelev,ixyz)
 c     returns an index arrary used in gnd_tens_prod_to_potloc
 c
 c     input:
@@ -1624,6 +1624,7 @@ c     tcenter - target box center
 c     scenter - source box center
 c     sboxsize - source box size
 c     bs0 - root box size
+c     mrefinelev - maximum refinement level
 c
 c     output
 c     ixyz - an index array determining which local table 
@@ -1633,7 +1634,7 @@ c
       real *8 tcenter(ndim),scenter(ndim)
       integer ixyz(ndim),i
 
-      bs=sboxsize/4
+      bs=sboxsize/2**(2+mrefinelev)
 
       do i=1,ndim
          dx = (tcenter(i)-scenter(i))/bs

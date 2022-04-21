@@ -406,6 +406,268 @@ c
 c
 C*********************************************************************C
       subroutine mk_loctab_all(eps,ipoly,n,nnodes,delta,boxdim,
+     1    mrefinelev,nloctab,tab_loc,tabx_loc,tabxx_loc,ind_loc)
+C*********************************************************************C
+c     This routine is an optimized table generator that generates
+c     all 1D local interaction tables
+c
+c
+c     We assume that we start from a level-restricted tree. Then every box 
+c     may be refined mrefinelev times. The 1D tables we construct here
+c     will compute all integrals of the form
+c
+c     \int_{B_S} exp(-(x-y)^2/delta)p_n(y) dy
+c
+c     for y in the source box in the original level-restricted tree, while 
+c     the target point x lies on an interval obtained by mrefinelev times
+c     of the target box/interval in the original level-restricted tree.
+c
+c     In the original 2:1 level-restricted tree, there are only three cases:
+c     colleague - source box and target box are at the same level, 3 of them;
+c     stob - small source box to big target box, 4 of them;
+c     btos - large source box to small target box, 4 of them.
+c
+c     Now, each of these 11 cases will be further refined mrefinelev times,
+c     leading to 11*(1+2+...+2^mrefinelev) cases.
+c
+c
+c
+c
+c     (a) same level interaction
+c     tab_coll(n,j,k) = 
+c              int_{-D/2}^{D/2} P_n(x*2/D) exp( -(\xi_j -x)^2/delta)
+c              where D is the box dimension at current level in
+c              tree hierarchy and the target \xi_j is either on 
+c              [-D/2,D/2]   -> tab_loc(n,n,0)
+c              [-3D/2,-D/2] -> tab_loc(n,n,-4)
+c              [D/2,3D/2]   -> tab_coll(n,n,4)
+c
+c     Here we assume that the source box is centered at the origin.        
+c      
+c     (b) small source to big target interaction              
+c     tab_stob(n,j,k) = 
+c              int_{source box} P_n(x) exp( -(\xi_j -x)^2/delta)
+c              where boxdim is the box dimension of TARGET BOX 
+c              at current level in tree hierarchy and 
+c              \xi_j is either on 
+c              [-5D/4,-D/4]     -> tab_loc(n,n,-6)
+c              [-3D/4, D/4]     -> tab_loc(n,n,-2)
+c              [ -D/4,3D/4]     -> tab_loc(n,n,2)
+c              [  D/4,5D/4]     -> tab_loc(n,n,6)
+c              
+c      _____ _____ ____  
+c     |     |     |    | 
+c     |     |     |    | 
+c     |_____|_____|____| 
+c     |     |  |A |    | For target points in large box B, of
+c     |     |--|--| B  | dimension D, adjacent small source box centers 
+c     |_____|__|__|____| can be offset by one of -3D/4,-D/4,D/4,3D/4
+c     |     |     |    | in either x, y, or z.
+c     |     |     |    |  
+c     |_____|_____|____|   
+c      
+c              
+c
+c     (b) big source to small target interaction              
+c     tab_btos(n,j,k) = 
+c              int_{source box} P_n(x) exp( -(\xi_j -x)^2/delta)
+c              where boxdim is the box dimension of the TARGET BOX 
+c              at current level in tree hierarchy and 
+c              \xi_j is either on 
+c              [-2D,-D]    -> tab_loc(n,n,-3)
+c              [ -D, 0]    -> tab_loc(n,n,-1)
+c              [  0, D]    -> tab_loc(n,n,1)
+c              [  D,2D]    -> tab_loc(n,n,3)
+c              
+c     Here we assume that the source box is centered at the origin.        
+c              
+c              
+c      _____ _____ ____  
+c     |     |     |    | 
+c     |  A  |     |    | 
+c     |_____|_____|____| 
+c     |     |B |  |    | For target points in small target box B, of
+c     |     |--|--|    | dimension D, adjacent large source box A centers 
+c     |_____|__|__|____| can be offset by one of -3D/2,-D/2,D/2,3D/2
+c     |     |     |    | in either x, y, or z.
+c     |     |     |    |  
+c     |_____|_____|____|   
+c                          
+c
+c     INPUT:
+c     ipoly          polynomial type
+c                    0: Legendre polynomials
+c                    1: Chebyshev polynomials
+c     n              dimension of coeff array
+c     nnodes         number of nodes used in numerical quadrature
+c     delta          Gaussian variance
+c     boxdim         target box dimension at current level
+c     mrefinelev     maximum number of refinement
+c
+c     OUTPUT:
+c     tab_loc        tables for computing potential values
+c     tabx_loc       tables for computing gradient values
+c     tabxx_loc      tables for computing hessian values
+c----------------------------------------------------------------------c
+      implicit none
+      integer mrefinelev,nloctab,m0
+      real *8 tab_loc(n,n,-nloctab:nloctab)
+      real *8 tabx_loc(n,n,-nloctab:nloctab)
+      real *8 tabxx_loc(n,n,-nloctab:nloctab)
+      integer ind_loc(2,n+1,-nloctab:nloctab)
+
+      real *8 eps,delta,boxdim
+      real *8 scale(-nloctab:nloctab),utmp,vtmp
+      real *8 cen(-nloctab:nloctab)
+      real *8, allocatable :: tnodes(:), ws(:) 
+      real *8, allocatable :: xnodes(:), wts(:) 
+      real *8, allocatable :: umat(:,:),vmat(:,:)
+      real *8, allocatable :: ptmp(:)
+      real *8, allocatable :: polyv(:,:)
+
+      real *8, allocatable :: tab(:,:)
+      real *8, allocatable :: tabx(:,:)
+      real *8, allocatable :: tabxx(:,:)
+
+      integer ind(2,n+1),indx(2,n+1),indxx(2,n+1)
+      
+      integer itype,nquad,i,j,k,m,ipoly,n,ifzero,nnodes,nt,i1,i2
+      integer i0,j0
+c
+      allocate(tab(n,n))
+      allocate(tabx(n,n))
+      allocate(tabxx(n,n))
+
+c     target nodes
+      allocate(tnodes(n),ws(n),umat(n,n),vmat(n,n))
+      itype = 2
+      if (ipoly.eq.0) call legeexps(itype,n,tnodes,umat,vmat,ws)
+      if (ipoly.eq.1) call chebexps(itype,n,tnodes,umat,vmat,ws)
+
+c     quadrature nodes and weights
+      nquad = 50
+cccc      nquad = 100000
+      allocate(xnodes(nquad),wts(nquad))
+      allocate(ptmp(n),polyv(nquad,n))
+
+      itype=1
+      call legeexps(itype,nquad,xnodes,utmp,vtmp,wts)
+c     polynomial values at quadrature nodes
+      do i = 1,nquad
+         if (ipoly.eq.0) then
+            call legepols(xnodes(i),n-1,ptmp)
+         elseif (ipoly.eq.1) then
+            call chebpols(xnodes(i),n-1,ptmp)
+         endif
+         do j=1,n
+            polyv(i,j)=ptmp(j)
+         enddo
+      enddo
+c
+c     scale is the ratio of the source box size to the target box size.
+
+      m0=mrefinelev+1
+      do i0=m0,-1,-1
+      do j0=1,2**m0
+         if (i0.gt.0) then
+            k=-2**(m0-i0)-2**(m0-i0+1)*(j0-1)
+         elseif (i0.eq.0) then
+            k=-2**(m0-i0+1)*(j0-1)
+         elseif (i0.eq.-1) then
+            k=-2**m0-2**(m0+1)*(j0-1)
+         endif
+         if (k.lt.-nloctab) exit
+         scale(k)=2.0d0**i0
+         cen(k)=k/2.0d0**m0
+cccc         print *, i0,j0, k, cen(k), scale(k)
+c        make local tables for potential, gradient and hessian
+         call mk_loctab(ipoly,n,delta,n,tnodes,boxdim,cen(k),
+     1       scale(k),tab,tabx,tabxx,
+     2       nquad,xnodes,wts,polyv)
+c        multiply by u to obtain the tables acting on values
+         call dgemm_f77('t','n',n,n,n,1.0d0,umat,n,tab,n,
+     1       0.0d0,tab_loc(1,1,k),n)
+         call dgemm_f77('t','n',n,n,n,1.0d0,umat,n,tabx,n,
+     1       0.0d0,tabx_loc(1,1,k),n)
+         call dgemm_f77('t','n',n,n,n,1.0d0,umat,n,tabxx,n,
+     1       0.0d0,tabxx_loc(1,1,k),n)
+
+c     use symmetry to construct the tables for targets on the right side
+         do j=1,n
+         do m=1,n
+            tab_loc(m,j,-k) = tab_loc(n-m+1,n-j+1,k)
+            tabx_loc(m,j,-k) = -tabx_loc(n-m+1,n-j+1,k)
+            tabxx_loc(m,j,-k) = tabxx_loc(n-m+1,n-j+1,k)
+         enddo
+         enddo
+
+c      
+c     STEP 4: find sparse patterns of all local interaction matrices
+c      
+         call compute_sparse_pattern(eps,n,n,tab_loc(1,1,-k),
+     1       ind,ifzero)
+         call compute_sparse_pattern(eps,n,n,tabx_loc(1,1,-k),
+     1       indx,ifzero)
+         call compute_sparse_pattern(eps,n,n,tabxx_loc(1,1,-k),
+     1       indxx,ifzero)
+         do j=1,n+1
+            i2=ind(2,j)
+            if (i2.lt.indx(2,j)) i2=indx(2,j)
+            if (i2.lt.indxx(2,j)) i2=indxx(2,j)
+            ind_loc(2,j,-k)=i2
+
+            i1=ind(1,j)
+            if (indx(1,j).eq.0) then
+            elseif (i1.gt.indx(1,j)) then
+               i1=indx(1,j)
+            endif
+            if (indxx(1,j).eq.0) then
+            elseif (i1.gt.indxx(1,j)) then
+               i1=indxx(1,j)
+            endif
+            if (i2.gt.0 .and.i1.eq.0) i1=1
+            ind_loc(1,j,-k)=i1
+         enddo
+
+         call compute_sparse_pattern(eps,n,n,tab_loc(1,1,k),
+     1       ind,ifzero)
+         call compute_sparse_pattern(eps,n,n,tabx_loc(1,1,k),
+     1       indx,ifzero)
+         call compute_sparse_pattern(eps,n,n,tabxx_loc(1,1,k),
+     1       indxx,ifzero)
+         do j=1,n+1
+            i2=ind(2,j)
+            if (i2.lt.indx(2,j)) i2=indx(2,j)
+            if (i2.lt.indxx(2,j)) i2=indxx(2,j)
+            ind_loc(2,j,k)=i2
+
+            i1=ind(1,j)
+            if (indx(1,j).eq.0) then
+            elseif (i1.gt.indx(1,j)) then
+               i1=indx(1,j)
+            endif
+            if (indxx(1,j).eq.0) then
+            elseif (i1.gt.indxx(1,j)) then
+               i1=indxx(1,j)
+            endif
+            if (i2.gt.0 .and.i1.eq.0) i1=1
+            ind_loc(1,j,k)=i1
+         enddo
+            
+      enddo
+      enddo
+
+      return
+      end subroutine
+c
+c
+c
+c
+c
+c
+c
+C*********************************************************************C
+      subroutine mk_loctab_all_old(eps,ipoly,n,nnodes,delta,boxdim,
      1    tab_loc,tabx_loc,tabxx_loc,ind_loc)
 C*********************************************************************C
 c     This routine is an optimized table generator that generates
@@ -1118,261 +1380,3 @@ c      call prinf('indc=*',indc,2*(n+1))
 c
 c
 c      
-C*********************************************************************C
-      subroutine mk_loctab_all_old(eps,ipoly,n,nnodes,delta,boxdim,
-     1    tab_coll,ind_coll,
-     2    tab_stob,ind_stob,
-     3    tab_btos,ind_btos)
-C*********************************************************************C
-c     This routine is an optimized table generator that generates
-c     all 1D local interaction tables
-c
-c     (a) same level interaction
-c     tab_coll(n,j,k) = 
-c              int_{-D/2}^{D/2} P_n(x*2/D) exp( -(\xi_j -x)^2/delta)
-c              where D is the box dimension at current level in
-c              tree hierarchy and the target \xi_j is either on 
-c              [-D/2,D/2]   -> tab_coll(n,n,0)
-c              [-3D/2,-D/2] -> tab_coll(n,n,-1)
-c              [D/2,3D/2]   -> tab_coll(n,n,1)
-c
-c     Here we assume that the source box is centered at the origin.        
-c      
-c     (b) small source to big target interaction              
-c     tab_stob(n,j,k) = 
-c              int_{source box} P_n(x) exp( -(\xi_j -x)^2/delta)
-c              where boxdim is the box dimension of TARGET BOX 
-c              at current level in tree hierarchy and 
-c              \xi_j is either on 
-c              [-5D/4,-D/4]     -> tab_stob(n,n,1)
-c              [-3D/4, D/4]     -> tab_stob(n,n,2)
-c              [ -D/4,3D/4]     -> tab_stob(n,n,3)
-c              [  D/4,5D/4]     -> tab_stob(n,n,4)
-c              
-c      _____ _____ ____  
-c     |     |     |    | 
-c     |     |     |    | 
-c     |_____|_____|____| 
-c     |     |  |A |    | For target points in large box B, of
-c     |     |--|--| B  | dimension D, adjacent small source box centers 
-c     |_____|__|__|____| can be offset by one of -3D/4,-D/4,D/4,3D/4
-c     |     |     |    | in either x, y, or z.
-c     |     |     |    |  
-c     |_____|_____|____|   
-c      
-c              
-c
-c     (b) big source to small target interaction              
-c     tab_btos(n,j,k) = 
-c              int_{source box} P_n(x) exp( -(\xi_j -x)^2/delta)
-c              where boxdim is the box dimension of the TARGET BOX 
-c              at current level in tree hierarchy and 
-c              \xi_j is either on 
-c              [-2D,-D]    -> tab_btos(n,n,1)
-c              [ -D, 0]    -> tab_btos(n,n,2)
-c              [  0, D]    -> tab_btos(n,n,3)
-c              [  D,2D]    -> tab_btos(n,n,4)
-c              
-c     Here we assume that the source box is centered at the origin.        
-c              
-c              
-c      _____ _____ ____  
-c     |     |     |    | 
-c     |  A  |     |    | 
-c     |_____|_____|____| 
-c     |     |B |  |    | For target points in small target box B, of
-c     |     |--|--|    | dimension D, adjacent large source box A centers 
-c     |_____|__|__|____| can be offset by one of -3D/2,-D/2,D/2,3D/2
-c     |     |     |    | in either x, y, or z.
-c     |     |     |    |  
-c     |_____|_____|____|   
-c                          
-c
-c     INPUT:
-c     n        dimension of coeff array
-c     nnodes   number of nodes used in numerical quadrature
-c     delta    Gaussian variance
-c     boxdim   target box dimension at current level
-c
-c     OUTPUT:
-c     tab_coll table for same level interactions
-c     tab_stob table for small source to big target interactions
-c     tab_btos table for big source to small target interactions
-c----------------------------------------------------------------------c
-      implicit none
-      real *8 tab_coll(n,n,-1:1)
-      integer ind_coll(2,n+1,-1:1)
-      real *8 tab_stob(n,n,4)
-      integer ind_stob(2,n+1,4)
-      real *8 tab_btos(n,n,4)
-      integer ind_btos(2,n+1,4)
-
-      real *8 eps,delta,boxdim
-      real *8 scale,utmp,vtmp
-      real *8 cen(-1:2)
-      real *8, allocatable :: tnodes(:), ws(:) 
-      real *8, allocatable :: xnodes(:), wts(:) 
-      real *8, allocatable :: umat(:,:),vmat(:,:)
-      real *8, allocatable :: ptmp(:)
-      real *8, allocatable :: polyv(:,:)
-
-      real *8, allocatable :: tab(:,:)
-      real *8, allocatable :: tabx(:,:)
-      real *8, allocatable :: tabxx(:,:)
-      integer itype,nquad,i,j,k,m,ipoly,n,ifzero,nnodes,nt
-c
-      allocate(tab(n,n))
-      allocate(tabx(n,n))
-      allocate(tabxx(n,n))
-
-c     target nodes
-      allocate(tnodes(n),ws(n),umat(n,n),vmat(n,n))
-      itype = 2
-      if (ipoly.eq.0) call legeexps(itype,n,tnodes,umat,vmat,ws)
-      if (ipoly.eq.1) call chebexps(itype,n,tnodes,umat,vmat,ws)
-
-c     quadrature nodes and weights
-      nquad = 50
-      allocate(xnodes(nquad),wts(nquad))
-      allocate(ptmp(n),polyv(nquad,n))
-
-      itype=1
-      call legeexps(itype,nquad,xnodes,utmp,vtmp,wts)
-c     polynomial values at quadrature nodes
-      do i = 1,nquad
-         if (ipoly.eq.0) then
-            call legepols(xnodes(i),n-1,ptmp)
-         elseif (ipoly.eq.1) then
-            call chebpols(xnodes(i),n-1,ptmp)
-         endif
-         do j=1,n
-            polyv(i,j)=ptmp(j)
-         enddo
-      enddo
-c
-c     STEP 1: construct tab_coll
-c
-c     scale is the ratio of the source box size to the target box size.
-c     source and target at the same level 
-      scale = 1.0d0
-c     The scaled source interval is always [-1,1].
-c     coll table -1, the scaled target interval is [-3,-1], centered at -2
-c     coll table  0, the scaled target interval is [-1, 1], centered at  0
-c     coll table  1, the scaled target interval is [ 1, 3], centered at  2
-      cen(-1) = -2.0d0
-      cen(0)  =  0.0d0
-
-      do i=-1,0
-         if (i.eq.-1) nt=n
-         if (i.eq.0) nt=(n+1)/2
-         call mk_loctab(ipoly,n,delta,nt,tnodes,boxdim,cen(i),
-     1       scale,tab,tabx,tabxx,
-     2       nquad,xnodes,wts,polyv)
-         if (i.eq.0) then
-c          obtain the other half of table 0 by symmetry
-            do j=1,n/2
-            do m=1,n,2
-               tab(m,n-j+1)  = tab(m,j) 
-            enddo
-            do m=2,n,2
-               tab(m,n-j+1)  = -tab(m,j) 
-            enddo
-            enddo
-         endif
-c        multiply by u to obtain the tables acting on values
-         call dgemm_f77('t','n',n,n,n,1.0d0,umat,n,tab,n,
-     1       0.0d0,tab_coll(1,1,i),n)
-      enddo
-
-c     use symmetry to construct the table +1 for targets on the right side
-      do j=1,n
-         do m=1,n
-            tab_coll(m,j,1) = tab_coll(n-m+1,n-j+1,-1)
-         enddo
-      enddo
-
-c
-c     STEP 2: construct tab_stob
-c
-c     scale is the ratio of the source box size to the target box size.
-c     small source to big target 
-      scale = 0.5d0
-c     The scaled source interval is always [-1,1].
-c     stob table 1, the scaled target interval is [-5,-1], centered at -3
-c     stob table 2, the scaled target interval is [-3, 1], centered at -1
-c     stob table 3, the scaled target interval is [-1, 3], centered at  1
-c     stob table 4, the scaled target interval is [ 1, 5], centered at  3
-      cen(1) = -3.0d0
-      cen(2) = -1.0d0
-
-      do i=1,2
-         call mk_loctab(ipoly,n,delta,n,tnodes,boxdim,cen(i),
-     1       scale,tab,tabx,tabxx,
-     2       nquad,xnodes,wts,polyv)
-c        multiply by u to obtain the tables acting on values
-         call dgemm_f77('t','n',n,n,n,1.0d0,umat,n,tab,n,
-     1       0.0d0,tab_stob(1,1,i),n)
-      enddo
-      
-c     use symmetry to construct tables 3 and 4
-      do j=1,n
-         do m=1,n
-            tab_stob(m,j,3) = tab_stob(n-m+1,n-j+1,2)
-            tab_stob(m,j,4) = tab_stob(n-m+1,n-j+1,1)
-         enddo
-      enddo
-
-c
-c     STEP 3: construct tab_btos
-c
-c     scale is the ratio of the source box size to the target box size.
-c     big source to small target 
-      scale = 2.0d0
-c     The scaled source interval is always [-1,1].
-c     btos table 1, the scaled target interval is [-2,-1], centered at -1.5
-c     btos table 2, the scaled target interval is [-1, 0], centered at -0.5
-c     btos table 3, the scaled target interval is [ 0, 1], centered at  0.5
-c     btos table 4, the scaled target interval is [ 1, 2], centered at  1.5
-      cen(1) = -1.5d0
-      cen(2) = -0.5d0
-
-      do i=1,2
-         call mk_loctab(ipoly,n,delta,n,tnodes,boxdim,cen(i),
-     1       scale,tab,tabx,tabxx,
-     2       nquad,xnodes,wts,polyv)
-c        multiply by u to obtain the tables acting on values
-         call dgemm_f77('t','n',n,n,n,1.0d0,umat,n,tab,n,
-     1       0.0d0,tab_btos(1,1,i),n)
-      enddo
-      
-c     use symmetry to construct tables 3 and 4
-      do j=1,n
-         do m=1,n
-            tab_btos(m,j,3) = tab_btos(n-m+1,n-j+1,2)
-            tab_btos(m,j,4) = tab_btos(n-m+1,n-j+1,1)
-         enddo
-      enddo
-
-c      
-c     STEP 4: find sparse patterns of all local interaction matrices
-c      
-      do k=-1,1
-         call compute_sparse_pattern(eps,n,n,tab_coll(1,1,k),
-     1       ind_coll(1,1,k),ifzero)
-      enddo
-      
-      do k=1,4
-         call compute_sparse_pattern(eps,n,n,tab_stob(1,1,k),
-     1       ind_stob(1,1,k),ifzero)
-      enddo
-
-      do k=1,4
-         call compute_sparse_pattern(eps,n,n,tab_btos(1,1,k),
-     1       ind_btos(1,1,k),ifzero)
-      enddo
-      
-      return
-      end subroutine
-c
-c
-c

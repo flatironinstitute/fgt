@@ -2114,7 +2114,7 @@ c     Temporary variables
       
 c     Rearrange old arrays now
 
-      do ilev = 0,1
+      do ilev = 0,0
          do ibox = laddr(1,ilev),laddr(2,ilev)
            iboxtocurbox(ibox) = ibox
          enddo
@@ -2124,8 +2124,8 @@ c     Rearrange old arrays now
       ng=np*ndim
       nh=np*nhess
       
-      curbox = laddr(1,2)
-      do ilev=2,nlevels
+      curbox = laddr(1,1)
+      do ilev=1,nlevels
          laddr(1,ilev) = curbox
          do ibox = tladdr(1,ilev),tladdr(2,ilev)
             ilevel(curbox) = tilevel(ibox)
@@ -2270,7 +2270,6 @@ c
       real *8 centers(ndim,nboxes),boxsize(0:nlevels)
 
       real *8 fvals2(nd,npbox/2**ndim)
-      real *8 fcoefs2(nd,npbox/2**ndim)
 
       real *8, allocatable :: polyv(:,:,:,:) 
       real *8, allocatable :: gvals2(:,:,:) 
@@ -2529,7 +2528,7 @@ cccc      call prinf('nblock=*',nblock,(nlevels+1))
       
 c     Rearrange old arrays now
 
-      do ilev = 0,1
+      do ilev = 0,0
          do ibox = laddr(1,ilev),laddr(2,ilev)
            iboxtocurbox(ibox) = ibox
          enddo
@@ -2539,8 +2538,8 @@ c     Rearrange old arrays now
       ng=np*ndim
       nh=np*nhess
       
-      curbox = laddr(1,2)
-      do ilev=2,nlevels
+      curbox = laddr(1,1)
+      do ilev=1,nlevels
          laddr(1,ilev) = curbox
          do ibox = tladdr(1,ilev),tladdr(2,ilev)
             if (ifdelete(ibox).ne.1) then
@@ -2586,6 +2585,7 @@ c     using the mapping iboxtocurbox
       do ibox=1,nboxes1
          if(ifdelete(ibox).ne.1) then
             curbox=iboxtocurbox(ibox)
+cccc            print *, curbox, ibox
             if(tiparent(ibox).eq.-1) iparent(curbox) = -1
             if(tiparent(ibox).gt.0) 
      1          iparent(curbox) = iboxtocurbox(tiparent(ibox))
@@ -2597,7 +2597,7 @@ c     using the mapping iboxtocurbox
          endif
       enddo
 
-cccc      call prinf('laddr=*',laddr,2*(nlevels+1))
+      call prinf('laddr=*',laddr,2*(nlevels+1))
       
       return
       end
@@ -2709,6 +2709,9 @@ c
       call get_p2c_interp_matrices(ndim,ipoly,norder,isgn,polyv)
       call get_val2coefs_matrices(ndim,ipoly,norder,umat_nd)
 
+
+      ibox=111
+      call prinf('parent of 111=*',iparent(ibox),1)
       
       allocate(iflag(nbmax))
 
@@ -2839,6 +2842,13 @@ c     everything else accordingly
          laddrtail(2,ilev) = -1
       enddo
 
+      ibox=111
+      call prinf('parent of 111=*',iparent(ibox),1)
+      do j=1,mc
+         jbox=ichild(j, iparent(ibox))
+         call prinf('child boxes=*', jbox,1)
+      enddo
+      
       do ilev = 1,nlevels-2
 c        First subdivide all the flag and flag+
 c        boxes with boxno nboxes+1, nboxes+ 2
@@ -2858,10 +2868,24 @@ c        in the standard format
       enddo
 c     Reorganize the tree to get it back in the standard format
 
+      ibox=111
+      call prinf('parent of 111=*',iparent(ibox),1)
+      do j=1,mc
+         jbox=ichild(j, iparent(ibox))
+         call prinf('child boxes=*', jbox,1)
+      enddo
+
       call vol_tree_reorg_pgh(ndim,nd,npbox,centers,nboxes,nlevels,
      1    laddr,laddrtail,ilevel,iparent,nchild,ichild,
      2    ifpgh,fvals,coefs,grad,hess,iflag)
 
+      ibox=111
+      call prinf('parent of 111=*',iparent(ibox),1)
+      do j=1,mc
+         jbox=ichild(j, iparent(ibox))
+         call prinf('child boxes=*', jbox,1)
+      enddo
+      
 c     Compute colleague information again      
 
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j)
@@ -2935,7 +2959,7 @@ c      in the laddr set and the laddrtail set as well
      2    centers,boxsize(ilev+1),nboxes,ilev,ilevel,iparent,nchild,
      3    ichild,isgn,polyv,umat_nd)
 
-          laddrtail(2,ilev+1) = nboxes         
+         laddrtail(2,ilev+1) = nboxes         
 c      Step 3: Update the colleague information for the newly
 c      created boxes
 
@@ -2976,11 +3000,27 @@ c           End of computing colleagues of box i
 C$OMP END PARALLEL DO         
       enddo
 
+      ibox=111
+      call prinf('parent of 111=*',iparent(ibox),1)
+      do j=1,mc
+         jbox=ichild(j, iparent(ibox))
+         call prinf('child boxes=*', jbox,1)
+      enddo
+      call prinf('laddrtail=*',laddrtail,2*(nlevels+1))
+      call prinf('nboxes=*',nboxes,1)
+      
 c     Reorganize tree once again and we are all done      
       call vol_tree_reorg_pgh(ndim,nd,npbox,centers,nboxes,nlevels,
      1    laddr,laddrtail,ilevel,iparent,nchild,ichild,
      2    ifpgh,fvals,coefs,grad,hess,iflag)
 
+      ibox=111
+      call prinf('parent of 111=*',iparent(ibox),1)
+      do j=1,mc
+         jbox=ichild(j, iparent(ibox))
+         call prinf('child boxes=*', jbox,1)
+      enddo
+      
 c     Compute colleague information again      
 
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j)

@@ -344,7 +344,6 @@ c
 cc        temporary variables
 c
       integer, allocatable :: nlist1(:),list1(:,:)
-      integer, allocatable :: nlist_loc(:),list_loc(:,:)
       integer, allocatable :: nlistpw(:), listpw(:,:)
       integer, allocatable :: ifpwexp(:)
 
@@ -487,17 +486,21 @@ c     at or above npwlevel
 
 c     compute the tables converting Legendre polynomial expansion to potential
 c     values, used in direct evaluation
-      allocate(tab_loc(norder,norder,-6:6,0:nlevels))
-      allocate(tabx_loc(norder,norder,-6:6,0:nlevels))
-      allocate(tabxx_loc(norder,norder,-6:6,0:nlevels))
-      allocate(ind_loc(2,norder+1,-6:6,0:nlevels))
+
+      mrefinelev=2
+      nloctab=2**(mrefinelev+1)*(mrefinelev+3)
+
+      allocate(  tab_loc(norder,norder,-nloctab:nloctab,0:nlevels))
+      allocate( tabx_loc(norder,norder,-nloctab:nloctab,0:nlevels))
+      allocate(tabxx_loc(norder,norder,-nloctab:nloctab,0:nlevels))
+      allocate(ind_loc(2,norder+1,-nloctab:nloctab,0:nlevels))
 
       nnodes=50
-      do ilev = 0,min(npwlevel,nlevels)
-         call mk_loctab_all(eps,ipoly,norder,nnodes,delta,
-     1       boxsize(ilev),tab_loc(1,1,-6,ilev),
-     2       tabx_loc(1,1,-6,ilev),tabxx_loc(1,1,-6,ilev),
-     3       ind_loc(1,1,-6,ilev))
+      do ilev = 0,nlevels
+         call mk_loctab_all(eps,ipoly,norder,nnodes,delta,boxsize(ilev),
+     1       mrefinelev,nloctab,tab_loc(1,1,-nloctab,ilev),
+     2       tabx_loc(1,1,-nloctab,ilev),tabxx_loc(1,1,-nloctab,ilev),
+     3       ind_loc(1,1,-nloctab,ilev))
       enddo
 
 c
@@ -781,19 +784,20 @@ C$OMP$SCHEDULE(DYNAMIC)
          bs = boxsize(ilev)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
 c        ibox is the source box            
-            nl1 = nlist1(ibox)
-            do j=1,nl1
-cccc        jbox is the target box
-               jbox = list1(j,ibox)
-               jlev = itree(iptr(2)+jbox-1)
-               call gnd_find_loctab_ind(ndim,iperiod,
-     1             centers(1,jbox),centers(1,ibox),bs,bs0,ixyz)
-               call gnd_tens_prod_to_pghloc(ndim,nd,norder,
-     1             fvals(1,1,ibox),ifpgh,pot(1,1,jbox),
-     2             grad(1,1,1,jbox),hess(1,1,1,jbox),
-     3             tab_loc(1,1,-6,jlev),tabx_loc(1,1,-6,jlev),
-     4             tabxx_loc(1,1,-6,jlev),ind_loc(1,1,-6,jlev),
-     3             ixyz)
+           nl1 = nlist1(ibox)
+           do j=1,nl1
+cccc       jbox is the target box
+             jbox = list1(j,ibox)
+             jlev = itree(iptr(2)+jbox-1)
+             call gnd_find_loctab_ind(ndim,iperiod,
+     1           centers(1,jbox),centers(1,ibox),bs,bs0,mrefinelev,ixyz)
+cccc             call prinf('ixyz=*',ixyz,ndim)
+             call gnd_tens_prod_to_pghloc(ndim,nd,norder,
+     1         fvals(1,1,ibox),ifpgh,pot(1,1,jbox),
+     2         grad(1,1,1,jbox),hess(1,1,1,jbox),nloctab,
+     3         tab_loc(1,1,-nloctab,jlev),tabx_loc(1,1,-nloctab,jlev),
+     4         tabxx_loc(1,1,-nloctab,jlev),ind_loc(1,1,-nloctab,jlev),
+     5         ixyz)
             enddo
          enddo
 C$OMP END PARALLEL DO         
@@ -803,7 +807,7 @@ c
 C$    time2=omp_get_wtime()  
       timeinfo(7) = time2-time1
       allocate(coefsp(nd,npbox,nboxes))
-      goto 5000
+      goto 4000
 ccc      goto 3000
 
 
@@ -891,36 +895,6 @@ C$    time2=omp_get_wtime()
      $     call prinf('=== STEP 8 (refine if needed) =====*',i,0)
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
-
-c     find the list of source boxes for each target box
-c     does not seem needed since boxes that require refinement have no direct
-c     interaction sources?
-      allocate(nlist_loc(nboxes))
-      allocate(list_loc(mnlist1,nboxes))
-      do i=1,nboxes
-         nlist_loc(i)=0
-      enddo
-      
-      do ilev = 0,nlevend
-         do ibox = itree(2*ilev+1),itree(2*ilev+2)
-c        ibox is the source box            
-            if (ifhung(ibox) .eq. 1) then
-               nl1 = nlist1(ibox)
-               do j=1,nl1
-cccc              jbox is the target box
-                  jbox = list1(j,ibox)
-                  jlev = itree(iptr(2)+jbox-1)
-                  if ((ilev .ne. jlev) .or.
-     1                ((ifpwexp(ibox).ne.1) .or. (jbox.ne.ibox))) then
-                     nlist_loc(jbox)=nlist_loc(jbox)+1
-                     list_loc(nlist_loc(jbox),jbox)=ibox
-                  endif
-               enddo
-            endif
-         enddo
-      enddo
-c      
-
 
       mc=2**ndim
       call get_child_box_sign(ndim,isgn)
@@ -1017,13 +991,22 @@ c     recalculate pot, grad, hessian if necessary
             irefinelev(ibox)=irefinelev(ibox)+1
             ilev=itree(iptr(2)+ibox-1)
             bsh = boxsize(ilev)/4
-            rscale=(bsh*2)**eta
+            rscale=bsh**eta
 c           nchild of ibox
             itree(iptr(4)+ibox-1)=mc
             
             do j=1,mc
                nnewboxes=nnewboxes+1
                jbox = nboxes0+nnewboxes
+
+c              copy list1,ifpwexp info
+               ifpwexp(jbox)=ifpwexp(ibox)
+               nl1=nlist1(ibox)
+               nlist1(jbox)=nl1
+               do i=1,nl1
+                  list1(i,jbox)=list1(i,ibox)
+               enddo
+               
                irefinelev(jbox)=irefinelev(ibox)+1
 cccc               print *, ibox, jbox
                do k=1,ndim
@@ -1045,16 +1028,38 @@ c              jbox's level
                nblock(jlev)=nblock(jlev)+1
 
 c              evaluate plane wave expansion
-               call gnd_find_msshift_ind(ndim,centers(1,jbox),
-     1             centers(1,ibox),k)
-               call gnd_shiftpw_loc(nd,nexp,rmlexp(iaddr(2,ibox)),
-     1             rmlexp(iaddr(2,jbox)),
-     2             wpwmsshift(1,k,nlevels-ilev))
-               call gnd_pw2pgh(ndim,nd,norder,npw,
-     1             rmlexp(iaddr(2,jbox)),tab_pw2pot(1,1,jlev),
-     2             tab_pw2der(1,1,jlev),tab_pw2dxx(1,1,jlev),
-     3             ifpgh,pot(1,1,jbox),grad(1,1,1,jbox),
-     4             hess(1,1,1,jbox))
+               if (ifpwexp(jbox).eq.1) then
+                  call gnd_find_msshift_ind(ndim,centers(1,jbox),
+     1                centers(1,ibox),k)
+                  call gnd_shiftpw_loc(nd,nexp,rmlexp(iaddr(2,ibox)),
+     1                rmlexp(iaddr(2,jbox)),
+     2                wpwmsshift(1,k,nlevels-ilev))
+                  call gnd_pw2pgh(ndim,nd,norder,npw,
+     1                rmlexp(iaddr(2,jbox)),tab_pw2pot(1,1,jlev),
+     2                tab_pw2der(1,1,jlev),tab_pw2dxx(1,1,jlev),
+     3                ifpgh,pot(1,1,jbox),grad(1,1,1,jbox),
+     4                hess(1,1,1,jbox))
+               endif
+c              evaluate local interactions
+               do k=1,nl1
+c              Note that jbox is the target box, kbox is the source box
+c              list1 can be used without any change since it's symmetric
+c              w.r.t source and target boxes
+                  kbox = list1(k,jbox)
+                  klev = itree(iptr(2)+kbox-1)
+                  bs = boxsize(klev)
+                  call gnd_find_loctab_ind(ndim,iperiod,
+     1                centers(1,jbox),centers(1,kbox),
+     2                bs,bs0,mrefinelev,ixyz)
+                  call gnd_tens_prod_to_pghloc(ndim,nd,norder,
+     1                fvals(1,1,kbox),ifpgh,pot(1,1,jbox),
+     2                grad(1,1,1,jbox),hess(1,1,1,jbox),
+     3                nloctab,tab_loc(1,1,-nloctab,jlev),
+     4                tabx_loc(1,1,-nloctab,jlev),
+     5                tabxx_loc(1,1,-nloctab,jlev),
+     6                ind_loc(1,1,-nloctab,jlev),ixyz)
+               enddo
+               
                call ortho_trans_nd(ndim,nd,0,norder,pot(1,1,jbox),
      1             coefsp(1,1,jbox),umat_nd)
                call fun_err(nd,npbox,coefsp(1,1,jbox),rmask,
@@ -1108,10 +1113,14 @@ c     call tree_reorg
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(9) = time2-time1
+      call prinf('laddr=*', itree(iptr(1)),2*(nlevels+1))
+      
+
 
 
       
-
+      
+cccc      goto 4800
 
       if(ifprint .ge. 1)
      $     call prinf('=== STEP 9 (coarsen if possible) =====*',i,0)
@@ -1138,20 +1147,27 @@ C$    time2=omp_get_wtime()
       timeinfo(10) = time2-time1
       call prinf('after coarsening, nlevels=*', nlevels,1)
       nboxes0=itree(2*nlevels+2)
-      call prinf('and nboxes=*', nboxes0,1)
+      call prinf('and nboxes0=*', nboxes0,1)
 
-
-
-
-
-
-
+      call prinf('laddr=*', itree(iptr(1)),2*(nlevels+1))
       
+
+
+cccc      goto 5000
+
+
+
+ 4800 continue
       if(ifprint .ge. 1)
      1    call prinf('=== STEP 10 (2:1 rebalance) =====*',i,0)
 c
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
+      nboxes0=itree(2*nlevels+2)
+      call computecoll(ndim,nlevels,nboxes0,itree(iptr(1)),
+     1    boxsize,centers,itree(iptr(3)),itree(iptr(4)),
+     2    itree(iptr(5)),iperiod,itree(iptr(6)),itree(iptr(7)))
+
       call vol_tree_fix_lr_interp(ndim,nd,ipoly,norder,npbox,
      1    ifpgh,pot,coefsp,grad,hess,
      2    nboxes,nlevels,centers,boxsize,nboxes0,nlevels,
@@ -1162,8 +1178,23 @@ C$    time2=omp_get_wtime()
       timeinfo(11) = time2-time1
       nboxes=itree(2*nlevels+2)
       call prinf('after 2:1 rebalancing, nboxes=*', nboxes,1)
-
-
+      call prinf('laddr=*', itree(iptr(1)),2*(nlevels+1))
+      
+      if (1.eq.2) then
+      do ilev = 0,nlevels
+         do ibox = itree(2*ilev+1),itree(2*ilev+2)
+            call prinf('ibox=*',ibox,1)
+            nchild = itree(iptr(4)+ibox-1)
+            do j=1,nchild
+               jbox=itree(iptr(5)+2**ndim*(ibox-1)+j-1)
+               call prinf('child box=*',jbox,1)
+            enddo
+            if (nchild.eq.0) then
+c               call prin2('coefsp=*',coefsp(1,1,ibox),nd*norder**ndim)
+            endif
+         enddo
+      enddo
+      endif
 
 
 
@@ -1210,6 +1241,7 @@ c     compute expansion coefficients for potential, gradient, and hessian
          call treedata_evalt_nd(ndim,nd*nhess,ipoly,norder,nboxes,
      1       nlevels,ltree,itree,iptr,centers,boxsize,coefsh,
      2       ntarg,targs,hesse)
+         print *, 'okay after hess'
       endif
       goto 5500
       

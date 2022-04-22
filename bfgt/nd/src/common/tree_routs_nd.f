@@ -168,9 +168,19 @@ c---------------------------------------------------------------
 
 c     Temp variables
       integer ilev,ibox,jbox,kbox,dad
-      integer i,j,ifirstbox,ilastbox,mc,mnb,k,ifnbor
+      integer i,j,ifirstbox,ilastbox,mc,mnbors,k,ifnbor
 
       mc= 2**ndim
+      mnbors=3**ndim
+      
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j)
+      do i=1,nboxes
+         nnbors(i) = 0
+         do j=1,mnbors
+            nbors(j,i) = -1
+         enddo
+      enddo
+C$OMP END PARALLEL DO     
       
 c     Setting parameters for level = 0
       nnbors(1) = 1

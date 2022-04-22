@@ -59,7 +59,7 @@ c     number of extra targets
       ntarg = 1000 000
 c     gaussian variance
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 3d-8
+      delta = 3d-6
 c     number of right-hand sides
       nd = 1
 c     0: free space; 1: doubly periodic

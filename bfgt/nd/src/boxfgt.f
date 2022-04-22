@@ -924,7 +924,7 @@ c     scaled desired precision for error
       reps = eps*rsc
       
       nboxes0 = itree(2*nlevels+2)
-      call prinf('nboxes0=*',nboxes0,1)
+      call prinf('before refinement, nboxes0=*',nboxes0,1)
 
 
       do ibox=1,nboxes
@@ -1102,25 +1102,31 @@ cccc                     print *, k, kdad, imaxrefinelev(kdad)
 
 
 c     call tree_reorg
+      if (nnewboxes.eq.0) goto 4600
       call fgt_vol_tree_reorg(ndim,nboxes,nd,npbox,
      1    nblock,nboxid,nnewboxes,nboxes0,
      2    centers,nlevels,itree(iptr(1)),itree(iptr(2)),
      3    itree(iptr(3)),itree(iptr(4)),itree(iptr(5)),
      4    ifpgh,pot,coefsp,grad,hess)
-      call prinf('after refinement, nlevels=*', nlevels,1)
-      call prinf('and nboxes=*', itree(2*nlevels+2),1)
+
+ 4600 continue
+      nboxes1=itree(2*nlevels+2)
+      if(ifprint .ge. 1) then
+         call prinf('after refinement, nlevels=*', nlevels,1)
+         call prinf('and nboxes=*', nboxes1,1)
+      endif
       
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(9) = time2-time1
       call prinf('laddr=*', itree(iptr(1)),2*(nlevels+1))
-      
+      if (nnewboxes.lt.0.1d0*nboxes0) goto 4800      
 
 
 
       
       
-cccc      goto 4800
+
 
       if(ifprint .ge. 1)
      $     call prinf('=== STEP 9 (coarsen if possible) =====*',i,0)
@@ -1145,11 +1151,12 @@ C$    time1=omp_get_wtime()
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(10) = time2-time1
-      call prinf('after coarsening, nlevels=*', nlevels,1)
+      if(ifprint.ge.1)
+     1    call prinf('after coarsening, nlevels=*', nlevels,1)
       nboxes0=itree(2*nlevels+2)
-      call prinf('and nboxes0=*', nboxes0,1)
-
-      call prinf('laddr=*', itree(iptr(1)),2*(nlevels+1))
+      if(ifprint.ge.1)
+     1    call prinf('and nboxes0=*', nboxes0,1)
+cccc      call prinf('laddr=*', itree(iptr(1)),2*(nlevels+1))
       
 
 
@@ -1176,25 +1183,12 @@ C$    time1=omp_get_wtime()
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(11) = time2-time1
-      nboxes=itree(2*nlevels+2)
-      call prinf('after 2:1 rebalancing, nboxes=*', nboxes,1)
-      call prinf('laddr=*', itree(iptr(1)),2*(nlevels+1))
+      nboxes0=itree(2*nlevels+2)
+      if(ifprint .ge. 1)
+     1    call prinf('after 2:1 rebalancing, nboxes=*', nboxes0,1)
+cccc      call prinf('laddr=*', itree(iptr(1)),2*(nlevels+1))
       
-      if (1.eq.2) then
-      do ilev = 0,nlevels
-         do ibox = itree(2*ilev+1),itree(2*ilev+2)
-            call prinf('ibox=*',ibox,1)
-            nchild = itree(iptr(4)+ibox-1)
-            do j=1,nchild
-               jbox=itree(iptr(5)+2**ndim*(ibox-1)+j-1)
-               call prinf('child box=*',jbox,1)
-            enddo
-            if (nchild.eq.0) then
-c               call prin2('coefsp=*',coefsp(1,1,ibox),nd*norder**ndim)
-            endif
-         enddo
-      enddo
-      endif
+
 
 
 
@@ -1241,7 +1235,6 @@ c     compute expansion coefficients for potential, gradient, and hessian
          call treedata_evalt_nd(ndim,nd*nhess,ipoly,norder,nboxes,
      1       nlevels,ltree,itree,iptr,centers,boxsize,coefsh,
      2       ntarg,targs,hesse)
-         print *, 'okay after hess'
       endif
       goto 5500
       

@@ -102,7 +102,6 @@ c
 c
 c
 c
-
       subroutine computecoll(ndim,nlevels,nboxes,laddr,boxsize,
      1                       centers,iparent,nchild,ichild,iper,
      2                       nnbors,nbors)
@@ -169,7 +168,10 @@ c---------------------------------------------------------------
 c     Temp variables
       integer ilev,ibox,jbox,kbox,dad
       integer i,j,ifirstbox,ilastbox,mc,mnbors,k,ifnbor
+      real *8 bs0,dis,dp1
 
+      bs0=boxsize(0)
+      
       mc= 2**ndim
       mnbors=3**ndim
       
@@ -210,8 +212,12 @@ c               box
 c     Check if kbox is a nearest neighbor or in list 2
                       ifnbor=1
                       do k=1,ndim
-                         if (abs(centers(k,kbox)-centers(k,ibox)).gt.
-     1                       1.05*boxsize(ilev)) then
+                         dis=abs(centers(k,kbox)-centers(k,ibox))
+                         if (iper.eq.1) then
+                            dp1=bs0-dis
+                            if (dp1.lt.dis) dis=dp1
+                         endif
+                         if (dis.gt.1.05*boxsize(ilev)) then
                             ifnbor=0
                             exit
                          endif
@@ -841,7 +847,7 @@ c
 c----------------------------------------------------------------
 c      
       subroutine gnd_compute_modified_list1(ndim,npwlevel,ifpwexp,
-     1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,iper,
+     1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,iperiod,
      2    mnlist1,nlist1,list1)
 c
 c
@@ -890,7 +896,7 @@ c
 c     boxsize     in: real *8(0:nlevels)
 c                 Array of boxsizes
 c   
-c     iper        in: integer
+c     iperiod     in: integer
 c                 flag for periodic implementations. Currently not used.
 c                 Feature under construction
 c 
@@ -912,7 +918,7 @@ c---------------------------------------------------------------
       implicit real *8 (a-h,o-z)
       integer nlevels,npwlevel,nboxes,ndim
       integer iptr(8),ltree
-      integer iper
+      integer iperiod
       integer itree(ltree),ifpwexp(nboxes)
       real *8 boxsize(0:nlevels)
       real *8 centers(ndim,nboxes)
@@ -922,9 +928,9 @@ c---------------------------------------------------------------
 c     Temp variables
       integer ilev,ibox,jbox,kbox,dad,mnbors,mc
       integer i,j,ifirstbox,ilastbox,ii,iflist1,k
-      real *8 distest,dis,bs,dp1
+      real *8 distest,dis,bs0,dp1
 
-      bs=boxsize(0)
+      bs0=boxsize(0)
 
       mnbors=3**ndim
       mc=2**ndim
@@ -981,8 +987,8 @@ c
                               do k=1,ndim
                                  dis = dabs(centers(k,kbox)
      1                               -centers(k,ibox))
-                                 if (iper .eq. 1) then
-                                    dp1 = bs-dis
+                                 if (iperiod .eq. 1) then
+                                    dp1 = bs0-dis
                                     if (dp1.lt.dis) dis=dp1
                                  endif
                                  
@@ -1010,8 +1016,8 @@ cc               compute list1 at level ilev-1
                      iflist1=1
                      do k=1,ndim
                         dis = dabs(centers(k,jbox)-centers(k,ibox))
-                        if (iper .eq. 1) then
-                           dp1 = bs-dis
+                        if (iperiod .eq. 1) then
+                           dp1 = bs0-dis
                            if (dp1.lt.dis) dis=dp1
                         endif
                         if (dis.ge.distest) then

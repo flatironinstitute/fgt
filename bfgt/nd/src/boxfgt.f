@@ -1175,7 +1175,7 @@ C$    time1=omp_get_wtime()
      1    boxsize,centers,itree(iptr(3)),itree(iptr(4)),
      2    itree(iptr(5)),iperiod,itree(iptr(6)),itree(iptr(7)))
 
-      call vol_tree_fix_lr_interp(ndim,nd,ipoly,norder,npbox,
+      call vol_tree_fix_lr_interp(ndim,nd,ipoly,iperiod,norder,npbox,
      1    ifpgh,pot,coefsp,grad,hess,
      2    nboxes,nlevels,centers,boxsize,nboxes0,nlevels,
      3    itree(iptr(1)),itree(iptr(2)),itree(iptr(3)),itree(iptr(4)),

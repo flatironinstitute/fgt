@@ -66,8 +66,9 @@ c
 
 
 
-      subroutine vol_tree_mem(ndim,ipoly,eps,zk,boxlen,norder,iptype,
-     1    eta,fun,nd,dpars,zpars,ipars,nboxes,nlevels,ltree,rintl)
+      subroutine vol_tree_mem(ndim,ipoly,iperiod,eps,zk,boxlen,norder,
+     1    iptype,eta,fun,nd,dpars,zpars,ipars,nboxes,nlevels,
+     2    ltree,rintl)
 c
 c      get memory requirements for the tree
 c
@@ -116,7 +117,7 @@ c
       complex *16 zpars(*),zk
       integer nd,ipars(*),iptype
       integer ltree
-      integer ndim,ipoly,nlevels,nboxes,norder
+      integer ndim,ipoly,iperiod,nlevels,nboxes,norder
 
       external fun
 
@@ -402,10 +403,10 @@ c
         enddo
 
         call computecoll(ndim,nlevels,nboxes,laddr,boxsize,centers,
-     1        iparent,nchild,ichild,iper,nnbors,nbors)
+     1        iparent,nchild,ichild,iperiod,nnbors,nbors)
 
         if(nlevels.ge.2) then
-          call vol_tree_fix_lr(ndim,fun,nd,dpars,zpars,ipars,
+          call vol_tree_fix_lr(ndim,iperiod,fun,nd,dpars,zpars,ipars,
      1      norder,npbox,fvals,grid,centers,nlevels,nboxes,boxsize,
      2      nbmax,nlmax,laddr,ilevel,iparent,nchild,ichild,nnbors,nbors)
         endif
@@ -425,9 +426,9 @@ c
 c
 c
 
-      subroutine vol_tree_build(ndim,ipoly,eps,zk,boxlen,norder,iptype,
-     1    eta,fun,nd,dpars,zpars,ipars,rintl,nboxes,nlevels,ltree,itree,
-     2    iptr,centers,boxsize,fvals)
+      subroutine vol_tree_build(ndim,ipoly,iperiod,eps,zk,boxlen,
+     1    norder,iptype,eta,fun,nd,dpars,zpars,ipars,rintl,nboxes,
+     2    nlevels,ltree,itree,iptr,centers,boxsize,fvals)
 c
 c      compute the tree
 c
@@ -496,7 +497,7 @@ c
       implicit none
       real *8 eps,boxlen,eta,dpars(*)
       complex *16 zk,zpars(*)
-      integer ndim,ipoly,nd,ipars(*),iptype
+      integer ndim,ipoly,iperiod,nd,ipars(*),iptype
       integer nlevels,nboxes,norder
       integer iptr(8),ltree
       integer itree(ltree),ier
@@ -516,7 +517,7 @@ c      real *8 vmat(norder,norder)
       real *8 rsc
 
       real *8 ra
-      integer j,nboxes0,npols,iper,mc,mnbors,nrefine
+      integer j,nboxes0,npols,mc,mnbors,nrefine
 
       external fun
 
@@ -646,10 +647,10 @@ c
 
       call computecoll(ndim,nlevels,nboxes0,itree(iptr(1)),
      1    boxsize,centers,itree(iptr(3)),itree(iptr(4)),
-     2    itree(iptr(5)),iper,itree(iptr(6)),itree(iptr(7)))
+     2    itree(iptr(5)),iperiod,itree(iptr(6)),itree(iptr(7)))
 
       if(nlevels.ge.2) then
-         call vol_tree_fix_lr(ndim,fun,nd,dpars,zpars,ipars,
+         call vol_tree_fix_lr(ndim,iperiod,fun,nd,dpars,zpars,ipars,
      1       norder,npbox,fvals,grid,centers,nlevels,nboxes0,boxsize,
      2       nboxes,nlevels,itree(iptr(1)),itree(iptr(2)),
      3       itree(iptr(3)),itree(iptr(4)),itree(iptr(5)),
@@ -753,7 +754,6 @@ C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,erra)
      1     iptype,rscale2,erra)
      
         erra = erra/rsum
-
         
         if(erra.gt.eps*rsc) then
           irefinebox(i) = 1
@@ -1242,8 +1242,8 @@ c
 c
 c
 c-------------------------------------------------------------      
-      subroutine vol_tree_fix_lr(ndim,fun,nd,dpars,zpars,ipars,norder,
-     1       npbox,fvals,grid,centers,nlevels,nboxes,boxsize,
+      subroutine vol_tree_fix_lr(ndim,iperiod,fun,nd,dpars,zpars,ipars,
+     1       norder,npbox,fvals,grid,centers,nlevels,nboxes,boxsize,
      2       nbmax,nlmax,laddr,ilevel,iparent,nchild,ichild,nnbors,
      3       nbors)
 c
@@ -1252,7 +1252,7 @@ c       convert an adaptive tree into a level restricted tree
 c
       implicit none
       integer nd,ipars(*),norder,npbox,nlevels,nboxes,nlmax
-      integer nbmax,ndim
+      integer nbmax,ndim,iperiod
       real *8 dpars(*),fvals(nd,npbox,nbmax),grid(ndim,npbox)
       real *8 centers(ndim,nbmax),boxsize(0:nlmax)
       complex *16 zpars(*)
@@ -1264,10 +1264,12 @@ c
 
       integer i,j,k,l,ibox,jbox,kbox,ilev,idad,igranddad
       integer nbloc,ict,iper,mc,mnbors,ifnbor
-      real *8 dis,distest
+      real *8 dis,distest,bs0,dp1,dm1
 
       external fun
 
+      bs0=boxsize(0)
+      
       mc=2**ndim
       mnbors=3**ndim
       
@@ -1317,6 +1319,12 @@ c              eliminates the granddad
                   ict = 0
                   do k=1,ndim
                      dis = centers(k,jbox) - centers(k,idad)
+                     if (iperiod.eq.1) then
+                        dp1=dis+bs0
+                        dm1=dis-bs0
+                        if (abs(dis).gt.abs(dp1)) dis=dp1
+                        if (abs(dis).gt.abs(dm1)) dis=dm1
+                     endif
                      if(abs(dis).le.distest) ict = ict + 1
                   enddo
                   if(ict.eq.ndim) then
@@ -1365,6 +1373,12 @@ c                 eliminates the dad
                      ict = 0
                      do k=1,ndim
                         dis = centers(k,jbox) - centers(k,ibox)
+                        if (iperiod.eq.1) then
+                           dp1=dis+bs0
+                           dm1=dis-bs0
+                           if (abs(dis).gt.abs(dp1)) dis=dp1
+                           if (abs(dis).gt.abs(dm1)) dis=dm1
+                        endif
                         if(abs(dis).le.distest) ict = ict + 1
                      enddo
                      if(ict.eq.ndim) then
@@ -1425,7 +1439,7 @@ c     Reorganize the tree to get it back in the standard format
 c     Compute colleague information again      
       call computecoll(ndim,nlevels,nboxes,laddr, boxsize,
      1                   centers,iparent,nchild,
-     2                   ichild,iper,nnbors,nbors)
+     2                   ichild,iperiod,nnbors,nbors)
 
 c     Processing of flag and flag+ boxes is done
 c     Start processing flag++ boxes. We will use a similar
@@ -1508,8 +1522,14 @@ c               box
 c     Check if kbox is a nearest neighbor or in list 2
                       ifnbor=1
                       do k=1,ndim
-                         if((abs(centers(k,kbox)-centers(k,ibox)).gt.
-     1                   1.05*boxsize(ilev+1))) then
+                         dis=centers(k,kbox)-centers(k,ibox)
+                         if (iperiod.eq.1) then
+                            dp1=dis+bs0
+                            dm1=dis-bs0
+                            if (abs(dis).gt.abs(dp1)) dis=dp1
+                            if (abs(dis).gt.abs(dm1)) dis=dm1
+                         endif
+                         if((abs(dis).gt.1.05*boxsize(ilev+1))) then
                             ifnbor=0
                             exit
                          endif
@@ -1533,7 +1553,7 @@ c     Reorganize tree once again and we are all done
 c     Compute colleague information again      
       call computecoll(ndim,nlevels,nboxes,laddr, boxsize,
      1                   centers,iparent,nchild,
-     2                   ichild,iper,nnbors,nbors)
+     2                   ichild,iperiod,nnbors,nbors)
       
 
       return
@@ -2629,8 +2649,8 @@ c
 c      
 c
 c-------------------------------------------------------------      
-      subroutine vol_tree_fix_lr_interp(ndim,nd,ipoly,norder,npbox,
-     1    ifpgh,fvals,coefs,grad,hess,
+      subroutine vol_tree_fix_lr_interp(ndim,nd,ipoly,iperiod,
+     1    norder,npbox,ifpgh,fvals,coefs,grad,hess,
      2    nbmax,nlmax,centers,boxsize,nboxes,nlevels,
      3    laddr,ilevel,iparent,nchild,ichild,nnbors,nbors)
 c
@@ -2671,7 +2691,8 @@ c
       integer nbloc,ict,iper,mc,mnbors,ifnbor
       real *8 dis,distest
 
-
+      bs0=boxsize(0)
+      
       mc=2**ndim
       mnbors=3**ndim
 
@@ -2726,6 +2747,12 @@ c              eliminates the granddad
                   ict = 0
                   do k=1,ndim
                      dis = centers(k,jbox) - centers(k,idad)
+                     if (iperiod.eq.1) then
+                        dp1=dis+bs0
+                        dm1=dis-bs0
+                        if (abs(dis).gt.abs(dp1)) dis=dp1
+                        if (abs(dis).gt.abs(dm1)) dis=dm1
+                     endif
                      if(abs(dis).le.distest) ict = ict + 1
                   enddo
                   if(ict.eq.ndim) then
@@ -2774,6 +2801,12 @@ c                 eliminates the dad
                      ict = 0
                      do k=1,ndim
                         dis = centers(k,jbox) - centers(k,ibox)
+                        if (iperiod.eq.1) then
+                           dp1=dis+bs0
+                           dm1=dis-bs0
+                           if (abs(dis).gt.abs(dp1)) dis=dp1
+                           if (abs(dis).gt.abs(dm1)) dis=dm1
+                        endif
                         if(abs(dis).le.distest) ict = ict + 1
                      enddo
                      if(ict.eq.ndim) then
@@ -2835,7 +2868,7 @@ c     Reorganize the tree to get it back in the standard format
 c     Compute colleague information again      
       call computecoll(ndim,nlevels,nboxes,laddr, boxsize,
      1                   centers,iparent,nchild,
-     2                   ichild,iper,nnbors,nbors)
+     2                   ichild,iperiod,nnbors,nbors)
 
 c     Processing of flag and flag+ boxes is done
 c     Start processing flag++ boxes. We will use a similar
@@ -2920,8 +2953,15 @@ c               box
 c     Check if kbox is a nearest neighbor or in list 2
                       ifnbor=1
                       do k=1,ndim
-                         if((abs(centers(k,kbox)-centers(k,ibox)).gt.
-     1                   1.05*boxsize(ilev+1))) then
+                         dis=centers(k,kbox)-centers(k,ibox)
+                         if (iperiod.eq.1) then
+                            dp1=dis+bs0
+                            dm1=dis-bs0
+                            if (abs(dis).gt.abs(dp1)) dis=dp1
+                            if (abs(dis).gt.abs(dm1)) dis=dm1
+                         endif
+                         
+                         if((abs(dis).gt.1.05*boxsize(ilev+1))) then
                             ifnbor=0
                             exit
                          endif
@@ -2946,7 +2986,7 @@ c     Reorganize tree once again and we are all done
 c     Compute colleague information again      
       call computecoll(ndim,nlevels,nboxes,laddr, boxsize,
      1                   centers,iparent,nchild,
-     2                   ichild,iper,nnbors,nbors)
+     2                   ichild,iperiod,nnbors,nbors)
       
 
       return

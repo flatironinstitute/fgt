@@ -45,10 +45,12 @@ c
       character *1 type
       data ima/(0.0d0,1.0d0)/
 
-      external fgaussn,fgaussnx,exact_pot
+      external rhsfun,uexact
 
 c     dimension of the underlying space
-      ndim=2
+      ndim=1
+      ipars(1) = ndim
+
       eps = 0.5d-12
       if (ndim.eq.3) eps=0.5d-6
 c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
@@ -60,29 +62,42 @@ c     number of extra targets
 c     gaussian variance
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
       delta = 3d-6
+c     for exact solution
+      dpars(51)=delta
+
 c     number of right-hand sides
       nd = 1
 c     0: free space; 1: doubly periodic
-      iperiod=0
+      iperiod=1
+      ipars(5)=iperiod
+      
 c     p in L^p norm - 0: L^infty norm; 1: L^1 norm; 2: L^2 norm
-      iptype = 0
+      if (iperiod.eq.0) iptype = 0
+c      if (iperiod.eq.1) iptype = 2
       eta = 1.0d0
       
-      ipars(1) = ndim
 c     number of gaussians in the rhs function
-      ng = 2
-      ipars(2) = ng
+      if (iperiod.eq.0) then
+         ng = 2
+         ipars(2) = ng
+      elseif (iperiod.eq.1) then
+         do i=1,ndim
+            ipars(i+1)=10*i
+         enddo
+      endif
 c     number of points per box
       npbox = norder**ndim
 
       type = 'f'
       ifpgh= 3
       ifpghtarg=3
+
+      ipars(10) = max(ifpgh,ifpghtarg)
       
       call prini(6,13)
 cccc  call prini_off()
 
-      zk = ima
+      zk = ipars(2)*2.05d0
       done = 1
       pi = atan(done)*4
 c
@@ -131,8 +146,6 @@ c     fourth gaussian
       dpars(19) = rsig/1.2d0
       dpars(20) = 1/pi/rsign
 
-c     for exact solution
-      dpars(51)=delta
 
       nhess = ndim*(ndim+1)/2
       allocate(targs(ndim,ntarg),pote(nd,ntarg))
@@ -147,9 +160,8 @@ c     for exact solution
       call cpu_time(t1)
 C$      t1 = omp_get_wtime()
 
-      call vol_tree_mem(ndim,ipoly,eps,zk,boxlen,norder,iptype,eta,
-     1    fgaussn,nd,dpars,zpars,ipars,nboxes,nlevels,ltree,rintl)
-c     1    exact_pot,nd,dpars,zpars,ipars,nboxes,nlevels,ltree,rintl)
+      call vol_tree_mem(ndim,ipoly,iperiod,eps,zk,boxlen,norder,iptype,
+     1    eta,rhsfun,nd,dpars,zpars,ipars,nboxes,nlevels,ltree,rintl)
 
       call prinf('nboxes=*',nboxes,1)
       call prinf('nlevels=*',nlevels,1)
@@ -157,10 +169,9 @@ c     1    exact_pot,nd,dpars,zpars,ipars,nboxes,nlevels,ltree,rintl)
       allocate(fvals(nd,npbox,nboxes),centers(ndim,nboxes))
       allocate(boxsize(0:nlevels),itree(ltree))
 
-      call vol_tree_build(ndim,ipoly,eps,zk,boxlen,norder,iptype,eta,
-     1    fgaussn,nd,dpars,zpars,ipars,rintl,nboxes,nlevels,ltree,
-c     1    exact_pot,nd,dpars,zpars,ipars,rintl,nboxes,nlevels,ltree,
-     2    itree,iptr,centers,boxsize,fvals)
+      call vol_tree_build(ndim,ipoly,iperiod,eps,zk,boxlen,norder,
+     1    iptype,eta,rhsfun,nd,dpars,zpars,ipars,rintl,nboxes,
+     2    nlevels,ltree,itree,iptr,centers,boxsize,fvals)
       call prinf('laddr=*',itree,2*(nlevels+1))
       call cpu_time(t2)
 C$      t2 = omp_get_wtime()      
@@ -198,17 +209,21 @@ c     allocate memory and initialization
       allocate(hess(nd,nhess,npbox,nboxes))
 
       do i=1,nboxes
-        do j=1,npbox
-           do ind=1,nd
-              pot(ind,j,i) = 0
-              do k=1,ndim
-                 grad(ind,k,j,i) = 0
-              enddo
-              do k=1,nhess
-                 hess(ind,k,j,i) = 0
-              enddo
-           enddo
-        enddo
+      do j=1,npbox
+      do ind=1,nd
+         pot(ind,j,i) = 0
+         if (ifpgh.ge.2) then
+            do k=1,ndim
+               grad(ind,k,j,i) = 0
+            enddo
+         endif
+         if (ifpgh.ge.3) then
+            do k=1,nhess
+               hess(ind,k,j,i) = 0
+            enddo
+         endif
+      enddo
+      enddo
       enddo
 
       call cpu_time(t1) 
@@ -248,7 +263,7 @@ c     compute exact solutions on tensor grid
                call uexact(nd,targ,dpars,zpars,ipars,
      1             potex(1,j,ibox),gradex(1,1,j,ibox),
      2             hessex(1,1,j,ibox))
-               call fgaussn(nd,targ,dpars,zpars,ipars,fval)
+               call rhsfun(nd,targ,dpars,zpars,ipars,fval)
 
                write(34,*) targ(1), fval, potex(1,j,ibox), pot(1,j,ibox)
              enddo
@@ -295,7 +310,7 @@ c     compute exact solutions on arbitrary targets
       do j=1,ntarg
          call uexact(nd,targs(1,j),dpars,zpars,ipars,
      1       potexe(1,j),gradexe(1,1,j),hessexe(1,1,j))
-         call fgaussn(nd,targs(1,j),dpars,zpars,ipars,fval)
+         call rhsfun(nd,targs(1,j),dpars,zpars,ipars,fval)
          rerr=abs(potexe(1,j)-pote(1,j))
          write(35,*) targs(1,j), fval, potexe(1,j), rerr
       enddo
@@ -319,7 +334,59 @@ c     compute relative error
 c
 c
 c
-c 
+      subroutine rhsfun(nd,xyz,dpars,zpars,ipars,f)
+c     right-hand-side function
+c     for free space problem:  consisting of several gaussians, their
+c       centers are given in dpars(1:3), their 
+c       variances in dpars(4), and their strength in dpars(5)
+c
+c     for periodic conditions: simple sin/cos functions
+c     
+      implicit real *8 (a-h,o-z)
+      integer nd,ndim,ipars(*)
+      complex *16 zpars
+      real *8 dpars(*),f(nd),xyz(*)
+c
+      iperiod=ipars(5)
+
+      if (iperiod.eq.0) then
+         call fgaussn(nd,xyz,dpars,zpars,ipars,f)
+      elseif (iperiod.eq.1) then
+         call fperiodic(nd,xyz,dpars,zpars,ipars,f)
+      endif
+c     
+c     
+      return
+      end
+c
+c
+c
+c
+      subroutine uexact(nd,targ,dpars,zpars,ipars,
+     1    pot,grad,hess)
+c     exact solution for the given rhs function
+      implicit real*8 (a-h,o-z)
+      real*8 targ(*),pot(nd),grad(nd,*),hess(nd,*)
+      real*8 dpars(*)
+      complex *16 zpars(*)
+      integer ipars(*)
+      
+
+      iperiod=ipars(5)
+
+      if (iperiod.eq.0) then
+         call ugexact(nd,targ,dpars,zpars,ipars,pot,grad,hess)
+      elseif (iperiod.eq.1) then
+         call upexact(nd,targ,dpars,zpars,ipars,pot,grad,hess)
+      endif
+c     
+      
+      return
+      end
+c
+c
+c
+c     
       subroutine fgaussn(nd,xyz,dpars,zpars,ipars,f)
 c     right-hand-side function
 c       consisting of several gaussians, their
@@ -353,30 +420,37 @@ c
 c
 c
 c
-      subroutine uexact(nd,targ,dpars,zpars,ipars,
+      subroutine ugexact(nd,targ,dpars,zpars,ipars,
      1    pot,grad,hess)
       implicit real*8 (a-h,o-z)
       real*8 targ(*),pot(nd),grad(nd,*),hess(nd,*)
       real*8 gf(10),gfp(10),dpars(*)
       real*8 gfpp(10)
       integer ipars(*)
+      complex *16 zpars(*)
+      real *8 pi
+      data pi/3.14159265358979323846264338327950288419716939937510d0/
 c
-      one=1.0d0
-      pi=4*atan(one)
 
       ndim=ipars(1)
       ng=ipars(2)
       delta=dpars(51)
-      
+
+      ifpgh=ipars(10)
+
 c-----------------------
       do ind=1,nd
          pot(ind)=0.0d0
-         do k=1,ndim
-            grad(ind,k)=0.0d0
-         enddo
-         do k=1,ndim*(ndim+1)/2
-            hess(ind,k)=0.0d0
-         enddo
+         if (ifpgh.ge.2) then
+            do k=1,ndim
+               grad(ind,k)=0.0d0
+            enddo
+         endif
+         if (ifpgh.ge.3) then
+            do k=1,ndim*(ndim+1)/2
+               hess(ind,k)=0.0d0
+            enddo
+         endif
       enddo
 c-----------------------
       do ind=1,nd
@@ -395,60 +469,72 @@ c
      2             +erf((x*dc+d*c)/d/dc/dsqrt((dc+d)/d/dc)))
      3             /dsqrt(((dc+d)/d/dc))
 
-               arg1 = (-dc-d+x*dc+d*c)/d/dc/dsqrt((dc+d)/d/dc)
-               darg = 1.0d0/d/dsqrt((dc+d)/d/dc)
-               arg2 = (x*dc+d*c)/d/dc/dsqrt((dc+d)/d/dc)
+               if (ifpgh.ge.2) then
+                  arg1 = (-dc-d+x*dc+d*c)/d/dc/dsqrt((dc+d)/d/dc)
+                  darg = 1.0d0/d/dsqrt((dc+d)/d/dc)
+                  arg2 = (x*dc+d*c)/d/dc/dsqrt((dc+d)/d/dc)
 
-               gfp(k)=gf(k)*(-2.0d0*(x-c)/(dc+d)) +
+                  gfp(k)=gf(k)*(-2.0d0*(x-c)/(dc+d)) +
      1                sqrt(pi)/2.0d0*dexp(-(x-c)**2/(dc+d))
-     2             *(-dexp(-arg1*arg1) +dexp(-arg2*arg2))*
-     3             darg*(2.0d0/sqrt(pi))/dsqrt(((dc+d)/d/dc))
+     2                *(-dexp(-arg1*arg1) +dexp(-arg2*arg2))*
+     3                darg*(2.0d0/sqrt(pi))/dsqrt(((dc+d)/d/dc))
+               endif
 
-               gfpp(k)=gfp(k)*(-2.0d0*(x-c)/(dc+d)) +
+               if (ifpgh.ge.3) then
+                  gfpp(k)=gfp(k)*(-2.0d0*(x-c)/(dc+d)) +
      1                sqrt(pi)/2.0d0*dexp(-(x-c)**2/(dc+d))
-     2             *(-dexp(-arg1*arg1) +dexp(-arg2*arg2))*
-     3             darg*(2.0d0/sqrt(pi))/dsqrt(((dc+d)/d/dc))
+     2                *(-dexp(-arg1*arg1) +dexp(-arg2*arg2))*
+     3                darg*(2.0d0/sqrt(pi))/dsqrt(((dc+d)/d/dc))
 
-               gfpp(k)=gfpp(k)+gf(k)*(-2.0d0/(dc+d)) +
-     1            ( (-2.0d0*(x-c)/(dc+d))*
+                  gfpp(k)=gfpp(k)+gf(k)*(-2.0d0/(dc+d)) +
+     1                ( (-2.0d0*(x-c)/(dc+d))*
      1                sqrt(pi)/2.0d0*dexp(-(x-c)**2/(dc+d))
-     2             *(-dexp(-arg1*arg1) +dexp(-arg2*arg2))*
-     3             darg*(2.0d0/sqrt(pi))/dsqrt(((dc+d)/d/dc)))+
-     1            (sqrt(pi)/2.0d0*dexp(-(x-c)**2/(dc+d))
-     2             *darg*(2*arg1*dexp(-arg1*arg1) - 
-     1                   2*arg2*dexp(-arg2*arg2))
-     2             *(-dexp(-arg1*arg1) +dexp(-arg2*arg2))*
-     3             darg*(2.0d0/sqrt(pi))/dsqrt(((dc+d)/d/dc)))
+     2                *(-dexp(-arg1*arg1) +dexp(-arg2*arg2))*
+     3                darg*(2.0d0/sqrt(pi))/dsqrt(((dc+d)/d/dc)))+
+     1                (sqrt(pi)/2.0d0*dexp(-(x-c)**2/(dc+d))
+     2                *darg*(2*arg1*dexp(-arg1*arg1) - 
+     1                2*arg2*dexp(-arg2*arg2))
+     2                *(-dexp(-arg1*arg1) +dexp(-arg2*arg2))*
+     3                darg*(2.0d0/sqrt(pi))/dsqrt(((dc+d)/d/dc)))
+               endif
             enddo
 
             str=dpars(idp+5)
             if (ndim.eq.1) then
                pot(ind)=pot(ind)+str*gf(1)
-               grad(ind,1)=grad(ind,1)+str*gfp(1)
-               hess(ind,1)=hess(ind,1)+str*gfpp(1)
+               if (ifpgh.ge.2) grad(ind,1)=grad(ind,1)+str*gfp(1)
+               if (ifpgh.ge.3) hess(ind,1)=hess(ind,1)+str*gfpp(1)
             elseif (ndim.eq.2) then
                pot(ind)=pot(ind)+str*gf(1)*gf(2)
 
-               grad(ind,1)=grad(ind,1)+str*gfp(1)*gf(2)
-               grad(ind,2)=grad(ind,2)+str*gf(1)*gfp(2)
+               if (ifpgh.ge.2) then
+                  grad(ind,1)=grad(ind,1)+str*gfp(1)*gf(2)
+                  grad(ind,2)=grad(ind,2)+str*gf(1)*gfp(2)
+               endif
 
-               hess(ind,1)=hess(ind,1)+str*gfpp(1)*gf(2)
-               hess(ind,2)=hess(ind,2)+str*gfp(1)*gfp(2)
-               hess(ind,3)=hess(ind,3)+str*gf(1)*gfpp(2)
+               if (ifpgh.ge.3) then
+                  hess(ind,1)=hess(ind,1)+str*gfpp(1)*gf(2)
+                  hess(ind,2)=hess(ind,2)+str*gfp(1)*gfp(2)
+                  hess(ind,3)=hess(ind,3)+str*gf(1)*gfpp(2)
+               endif
             elseif (ndim.eq.3) then
                pot(ind)=pot(ind)+str*gf(1)*gf(2)*gf(3)
 
-               grad(ind,1)=grad(ind,1)+str*gfp(1)*gf(2)*gf(3)       
-               grad(ind,2)=grad(ind,2)+str*gf(1)*gfp(2)*gf(3)
-               grad(ind,3)=grad(ind,3)+str*gf(1)*gf(2)*gfp(3)
+               if (ifpgh.ge.2) then
+                  grad(ind,1)=grad(ind,1)+str*gfp(1)*gf(2)*gf(3)       
+                  grad(ind,2)=grad(ind,2)+str*gf(1)*gfp(2)*gf(3)
+                  grad(ind,3)=grad(ind,3)+str*gf(1)*gf(2)*gfp(3)
+               endif
 
-               hess(ind,1)=hess(ind,1)+str*gfpp(1)*gf(2)*gf(3)
-               hess(ind,2)=hess(ind,2)+str*gf(1)*gfpp(2)*gf(3)
-               hess(ind,3)=hess(ind,3)+str*gf(1)*gf(2)*gfpp(3)
+               if (ifpgh.ge.3) then
+                  hess(ind,1)=hess(ind,1)+str*gfpp(1)*gf(2)*gf(3)
+                  hess(ind,2)=hess(ind,2)+str*gf(1)*gfpp(2)*gf(3)
+                  hess(ind,3)=hess(ind,3)+str*gf(1)*gf(2)*gfpp(3)
 
-               hess(ind,4)=hess(ind,4)+str*gfp(1)*gfp(2)*gf(3)
-               hess(ind,5)=hess(ind,5)+str*gfp(1)*gf(2)*gfp(3)
-               hess(ind,6)=hess(ind,6)+str*gf(1)*gfp(2)*gfp(3)
+                  hess(ind,4)=hess(ind,4)+str*gfp(1)*gfp(2)*gf(3)
+                  hess(ind,5)=hess(ind,5)+str*gfp(1)*gf(2)*gfp(3)
+                  hess(ind,6)=hess(ind,6)+str*gf(1)*gfp(2)*gfp(3)
+               endif
             endif
          enddo
       enddo
@@ -456,6 +542,154 @@ c
       end
 c
 c 
+c
+c 
+      subroutine fperiodic(nd,xyz,dpars,zpars,ipars,f)
+c     periodic right-hand-side function
+c     
+      implicit real *8 (a-h,o-z)
+      integer nd,ndim,ipars(*)
+      complex *16 zpars
+      real *8 dpars(*),f(nd),xyz(*)
+      integer nxyz(10)
+      real *8 pi
+      data pi/3.14159265358979323846264338327950288419716939937510D0/
+c
+      ndim=ipars(1)
+      pi2=pi*2
+
+      do ind=1,nd
+         f(ind)=1.0d0
+         do i=2,ndim,2
+            f(ind)=f(ind)*cos(pi2*xyz(i)*ipars(1+i))
+         enddo
+         do i=1,ndim,2
+            f(ind)=f(ind)*sin(pi2*xyz(i)*ipars(1+i))
+         enddo
+      enddo
+c     
+c     
+      return
+      end
+c
+c
+c
+      subroutine upexact(nd,targ,dpars,zpars,ipars,
+     1    pot,grad,hess)
+c     exact solution for periodic rhs
+      implicit real*8 (a-h,o-z)
+      real*8 targ(*),pot(nd),grad(nd,*),hess(nd,*)
+      real*8 dpars(*)
+      real*8 cvals(10),svals(10)
+      integer ipars(*),nxyz(10)
+      complex *16 zpars(*)
+      real *8 pi
+      data pi/3.14159265358979323846264338327950288419716939937510d0/
+c
+      pisq=pi**2
+      pi2=2*pi
+      pi22=pi2**2
+      
+      ndim=ipars(1)
+      delta=dpars(51)
+
+      do i=1,ndim
+         nxyz(i)=ipars(1+i)
+      enddo
+
+      ifpgh=ipars(10)
+      
+c-----------------------
+      do ind=1,nd
+         pot(ind)=0.0d0
+         if (ifpgh.ge.2) then
+            do k=1,ndim
+               grad(ind,k)=0.0d0
+            enddo
+         endif
+         if (ifpgh.ge.3) then
+            do k=1,ndim*(ndim+1)/2
+               hess(ind,k)=0.0d0
+            enddo
+         endif
+      enddo
+
+      c0=(pi*delta)**(ndim/2.0d0)
+
+      xi2=0.0d0
+      do i=1,ndim
+         xi2=xi2+nxyz(i)**2
+      enddo
+
+      c1=c0*exp(-xi2*pisq*delta)
+
+      do i=1,ndim
+         svals(i)= sin(pi2*targ(i)*nxyz(i))
+         cvals(i)= cos(pi2*targ(i)*nxyz(i))
+      enddo
+c-----------------------
+      do ind=1,nd
+         pot(ind)=c1
+         do i=2,ndim,2
+            pot(ind)=pot(ind)*cvals(i)
+         enddo
+         do i=1,ndim,2
+            pot(ind)=pot(ind)*svals(i)
+         enddo
+
+         if (ifpgh.ge.2) then
+            do i=1,ndim
+               grad(ind,i)=pi2*nxyz(i)*c1
+               do j=2,ndim,2
+                  if (j.ne.i) then
+                     grad(ind,i)=grad(ind,i)*cvals(j)
+                  elseif (j.eq.i) then
+                     grad(ind,i)=-grad(ind,i)*svals(j)
+                  endif
+               enddo
+               do j=1,ndim,2
+                  if (j.ne.i) then
+                     grad(ind,i)=grad(ind,i)*svals(j)
+                  elseif (j.eq.i) then
+                     grad(ind,i)=grad(ind,i)*cvals(j)
+                  endif
+               enddo
+            enddo
+         endif
+
+         if (ifpgh.ge.3) then
+            if (ndim.eq.1) then
+               hess(ind,1)=-pi22*nxyz(1)**2*pot(ind)
+            elseif (ndim.eq.2) then
+               cd = -pi22*pot(ind)
+               dxy = -pi22*c1*cvals(1)*svals(2)
+               hess(ind,1)=cd*nxyz(1)**2
+               hess(ind,2)=dxy*nxyz(1)*nxyz(2)
+               hess(ind,3)=cd*nxyz(2)**2
+            elseif (ndim.eq.3) then
+               cd = -pi22*pot(ind)
+               dxy = -pi22*c1*cvals(1)*svals(2)
+               dxz =  pi22*c1*cvals(1)*cvals(3)
+               dyz = -pi22*c1*svals(2)*cvals(3)
+
+               hess(ind,1)=cd*nxyz(1)**2
+               hess(ind,2)=cd*nxyz(2)**2
+               hess(ind,3)=cd*nxyz(3)**2
+               
+               hess(ind,4)=dxy*nxyz(1)*nxyz(2)
+               hess(ind,5)=dxz*nxyz(1)*nxyz(3)
+               hess(ind,6)=dyz*nxyz(2)*nxyz(3)
+            endif
+         endif
+         
+      enddo
+      
+      return
+      end
+c
+c 
+c
+c     
       subroutine exact_pot(nd,targ,dpars,zpars,ipars,
      1    pot)
       implicit real*8 (a-h,o-z)

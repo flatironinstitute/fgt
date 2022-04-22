@@ -433,7 +433,7 @@ c
 c
 c
 c
-      subroutine treedata_coefs_p_to_g2d(nd,nlevels,itree,iptr,
+      subroutine treedata_coefs_p_to_g2d(ndim,nd,nlevels,itree,iptr,
      1    boxsize,norder,coefsp,coefsg,umat)
 c
 c     This code converts expansion coefficients of a tree data given on a tensor product
@@ -634,15 +634,16 @@ c
       real *8, allocatable :: potsort(:,:)
 
       allocate(itarg(nt),itargse(2,nboxes))
-      
+      print *, "here1"
       call pts_tree_sort(ndim,nt,targ,itree,ltree,nboxes,nlevels,iptr,
      1    tcenters,itarg,itargse)
-      
       allocate(targsort(ndim,nt),potsort(nd,nt))
 c      
 c     reorder targets
 c
       call dreorderf(ndim,nt,targ,targsort,itarg)
+      print *, "done reordering targets"
+      read *, i
 c
 c     
 c     
@@ -676,6 +677,7 @@ cccc                  print *, cen(1),cen(2)
         enddo
 C$OMP END PARALLEL DO
       enddo
+      stop
 c
 c     resort the output arrays in input order
 c
@@ -1361,9 +1363,9 @@ c
       integer itree(*),norder,npbox
       integer listcid(2**ndim)
       
-      real *8 fvals(nd,npbox,nboxes),fcoefs(nd,npbox,nboxes)
+      real *8 fvals(nd,npbox,*),fcoefs(nd,npbox,*)
 
-      real *8 centers(ndim,nboxes),boxsize(0:nlevels)
+      real *8 centers(ndim,*),boxsize(0:*)
 
       integer isgn(ndim,2**ndim)
       real *8 polyv(norder,norder,ndim,2**ndim)
@@ -1440,7 +1442,7 @@ c
       implicit real *8 (a-h,o-z)
       integer listcid(2**ndim)
       
-      real *8 fvals(nd,npbox,nboxes),fcoefs(nd,npbox,nboxes)
+      real *8 fvals(nd,npbox,*),fcoefs(nd,npbox,*)
 
       real *8 polyv(norder,norder/2,ndim,2**ndim)
       real *8 umat_nd(norder,norder,ndim)

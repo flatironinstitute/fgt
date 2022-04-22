@@ -2712,6 +2712,7 @@ c
 
       ibox=111
       call prinf('parent of 111=*',iparent(ibox),1)
+      call prinf('level of 111=*',ilevel(ibox),1)
       
       allocate(iflag(nbmax))
 
@@ -2848,6 +2849,7 @@ c     everything else accordingly
          jbox=ichild(j, iparent(ibox))
          call prinf('child boxes=*', jbox,1)
       enddo
+      print *, "iflag(111)=",iflag(111)
       
       do ilev = 1,nlevels-2
 c        First subdivide all the flag and flag+
@@ -2875,12 +2877,14 @@ c     Reorganize the tree to get it back in the standard format
          call prinf('child boxes=*', jbox,1)
       enddo
 
+      call prinf('laddrtail=*',laddrtail,2*(nlevels+1))
+
       call vol_tree_reorg_pgh(ndim,nd,npbox,centers,nboxes,nlevels,
      1    laddr,laddrtail,ilevel,iparent,nchild,ichild,
      2    ifpgh,fvals,coefs,grad,hess,iflag)
 
-      ibox=111
-      call prinf('parent of 111=*',iparent(ibox),1)
+      ibox=191
+      call prinf('parent of new 111=*',iparent(ibox),1)
       do j=1,mc
          jbox=ichild(j, iparent(ibox))
          call prinf('child boxes=*', jbox,1)
@@ -2955,9 +2959,11 @@ c      in the laddr set and the laddrtail set as well
 
          nbloc = laddrtail(2,ilev)-laddrtail(1,ilev)+1
          call vol_tree_refine_boxes_flag_interp(ndim,iflag,nd,norder,
-     1    npbox,ifpgh,fvals,coefs,grad,hess,nbmax,laddr(1,ilev),nbloc,
-     2    centers,boxsize(ilev+1),nboxes,ilev,ilevel,iparent,nchild,
-     3    ichild,isgn,polyv,umat_nd)
+     1    npbox,ifpgh,fvals,coefs,grad,hess,nbmax,laddrtail(1,ilev),
+     2    nbloc,centers,boxsize(ilev+1),nboxes,ilev,ilevel,iparent,
+     3    nchild,ichild,isgn,polyv,umat_nd)
+
+         nbloc = laddrtail(2,ilev)-laddrtail(1,ilev)+1
 
          laddrtail(2,ilev+1) = nboxes         
 c      Step 3: Update the colleague information for the newly
@@ -3000,8 +3006,8 @@ c           End of computing colleagues of box i
 C$OMP END PARALLEL DO         
       enddo
 
-      ibox=111
-      call prinf('parent of 111=*',iparent(ibox),1)
+      ibox=5003
+      call prinf('parent of 5003=*',iparent(ibox),1)
       do j=1,mc
          jbox=ichild(j, iparent(ibox))
          call prinf('child boxes=*', jbox,1)
@@ -3015,7 +3021,7 @@ c     Reorganize tree once again and we are all done
      2    ifpgh,fvals,coefs,grad,hess,iflag)
 
       ibox=111
-      call prinf('parent of 111=*',iparent(ibox),1)
+      call prinf('parent of 111 last=*',iparent(ibox),1)
       do j=1,mc
          jbox=ichild(j, iparent(ibox))
          call prinf('child boxes=*', jbox,1)
@@ -3232,6 +3238,9 @@ c     Rearrange old arrays now
          laddr(2,ilev) = curbox-1
       enddo
 
+      if(nboxes.ge.5003) 
+     1   print *, "tiparent(5003)=",iboxtocurbox(tiparent(5003))
+
 c     Handle the parent children part of the tree 
 c     using the mapping iboxtocurbox
 
@@ -3244,6 +3253,13 @@ c     using the mapping iboxtocurbox
             if(tichild(i,ibox).gt.0) 
      1      ichild(i,iboxtocurbox(ibox)) = iboxtocurbox(tichild(i,ibox))
          enddo
+      enddo
+
+      do ibox=1,nboxes
+        if(iboxtocurbox(ibox).eq.111) then
+          print *, ibox,iboxtocurbox(ibox),mc
+        endif
+
       enddo
 
       return
@@ -3347,7 +3363,6 @@ c           get the data on the child box by interpolation
         endif
       enddo
 C$OMP END PARALLEL DO
-      
       if(nbloc.gt.0) nbctr = nbctr + isum(nbloc)*mc
 
 

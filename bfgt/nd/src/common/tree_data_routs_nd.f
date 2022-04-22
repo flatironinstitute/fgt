@@ -634,7 +634,6 @@ c
       real *8, allocatable :: potsort(:,:)
 
       allocate(itarg(nt),itargse(2,nboxes))
-      print *, "here1"
       call pts_tree_sort(ndim,nt,targ,itree,ltree,nboxes,nlevels,iptr,
      1    tcenters,itarg,itargse)
       allocate(targsort(ndim,nt),potsort(nd,nt))
@@ -642,8 +641,6 @@ c
 c     reorder targets
 c
       call dreorderf(ndim,nt,targ,targsort,itarg)
-      print *, "done reordering targets"
-      read *, i
 c
 c     
 c     
@@ -677,7 +674,6 @@ cccc                  print *, cen(1),cen(2)
         enddo
 C$OMP END PARALLEL DO
       enddo
-      stop
 c
 c     resort the output arrays in input order
 c

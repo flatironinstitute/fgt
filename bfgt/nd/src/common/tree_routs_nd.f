@@ -103,8 +103,8 @@ c
 c
 c
       subroutine computecoll(ndim,nlevels,nboxes,laddr,boxsize,
-     1                       centers,iparent,nchild,ichild,iper,
-     2                       nnbors,nbors)
+     1    centers,iparent,nchild,ichild,iperiod,
+     2    nnbors,nbors)
 
 c     This subroutine computes the colleagues for an adaptive
 c     pruned tree. box j is a colleague of box i, if they share a
@@ -141,9 +141,9 @@ c     ichild      in: integer(4,nboxes)
 c                 ichild(j,i) is the box id of the jth child of
 c                 box i
 c
-c     iper        in: integer
+c     iperiod     in: integer
 c                 flag for periodic implementations. 
-c                 Currently not used. Feature under construction.
+c                 0: free space; 1: doubly periodic
 c
 c----------------------------------------------------------------
 c     OUTPUT
@@ -157,7 +157,7 @@ c                 box of box i
 c---------------------------------------------------------------
       implicit none
       integer ndim,nlevels,nboxes
-      integer iper
+      integer iperiod
       integer laddr(2,0:nlevels)
       double precision boxsize(0:nlevels)
       double precision centers(ndim,nboxes)
@@ -195,7 +195,7 @@ c        Loop over all boxes to evaluate neighbors, list1 and updating
 c        hunglists of targets
 
 C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,dad,i,jbox,j,kbox,ifnbor,k)
+C$OMP$PRIVATE(ibox,dad,i,jbox,j,kbox,ifnbor,k,dp1,dis)
          do ibox = ifirstbox,ilastbox
 c           Find the parent of the current box         
             dad = iparent(ibox)
@@ -213,7 +213,7 @@ c     Check if kbox is a nearest neighbor or in list 2
                       ifnbor=1
                       do k=1,ndim
                          dis=abs(centers(k,kbox)-centers(k,ibox))
-                         if (iper.eq.1) then
+                         if (iperiod.eq.1) then
                             dp1=bs0-dis
                             if (dp1.lt.dis) dis=dp1
                          endif

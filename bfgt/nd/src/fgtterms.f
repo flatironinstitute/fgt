@@ -126,8 +126,8 @@ cccc      print *, 'in fgtpwterms, rmax/d=',rmax/d
 
          h = 2*pi/(rmax+d)
 
-cccc         npw = int(pmax/h)+1
-         npw = int(pmax/h)
+         npw = int(pmax/h)+2
+cccc         npw = int(pmax/h)
 
          npw = 2*npw
 cccc         print *, h, pmax, pmax/h, npw

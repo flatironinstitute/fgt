@@ -48,7 +48,7 @@ c
       external rhsfun,uexact
 
 c     dimension of the underlying space
-      ndim=1
+      ndim=2
       ipars(1) = ndim
 
       eps = 0.5d-12
@@ -61,7 +61,7 @@ c     number of extra targets
       ntarg = 1000 000
 c     gaussian variance
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 3d-6
+      delta = 2d-4
 c     for exact solution
       dpars(51)=delta
 
@@ -73,7 +73,7 @@ c     0: free space; 1: doubly periodic
       
 c     p in L^p norm - 0: L^infty norm; 1: L^1 norm; 2: L^2 norm
       if (iperiod.eq.0) iptype = 0
-c      if (iperiod.eq.1) iptype = 2
+      if (iperiod.eq.1) iptype = 2
       eta = 1.0d0
       
 c     number of gaussians in the rhs function
@@ -82,7 +82,7 @@ c     number of gaussians in the rhs function
          ipars(2) = ng
       elseif (iperiod.eq.1) then
          do i=1,ndim
-            ipars(i+1)=10*i
+            ipars(i+1)=4*i
          enddo
       endif
 c     number of points per box
@@ -97,7 +97,7 @@ c     number of points per box
       call prini(6,13)
 cccc  call prini_off()
 
-      zk = ipars(2)*2.05d0
+      zk = ipars(2)*7.05d0
       done = 1
       pi = atan(done)*4
 c
@@ -558,8 +558,12 @@ c
       ndim=ipars(1)
       pi2=pi*2
 
+      delta=dpars(51)
+      c0=delta**(-ndim/2.0d0)
+      
       do ind=1,nd
-         f(ind)=1.0d0
+c         f(ind)=1.0d0
+         f(ind)=c0
          do i=2,ndim,2
             f(ind)=f(ind)*cos(pi2*xyz(i)*ipars(1+i))
          enddo
@@ -567,6 +571,14 @@ c
             f(ind)=f(ind)*sin(pi2*xyz(i)*ipars(1+i))
          enddo
       enddo
+
+c      do ind=1,nd
+c         f(ind)=1.0d0
+c         do i=1,ndim
+c            f(ind)=f(ind)*sin(pi2*xyz(i)*ipars(1+i))
+c         enddo
+c      enddo
+
 c     
 c     
       return
@@ -614,7 +626,8 @@ c-----------------------
          endif
       enddo
 
-      c0=(pi*delta)**(ndim/2.0d0)
+c      c0=(pi*delta)**(ndim/2.0d0)
+      c0=pi**(ndim/2.0d0)
 
       xi2=0.0d0
       do i=1,ndim
@@ -634,6 +647,7 @@ c-----------------------
             pot(ind)=pot(ind)*cvals(i)
          enddo
          do i=1,ndim,2
+c         do i=1,ndim
             pot(ind)=pot(ind)*svals(i)
          enddo
 
@@ -648,6 +662,7 @@ c-----------------------
                   endif
                enddo
                do j=1,ndim,2
+c               do j=1,ndim
                   if (j.ne.i) then
                      grad(ind,i)=grad(ind,i)*svals(j)
                   elseif (j.eq.i) then
@@ -660,17 +675,20 @@ c-----------------------
          if (ifpgh.ge.3) then
             if (ndim.eq.1) then
                hess(ind,1)=-pi22*nxyz(1)**2*pot(ind)
+
             elseif (ndim.eq.2) then
                cd = -pi22*pot(ind)
                dxy = -pi22*c1*cvals(1)*svals(2)
+c               dxy = pi22*c1*cvals(1)*cvals(2)
                hess(ind,1)=cd*nxyz(1)**2
                hess(ind,2)=dxy*nxyz(1)*nxyz(2)
                hess(ind,3)=cd*nxyz(2)**2
+
             elseif (ndim.eq.3) then
                cd = -pi22*pot(ind)
-               dxy = -pi22*c1*cvals(1)*svals(2)
-               dxz =  pi22*c1*cvals(1)*cvals(3)
-               dyz = -pi22*c1*svals(2)*cvals(3)
+               dxy = -pi22*c1*cvals(1)*svals(2)*svals(3)
+               dxz =  pi22*c1*cvals(1)*cvals(2)*cvals(3)
+               dyz = -pi22*c1*svals(1)*svals(2)*cvals(3)
 
                hess(ind,1)=cd*nxyz(1)**2
                hess(ind,2)=cd*nxyz(2)**2

@@ -395,13 +395,6 @@ c
         allocate(nnbors(nbmax))
         allocate(nbors(mnbors,nbmax))
 
-        do i=1,nboxes
-          nnbors(i) = 0
-          do j=1,mnbors
-            nbors(j,i) = -1
-          enddo
-        enddo
-
         call computecoll(ndim,nlevels,nboxes,laddr,boxsize,centers,
      1        iparent,nchild,ichild,iperiod,nnbors,nbors)
 
@@ -1477,11 +1470,11 @@ c     further division. In the even a flag++ box needs
 c     further subdivision then flag the box with iflag(box) = 1
 c     This will again ensure that the subdivide_flag routine
 c     will take care of handling the flag++ case
-         call vol_updateflags(ndim,ilev,nboxes,nlevels,laddr,
-     1       nchild,ichild,nnbors,nbors,centers,boxsize,iflag)
+         call vol_updateflags(ndim,iperiod,ilev,nboxes,nlevels,
+     1       laddr,nchild,ichild,nnbors,nbors,centers,boxsize,iflag)
 
-         call vol_updateflags(ndim,ilev,nboxes,nlevels,laddrtail,
-     1       nchild,ichild,nnbors,nbors,centers,boxsize,iflag)
+         call vol_updateflags(ndim,iperiod,ilev,nboxes,nlevels,
+     1       laddrtail,nchild,ichild,nnbors,nbors,centers,boxsize,iflag)
          
 c      Step 2: Subdivide all the boxes that need subdivision
 c      in the laddr set and the laddrtail set as well
@@ -1735,8 +1728,8 @@ c     using the mapping iboxtocurbox
       return
       end
 c--------------------------------------------------------------------      
-      subroutine vol_updateflags(ndim,curlev,nboxes,nlevels,laddr,
-     1    nchild,ichild,nnbors,nbors,centers,boxsize,iflag)
+      subroutine vol_updateflags(ndim,iperiod,curlev,nboxes,nlevels,
+     1    laddr,nchild,ichild,nnbors,nbors,centers,boxsize,iflag)
 
 c     This subroutine is to check the boxes flagged as flag++
 c     and determine which of the boxes need refinement. The flag
@@ -1787,7 +1780,7 @@ c                     whether box needs to be subdivided or not
 c
       implicit none
 c     Calling sequence variables
-      integer ndim,curlev, nboxes, nlevels
+      integer ndim,iperiod,curlev, nboxes, nlevels
       integer laddr(2,0:nlevels),nchild(nboxes),ichild(2**ndim,nboxes)
       integer nnbors(nboxes), nbors(3**ndim,nboxes)
       integer iflag(nboxes)
@@ -1795,7 +1788,9 @@ c     Calling sequence variables
 
 c     Temporary variables
       integer i,j,k,l,ibox,jbox,kbox,lbox, ict,mc
-      double precision distest,dis
+      double precision distest,dis,dp1,dm1,bs0
+
+      bs0=boxsize(0)
 
       mc=2**ndim
       distest = 1.05d0*(boxsize(curlev) + boxsize(curlev+1))/2.0d0
@@ -1823,6 +1818,12 @@ c              and will not enter the next loop
                         ict = 0
                         do k=1,ndim
                            dis = centers(k,kbox) - centers(k,ibox) 
+                           if (iperiod.eq.1) then
+                              dp1=dis+bs0
+                              dm1=dis-bs0
+                              if (abs(dis).gt.abs(dp1)) dis=dp1
+                              if (abs(dis).gt.abs(dm1)) dis=dm1
+                           endif
                            if(abs(dis).le.distest) ict = ict + 1
                         enddo
                         if(ict.eq.ndim) then
@@ -2906,11 +2907,11 @@ c     further division. In the even a flag++ box needs
 c     further subdivision then flag the box with iflag(box) = 1
 c     This will again ensure that the subdivide_flag routine
 c     will take care of handling the flag++ case
-         call vol_updateflags(ndim,ilev,nboxes,nlevels,laddr,
-     1       nchild,ichild,nnbors,nbors,centers,boxsize,iflag)
+         call vol_updateflags(ndim,iperiod,ilev,nboxes,nlevels,
+     1     laddr,nchild,ichild,nnbors,nbors,centers,boxsize,iflag)
 
-         call vol_updateflags(ndim,ilev,nboxes,nlevels,laddrtail,
-     1       nchild,ichild,nnbors,nbors,centers,boxsize,iflag)
+         call vol_updateflags(ndim,iperiod,ilev,nboxes,nlevels,
+     1     laddrtail,nchild,ichild,nnbors,nbors,centers,boxsize,iflag)
          
 c      Step 2: Subdivide all the boxes that need subdivision
 c      in the laddr set and the laddrtail set as well

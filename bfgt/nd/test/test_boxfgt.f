@@ -52,6 +52,7 @@ c     dimension of the underlying space
       ipars(1) = ndim
 
       eps = 0.5d-12
+      if (ndim.eq.2) eps=0.5d-9
       if (ndim.eq.3) eps=0.5d-6
 c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
       ipoly=0
@@ -75,6 +76,7 @@ c     p in L^p norm - 0: L^infty norm; 1: L^1 norm; 2: L^2 norm
       if (iperiod.eq.0) iptype = 0
       if (iperiod.eq.1) iptype = 2
       eta = 1.0d0
+cc      eta = 0.0d0
       
 c     number of gaussians in the rhs function
       if (iperiod.eq.0) then
@@ -180,7 +182,9 @@ c     compute the number of leaf boxes
       nlfbox = 0
       do ilevel=1,nlevels
         do ibox=itree(2*ilevel+1),itree(2*ilevel+2)
-          if(itree(iptr(4)+ibox-1).eq.0) nlfbox = nlfbox+1
+          if(itree(iptr(4)+ibox-1).eq.0) then
+            nlfbox = nlfbox+1
+          endif
         enddo
       enddo
       call prinf('nlfbox=*',nlfbox,1)

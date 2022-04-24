@@ -681,6 +681,7 @@ c
       integer irefine
 
       integer i,j,k,l,ibox,ifunif,i1
+      integer nordertail
       real *8 rscale2,erra,bs,bs2
 
       character *1 transa,transb
@@ -701,13 +702,16 @@ c
       allocate(rmask(npols))
 
       rsum = 0
+
+      nordertail = norder-2
+      if(norder.le.3) nordertail = norder-1
       do i=1,npols
         rmask(i) = 0.0d0
         i1=0
         do k=1,ndim
            i1=i1+iind2p(k,i)
         enddo
-        if(i1.eq.norder-1) then
+        if(i1.ge.nordertail) then
           rmask(i) = 1.0d0
           rsum = rsum + 1
         endif
@@ -747,6 +751,7 @@ C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,erra)
      1     iptype,rscale2,erra)
      
         erra = erra/rsum
+
         
         if(erra.gt.eps*rsc) then
           irefinebox(i) = 1

@@ -190,21 +190,11 @@ C$        time2=omp_get_wtime()
 c
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
-
-      if (npwlevel.le.1.and.iperiod.eq.1) then
-         call periodic_bfgtmain_large_delta(
-     1       nd,ndim,delta,eps,ipoly,norder,npbox,
-     2       nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
-     3       iaddr,rmlexp,npw,
-     4       ifpgh,pot,grad,hess,
-     5       ntarg,targs,ifpghtarg,pote,grade,hesse,timeinfo)
-      else
-         call bfgtmain(nd,ndim,delta,eps,ipoly,iperiod,norder,npbox,
-     1       nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
-     2       iaddr,rmlexp,npwlevel,pmax,npw,
-     3       ifpgh,pot,grad,hess,
-     4       ntarg,targs,ifpghtarg,pote,grade,hesse,timeinfo)
-      endif
+      call bfgtmain(nd,ndim,delta,eps,ipoly,iperiod,norder,npbox,
+     1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
+     2    iaddr,rmlexp,npwlevel,pmax,npw,
+     3    ifpgh,pot,grad,hess,
+     4    ntarg,targs,ifpghtarg,pote,grade,hesse,timeinfo)
       
       call cpu_time(time2)
 C$        time2=omp_get_wtime()
@@ -354,7 +344,7 @@ c
       real *8, allocatable :: xq(:),wts(:),umat(:,:),vmat(:,:)
       real *8, allocatable :: umat_nd(:,:,:)
 
-      real *8 ws(100),ts(100)
+      real *8 ws(200),ts(200)
       
       complex *16, allocatable :: wpwshift(:,:)
       complex *16, allocatable :: wpwmsshift(:,:,:)
@@ -404,7 +394,47 @@ c
      $     call prinf('=== STEP 0 (precomputation) =====*',i,0)
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
-
+c      
+c     get planewave nodes and weights
+      iperiod0=iperiod
+      npwlevel0=npwlevel
+      delta0=delta
+      if (npwlevel.le.1.and.iperiod.eq.1) then
+c     Method: in this case, the periodic Green's function admits an efficient
+c     seprable Fourier series expansion, which is used in the entire computational
+c     box. 1. compute planewave expansion coefficients for each leaf box; 2. merge
+c     pw exp. all the way to the root box - this is a valid expansion in the entire
+c     box; 3. split the pw exp. into its child boxes; 4. evaluate the pw exp. in each
+c     leaf box.
+c
+c     Remark 1: (a) Since periodic Green's function is used, there is no need to change
+c     colleague list to accommodate periodicity. Thus we need to recompute the colleagues
+c     using iperiod=0. npwlevel is set to 0 internally since the plane wave expansions are
+c     valid in the entire computational box. (b) delta should be set to 1.0d0
+c     in mk_poly2pw_tables, mk_pw2pgh_tables and gnd_mk_merge_split_pw_matrices.
+c     Hence the use of delta0 in those routines.
+c
+c     Remark 2: when npwlevel >= 2 and iperiod == 1, periodic Green's function will require
+c     too many terms of Fourier series. So we will compute G_P[f] using free-space Green's
+c     function, but tile up the whole space via identical copies of sources. However, since
+c     npwlevel >=2, the Gaussian kernel is sharply peaked. Thus, we only need to wrap the 
+c     original computational box by small boxes at level 2, modify the colleague list, list 1, 
+c     listpw, and make corresponding changes to accommodate these modifications when 
+c     calculating plane wave and local direct interactions. This is done in 
+c     gnd_find_pwshift_ind and gnd_find_loctab_ind.
+c         
+         call get_periodic_pwnodes(bs0,delta,eps,npw,ws,ts)
+         iperiod=0
+         npwlevel=0
+         nboxes0=itree(2*nlevels+2)
+         delta0=1.0d0
+         call computecoll(ndim,nlevels,nboxes0,itree(iptr(1)),
+     1       boxsize,centers,itree(iptr(3)),itree(iptr(4)),
+     2       itree(iptr(5)),iperiod,itree(iptr(6)),itree(iptr(7)))
+      else
+         call get_pwnodes(pmax,npw,ws,ts)
+      endif
+      
       allocate(xq(norder),umat(norder,norder),
      1    vmat(norder,norder),wts(norder))
      
@@ -456,7 +486,7 @@ cccc      if (nleafbox.eq.ndirect .and. sigma.le.2*eps) goto 3000
 cccc      goto 3000
       
 
-      do i=1,10
+      do i=1,20
          timeinfo(i)=0
       enddo
 c
@@ -508,9 +538,6 @@ c
 c     direct evaluation if the cutoff level is >= the maximum level 
       if (npwlevel .ge. nlevels) goto 1800
 
-c      
-c     get planewave nodes and weights
-      call get_pwnodes(pmax,npw,ws,ts)
 
 c     compute translation matrices for PW expansions
       nlevstart = max(npwlevel,0)
@@ -521,7 +548,7 @@ c     to planewave expansion
       allocate(tab_poly2pw(norder,npw,0:nlevels))
 
       do ilev=nlevstart,nlevels
-         call mk_poly2pw_tables(norder,ipoly,npw,nnodes,ws,ts,delta,
+         call mk_poly2pw_tables(norder,ipoly,npw,nnodes,ws,ts,delta0,
      1       boxsize(ilev),tab_poly2pw(1,1,ilev))
       enddo
 
@@ -531,7 +558,7 @@ c     compute the tables converting planewave expansions to potential values
       allocate(tab_pw2dxx(npw,norder,0:nlevels))
       
       do ilev=nlevstart,nlevels
-         call mk_pw2pgh_tables(norder,npw,ts,xq,delta,boxsize(ilev),
+         call mk_pw2pgh_tables(norder,npw,ts,xq,delta0,boxsize(ilev),
      1       tab_pw2pot(1,1,ilev),
      1       tab_pw2der(1,1,ilev),tab_pw2dxx(1,1,ilev))  
       enddo
@@ -543,7 +570,7 @@ c     compute the tables converting planewave expansions to potential values
       
       nmax = nlevels-max(npwlevel,0)      
       allocate(wpwmsshift(nexp,mc,nmax))
-      xmin2 = boxsize(nlevels)/sqrt(delta)/2
+      xmin2 = boxsize(nlevels)/sqrt(delta0)/2
       call gnd_mk_merge_split_pw_matrices(ndim,xmin2,npw,ts,nmax,
      1    wpwmsshift)
 
@@ -660,7 +687,7 @@ c
       
       
       if(ifprint.ge.1)
-     1    call prinf('=== Step 3 (mp to loc) ===*',i,0)
+     1    call prinf('=== STEP 3 (mp to loc) ===*',i,0)
 c      ... step 3, convert multipole expansions into local
 c       expansions
 
@@ -701,7 +728,7 @@ cccc      call prin2('timeinfo4=*',time2-time1,1)
 
       
       if(ifprint.ge.1)
-     1    call prinf('=== Step 4 (split loc pwexps) ===*',i,0)
+     1    call prinf('=== STEP 4 (split loc pwexps) ===*',i,0)
 
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
@@ -736,7 +763,7 @@ C$    time2=omp_get_wtime()
 
       
       if(ifprint.ge.1)
-     1    call prinf('=== step 5 (eval loc pwexps) ===*',i,0)
+     1    call prinf('=== STEP 5 (eval loc pwexps) ===*',i,0)
 
 c     ... step 5, evaluate all local expansions
       call cpu_time(time1)
@@ -1265,7 +1292,8 @@ C$    time2=omp_get_wtime()
 
 
 
-
+      npwlevel=npwlevel0
+      iperiod=iperiod0
 
       
       if(ifprint.eq.1) then 
@@ -1286,270 +1314,6 @@ C$    time2=omp_get_wtime()
       return
       end
 c
-c
-c
-c
-      subroutine periodic_bfgtmain_large_delta(
-     1    nd,ndim,delta,eps,ipoly,norder,npbox,
-     2    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
-     3    iaddr,rmlexp,npw,
-     4    ifpgh,pot,grad,hess,
-     5    ntarg,targs,ifpghtarg,pote,grade,hesse,timeinfo)
-c
-c     This code computes doubly periodic Gauss transform
-c     to a collection of right hand sides when delta is very large and
-c     doubly periodic conditions are imposed.
-c      
-c     method: in this case, the periodic Green's function admits an efficient
-c     seprable Fourier series expansion, which is used in the entire computational
-c     box. 1. compute planewave expansion coefficients for each leaf box; 2. merge
-c     pw exp. all the way to the root box - this is a valid expansion in the entire
-c     box; 3. split the pw exp. into its child boxes; 4. evaluate the pw exp. in each
-c     leaf box.
-c 
-      implicit real *8 (a-h,o-z)
-      integer nd,ndim
-      real *8 delta,eps
-      integer nboxes,nlevels,ntarg
-      integer iptr(8),ltree
-      integer itree(ltree),npbox
-      real *8 fvals(nd,npbox,nboxes)
-      real *8 targs(ndim,ntarg)
-
-      real *8 pot(nd,npbox,nboxes)
-      real *8 grad(nd,ndim,npbox,nboxes)
-      real *8 hess(nd,ndim*(ndim+1)/2,npbox,nboxes)
-
-      real *8 pote(nd,ntarg)
-      real *8 grade(nd,ndim,ntarg)
-      real *8 hesse(nd,ndim*(ndim+1)/2,ntarg)
-
-      real *8 boxsize(0:nlevels),centers(ndim,nboxes)
-      integer iaddr(2,nboxes)
-      real *8 rmlexp(*)
-      real *8 pmax
-      real *8 timeinfo(*)
-c
-      real *8, allocatable :: xq(:),wts(:),umat(:,:),vmat(:,:)
-
-      real *8 ws(200),ts(200)
-      
-      complex *16, allocatable :: wpwmsshift(:,:,:)
-      
-      complex *16, allocatable :: tab_poly2pw(:,:,:)
-      complex *16, allocatable :: tab_pw2pot(:,:,:)
-      complex *16, allocatable :: tab_pw2der(:,:,:)
-      complex *16, allocatable :: tab_pw2dxx(:,:,:)
-      
-      complex *16, allocatable :: ff(:,:)
-
-      ifprint = 0
-
-      mc = 2**ndim
-      mnbors = 3**ndim
-      
-      done = 1
-      pi = atan(done)*4
-c
-      allocate(xq(norder),umat(norder,norder),
-     1   vmat(norder,norder),wts(norder))
-     
-      itype = 2
-      if (ipoly.eq.0) call legeexps(itype,norder,xq,umat,vmat,wts)
-      if (ipoly.eq.1) call chebexps(itype,norder,xq,umat,vmat,wts)
-
-c
-c     get planewave nodes and weights
-      call get_periodic_pwnodes(boxsize(0),delta,eps,npw,ws,ts)
-
-c     compute translation matrices for PW expansions
-      nlevstart = max(npwlevel,0)
-
-c     compute the tables converting function values at tensor product grid
-c     to planewave expansion
-      nnodes = 100
-      allocate(tab_poly2pw(norder,npw,0:nlevels))
-      allocate(ff(npw,norder))
-
-      do ilev=nlevstart,nlevels
-         call mk_poly2pw_tables(norder,ipoly,npw,nnodes,ws,ts,1.0d0,
-     1       boxsize(ilev),tab_poly2pw(1,1,ilev))
-      enddo
-c     compute the tables converting planewave expansions to potential values
-      allocate(tab_pw2pot(npw,norder,0:nlevels))
-      allocate(tab_pw2der(npw,norder,0:nlevels))
-      allocate(tab_pw2dxx(npw,norder,0:nlevels))
-      
-      do ilev=nlevstart,nlevels
-         call mk_pw2pgh_tables(norder,npw,ts,xq,delta,boxsize(ilev),
-     1       tab_pw2pot(1,1,ilev),
-     1       tab_pw2der(1,1,ilev),tab_pw2dxx(1,1,ilev))  
-      enddo
-      
-      nexp=(npw+1)/2
-      do i=1,ndim-1
-         nexp = nexp*npw
-      enddo
-      
-      nmax = nlevels
-      allocate(wpwmsshift(nexp,mc,nmax))
-      xmin2 = boxsize(nlevels)/2
-      call gnd_mk_merge_split_pw_matrices(ndim,xmin2,npw,ts,nmax,
-     1    wpwmsshift)
-
-      if(ifprint.eq.1)
-     1    call prinf('laddr=*',itree(iptr(1)),2*(nlevels+1))
-      
-      call cpu_time(time1)
-C$    time1=omp_get_wtime()
-c
-c
-c        step 1: convert function values to planewave expansions
-c
-    
-      if(ifprint.ge.1) 
-     $   call prinf("=== STEP 1 (values -> mp) ====*",i,0)
-      
-      do 1100 ilev = nlevels,0,-1
-C$OMP PARALLEL DO DEFAULT (SHARED)
-C$OMP$PRIVATE(ibox,nchild)
-C$OMP$SCHEDULE(DYNAMIC)
-         do ibox=itree(2*ilev+1),itree(2*ilev+2)
-            nchild = itree(iptr(4)+ibox-1)
-c           Check if current box is a leaf box            
-            if(nchild.eq.0) then
-c              form PW expansion directly
-               call gnd_tens_prod_to_pw(ndim,nd,norder,fvals(1,1,ibox),
-     1             npw,tab_poly2pw(1,1,ilev),rmlexp(iaddr(1,ibox)))
-            endif
-         enddo
-C$OMP END PARALLEL DO
-cccc 111     format ('ilev=', i1,4x, 'nb=',i6, 4x,'formpw=', f5.2)         
-cccc         write(6,111) ilev,nb,dt
- 1100 continue
-      
-      call cpu_time(time2)
-C$    time2 = omp_get_wtime()
-      timeinfo(1) = time2-time1
-      
-      if(ifprint .ge. 1)
-     $      call prinf('=== STEP 2 (merge mp) ====*',i,0)
-      call cpu_time(time1)
-C$    time1=omp_get_wtime()
-c
-      do 1200 ilev=nlevels-1,0,-1
-        klev = nlevels - ilev
-C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,jbox,i,nchild,dx,dy,dz,k)
-C$OMP$SCHEDULE(DYNAMIC)
-        do ibox = itree(2*ilev+1),itree(2*ilev+2)
-           nchild = itree(iptr(4)+ibox-1)
-           if (nchild .gt. 0) then
-              call gnd_pwzero(nd,rmlexp(iaddr(1,ibox)),nexp)
-           endif
-           
-          do i=1,nchild
-            jbox = itree(iptr(5)+mc*(ibox-1)+i-1)
-            call gnd_find_msshift_ind(ndim,centers(1,ibox),
-     1          centers(1,jbox),k)
-            call gnd_shiftpw(nd,nexp,rmlexp(iaddr(1,jbox)),
-     1          rmlexp(iaddr(1,ibox)),wpwmsshift(1,k,klev))
-          enddo
-        enddo
-C$OMP END PARALLEL DO    
- 1200 continue
-
-      
-      call cpu_time(time2)
-C$    time2=omp_get_wtime()
-      timeinfo(2)=time2-time1
-c
-      
-      if(ifprint.ge.1)
-     $    call prinf('=== Step 3 (mp to loc) ===*',i,0)
-c      ... step 3, convert multipole expansions into local
-c       expansions
-
-      call cpu_time(time1)
-C$    time1=omp_get_wtime()
-      
-      ibox=1
-      call gnd_copy_pwexp(nd,nexp,rmlexp(iaddr(1,ibox)),
-     1    rmlexp(iaddr(2,ibox)))
-c
-      call cpu_time(time2)
-C$    time2=omp_get_wtime()
-      timeinfo(3) = time2-time1
-
-cccc      call prin2('timeinfo4=*',time2-time1,1)
-
-      if(ifprint.ge.1)
-     $    call prinf('=== Step 4 (split loc) ===*',i,0)
-
-      call cpu_time(time1)
-C$    time1=omp_get_wtime()
-
-
-      do 1400 ilev = 0,nlevels-1
-C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,jbox,i,nchild,k)
-C$OMP$SCHEDULE(DYNAMIC)
-        do ibox = itree(2*ilev+1),itree(2*ilev+2)
-          nchild = itree(iptr(4)+ibox-1)
-          do i=1,nchild
-             jbox = itree(iptr(5)+mc*(ibox-1)+i-1)
-             call gnd_find_msshift_ind(ndim,centers(1,jbox),
-     1           centers(1,ibox),k)
-             call gnd_shiftpw_loc(nd,nexp,rmlexp(iaddr(2,ibox)),
-     1           rmlexp(iaddr(2,jbox)),wpwmsshift(1,k,nlevels-ilev))
-          enddo
-        enddo
-C$OMP END PARALLEL DO        
- 1400 continue
-
-      
-      call cpu_time(time2)
-C$    time2=omp_get_wtime()
-      timeinfo(4) = time2-time1
-      
-      if(ifprint.ge.1)
-     $    call prinf('=== step 5 (eval loc) ===*',i,0)
-
-c     ... step 5, evaluate all local expansions
-      call cpu_time(time1)
-C$    time1=omp_get_wtime()
-
-      do 1500 ilev = 0,nlevels
-C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,nchild)
-C$OMP$SCHEDULE(DYNAMIC)
-         do ibox = itree(2*ilev+1),itree(2*ilev+2)
-            nchild = itree(iptr(4)+ibox-1)
-            if(nchild.eq.0) then
-               call gnd_pw2pgh(ndim,nd,norder,npw,
-     1            rmlexp(iaddr(2,ibox)),tab_pw2pot(1,1,ilev),
-     2            tab_pw2der(1,1,ilev),tab_pw2dxx(1,1,ilev),ifpgh,
-     3            pot(1,1,ibox),grad(1,1,1,ibox),hess(1,1,1,ibox))
-            endif
-         enddo
-C$OMP END PARALLEL DO        
- 1500 continue
-
-      
-      call cpu_time(time2)
-C$    time2 = omp_get_wtime()      
-      timeinfo(5) = time2 - time1
-
-      if(ifprint.ge.1) call prin2('timeinfo=*',timeinfo,5)
-      d = 0
-      do i = 1,5
-         d = d + timeinfo(i)
-      enddo
-
-      if(ifprint.ge.1) call prin2('sum(timeinfo)=*',d,1)
-
-      return
-      end
 c
 c
 c
@@ -1612,11 +1376,11 @@ c
       nlevstart = 0
       if (npwlevel .ge. 0) nlevstart = npwlevel
 
-      nn = 1
+      nn = (npw+1)/2
       do i=1,ndim-1
          nn = nn*npw
       enddo
-      nn = nn*((npw+1)/2)*2*nd
+      nn = nn*2*nd
 
       do i = nlevstart,nlevels
 

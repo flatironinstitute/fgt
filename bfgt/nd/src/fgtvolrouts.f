@@ -311,21 +311,19 @@ C
       do i=1,norder
          x = xs(i)*dsq
 
-         qqx = cdexp(eye*ts(npw2+1)*x)
-         
-         qq1 = qqx
-         qqx = qqx*qqx
-
-         do j1=npw2+1,npw
-            tab_pw2pot(j1,i) = qq1
-            qq1 = qq1*qqx
-            
-            tab_pw2pot(npw-j1+1,i) = dconjg(tab_pw2pot(j1,i))
-         enddo
-
-cccc         do j=1,npw
-cccc            tab_pw2pot(j,i)=exp(eye*ts(j)*x)
+cccc         qqx = cdexp(eye*ts(npw2+1)*x)
+cccc         qq1 = qqx
+cccc         qqx = qqx*qqx
+cccc         do j1=npw2+1,npw
+cccc            tab_pw2pot(j1,i) = qq1
+cccc            qq1 = qq1*qqx
+cccc            
+cccc            tab_pw2pot(npw-j1+1,i) = dconjg(tab_pw2pot(j1,i))
 cccc         enddo
+         do j=1,(npw+1)/2
+            tab_pw2pot(j,i)=exp(eye*ts(j)*x)
+            tab_pw2pot(npw-j+1,i)=dconjg(tab_pw2pot(j,i))
+         enddo
       enddo
 
       return
@@ -373,26 +371,23 @@ C
       do i=1,norder
          x = xs(i)*dsq
 
-         qqx = cdexp(eye*ts(npw2+1)*x)
+cccc         qqx = cdexp(eye*ts(npw2+1)*x)
          
-         qq1 = qqx
-         qqx = qqx*qqx
+cccc         qq1 = qqx
+cccc         qqx = qqx*qqx
 
          do j1=npw2+1,npw
-            tab_pw2pot(j1,i) = qq1
+cccc        tab_pw2pot(j1,i) = qq1
+            tab_pw2pot(j1,i) = cdexp(eye*ts(j1)*x)
             tab_pw2potx(j1,i)= ts(j1)*tab_pw2pot(j1,i)*dfac
             tab_pw2potxx(j1,i)= ts(j1)*tab_pw2potx(j1,i)*dfac
 
-            qq1 = qq1*qqx
+cccc            qq1 = qq1*qqx
             
               tab_pw2pot(npw-j1+1,i) = dconjg(tab_pw2pot(j1,i))
              tab_pw2potx(npw-j1+1,i) = dconjg(tab_pw2potx(j1,i))
             tab_pw2potxx(npw-j1+1,i) = dconjg(tab_pw2potxx(j1,i))
          enddo
-
-cccc         do j=1,npw
-cccc            tab_pw2pot(j,i)=exp(eye*ts(j)*x)
-cccc         enddo
       enddo
 ccc      call prin2(' in mk tab_pwpot *',tab_pw2pot,2*npw*norder)
 ccc      call prin2(' in mk tab_pwpotx *',tab_pw2potx,2*npw*norder)

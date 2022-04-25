@@ -53,16 +53,16 @@ c     dimension of the underlying space
 
       eps = 0.5d-12
       if (ndim.eq.2) eps=0.5d-9
-      if (ndim.eq.3) eps=0.5d-6
+      if (ndim.eq.3) eps=0.5d-5
 c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
       ipoly=0
 c     polynomial expansion order for each leaf box
-      norder = 8
+      norder = 16
 c     number of extra targets
       ntarg = 1000 000
 c     gaussian variance
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 2d-4
+      delta = 6d-3
 c     for exact solution
       dpars(51)=delta
 
@@ -73,13 +73,13 @@ c     0: free space; 1: doubly periodic
       ipars(5)=iperiod
       
 c     p in L^p norm - 0: L^infty norm; 1: L^1 norm; 2: L^2 norm
-      if (iperiod.eq.0) iptype = 0
+      iptype = 0
       if (iperiod.eq.1) iptype = 2
       eta = 1.0d0
 cc      eta = 0.0d0
       
-c     number of gaussians in the rhs function
       if (iperiod.eq.0) then
+c        number of gaussians in the rhs function
          ng = 2
          ipars(2) = ng
       elseif (iperiod.eq.1) then

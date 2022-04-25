@@ -25,7 +25,7 @@ c     nd           vector length (for multiple RHS)
 c     n            number of points on tensor grid along each dimension
 c     fvals        function values at a tensor product grid
 c     npw          number of plane waves along each dimension
-c                  NOTE 3D convention is pwexp(npw,npw,npw/2)
+c                  NOTE 3D convention is pwexp(npw,npw,((npw+1)/2))
 c     tab_poly2pw  precomputed table of 1D conversion factors
 c                  (n,j) entry is: ws(j)*(D/2)* 
 c                  int_{-1}^1 P_n(x)exp(- i ts(j)Dx/(2 \sqrt{delta}))dx
@@ -37,7 +37,7 @@ c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n**ndim)
       complex *16 tab_poly2pw(n,npw)
-      complex *16 pwexp(npw**ndim/2,nd)
+      complex *16 pwexp(((npw+1)/2)*npw**(ndim-1),nd)
 
       if (ndim.eq.1) then
          call g1d_tens_prod_to_pw(nd,n,fvals,npw,tab_poly2pw,pwexp)
@@ -61,7 +61,7 @@ c     nd       vector length (for multiple RHS)
 c     n        dimension of coeff array
 c     fvals    function values on tensor product grid
 c     npw      number of plane waves
-c                 NOTE 1D convention is pwexp(npw/2)
+c                 NOTE 1D convention is pwexp(((npw+1)/2))
 c     tab_poly2pw  precomputed table of 1D conversion factors
 c                 (n,j) entry is: ws(j)*(D/2)* 
 c                 int_{-1}^1 P_n(x)exp(- i ts(j)Dx/(2 \sqrt{delta}))dx
@@ -73,10 +73,10 @@ c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n)
       complex *16 tab_poly2pw(n,npw)
-      complex *16 pwexp(npw/2,nd),cd
+      complex *16 pwexp(((npw+1)/2),nd),cd
 c
       do ind = 1,nd
-         do k1 = 1,npw/2
+         do k1 = 1,((npw+1)/2)
             cd = 0.0d0
             do m1 = 1,n
                cd = cd+tab_poly2pw(m1,k1)*fvals(ind,m1)
@@ -105,7 +105,7 @@ c     nd       vector length (for multiple RHS)
 c     n        dimension of coeff array
 c     fvals    function values on tensor grid
 c     npw      number of plane waves
-c                 NOTE 2D convention is pwexp(npw,npw,npw/2)
+c                 NOTE 2D convention is pwexp(npw,npw,((npw+1)/2))
 c     tab_poly2pw  precomputed table of 1D conversion factors
 c                 (n,j) entry is: ws(j)*(D/2)* 
 c                 int_{-1}^1 P_n(x)exp(- i ts(j)Dx/(2 \sqrt{delta}))dx
@@ -117,12 +117,12 @@ c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n,n)
       complex *16 tab_poly2pw(n,npw)
-      complex *16 pwexp(npw,npw/2,nd)
-      complex *16 ff(n,npw/2),cd
+      complex *16 pwexp(npw,((npw+1)/2),nd)
+      complex *16 ff(n,((npw+1)/2)),cd
 c
       do ind = 1,nd
          do m1 = 1,n
-            do k2 = 1,npw/2
+            do k2 = 1,((npw+1)/2)
                cd = 0.0d0
                do m2 = 1,n
                   cd = cd+tab_poly2pw(m2,k2)*fvals(ind,m1,m2)
@@ -131,7 +131,7 @@ c
             enddo
          enddo
 c
-         do k2 = 1,npw/2
+         do k2 = 1,((npw+1)/2)
             do k1 = 1,npw
                cd = 0.0d0
                do m1 = 1,n
@@ -161,7 +161,7 @@ c     n        dimension of coeff array
 c     fvals    function values at Legendre tensor product grid
 c
 c     npw      number of plane waves
-c                 NOTE 3D convention is pwexp(npw,npw,npw/2)
+c                 NOTE 3D convention is pwexp(npw,npw,((npw+1)/2))
 c     tab_poly2pw  precomputed table of 1D conversion factors
 c                 (n,j) entry is: ws(j)*(D/2)* 
 c                 int_{-1}^1 P_n(x)exp(- i ts(j)Dx/(2 \sqrt{delta}))dx
@@ -173,14 +173,14 @@ c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 fvals(nd,n,n,n)
       complex *16 tab_poly2pw(n,npw)
-      complex *16 pwexp(npw,npw,npw/2,nd)
+      complex *16 pwexp(npw,npw,((npw+1)/2),nd)
 
-      complex *16 ff(n,n,npw/2)
-      complex *16 ff2(n,npw,npw/2)
+      complex *16 ff(n,n,((npw+1)/2))
+      complex *16 ff2(n,npw,((npw+1)/2))
       complex *16 cd
 c
       do ind = 1,nd
-         do k3 = 1,npw/2
+         do k3 = 1,((npw+1)/2)
          do m2 = 1,n
          do m1 = 1,n
             cd = 0.0d0
@@ -192,7 +192,7 @@ c
          enddo
          enddo
 c
-         do k3 = 1,npw/2
+         do k3 = 1,((npw+1)/2)
          do k2 = 1,npw
          do m1 = 1,n
             cd = 0.0d0
@@ -204,7 +204,7 @@ c
          enddo
          enddo
 c
-         do k3 = 1,npw/2
+         do k3 = 1,((npw+1)/2)
          do k2 = 1,npw
          do k1 = 1,npw
             cd = 0.0d0
@@ -242,14 +242,14 @@ c     nd       vector length (for multiple RHS)
 c     n        number of Legendre nodes
 c     npw      number of plane wave expansion along each dimension
 c     pwexp    plane wave expansion
-c                 NOTE 3D convention is pwexp(npw,npw,npw/2)
+c                 NOTE 3D convention is pwexp(npw,npw,((npw+1)/2))
 c     tab_pw2pot  precomputed table of 1D conversion 
 c
 c     OUTPUT:
 c     pot      potential values on the tensor grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
-      complex *16 pwexp(npw**ndim/2,nd)
+      complex *16 pwexp(((npw+1)/2)*npw**(ndim-1),nd)
       complex *16 tab_pw2pot(npw,n)
       complex *16 tab_pw2der(npw,n)
       complex *16 tab_pw2dxx(npw,n)
@@ -306,7 +306,7 @@ c     nd       vector length (for multiple RHS)
 c     n        number of nodes
 c     npw      number of plane waves
 c     pwexp    plane wave expansion
-c                 NOTE 1D convention is pwexp(npw/2)
+c                 NOTE 1D convention is pwexp(((npw+1)/2))
 c     tab_pw2pot  precomputed table of 1D conversion 
 c
 c     OUTPUT:
@@ -315,14 +315,21 @@ c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 pot(nd,n)
       complex *16 tab_pw2pot(npw,n)
-      complex *16 pwexp(npw/2,nd),cd
+      complex *16 pwexp(((npw+1)/2),nd),cd
 c
+      npw2=npw/2
+      
       do ind = 1,nd
          do k1 = 1,n
             cd=0.0d0
-            do m1 = 1,npw/2
+            do m1 = 1,npw2
                cd = cd+tab_pw2pot(m1,k1)*pwexp(m1,ind)
             enddo
+c     when npw is an odd number, zero frequency needs special treatment
+            m1=((npw+1)/2)
+            if (m1.gt.npw2) then
+               cd = cd+tab_pw2pot(m1,k1)*pwexp(m1,ind)/2
+            endif
             pot(ind,k1) = pot(ind,k1)+dreal(cd)*2
          enddo
       enddo
@@ -357,16 +364,24 @@ c----------------------------------------------------------------------c
       real *8 grad(nd,n)
       complex *16 tab_pw2pot(npw,n)
       complex *16 tab_pw2der(npw,n)
-      complex *16 pwexp(npw/2,nd),cd,cdx
+      complex *16 pwexp(((npw+1)/2),nd),cd,cdx
 c
+      npw2=npw/2
+      
       do ind = 1,nd
          do k1 = 1,n
             cd=0.0d0
             cdx=0.0d0
-            do m1 = 1,npw/2
+            do m1 = 1,npw2
                cd  = cd  + tab_pw2pot(m1,k1)*pwexp(m1,ind)
                cdx = cdx + tab_pw2der(m1,k1)*pwexp(m1,ind)
             enddo
+            
+            m1=((npw+1)/2)
+            if (m1.gt.npw2) then
+               cd  = cd  + tab_pw2pot(m1,k1)*pwexp(m1,ind)/2
+               cdx = cdx + tab_pw2der(m1,k1)*pwexp(m1,ind)/2
+            endif
             pot(ind,k1)=pot(ind,k1)+dreal(cd)*2
             grad(ind,k1)=grad(ind,k1)+dreal(cdx)*2
          enddo
@@ -409,18 +424,25 @@ c----------------------------------------------------------------------c
       complex *16 tab_pw2pot(npw,n)
       complex *16 tab_pw2der(npw,n)
       complex *16 tab_pw2dxx(npw,n)
-      complex *16 pwexp(npw/2,nd),cd,cdx,cdxx
+      complex *16 pwexp(((npw+1)/2),nd),cd,cdx,cdxx
 c
+      npw2=npw/2
       do ind = 1,nd
          do k1 = 1,n
             cd=0.0d0
             cdx=0.0d0
             cdxx=0.0d0
-            do m1 = 1,npw/2
+            do m1 = 1,npw2
                cd   = cd   + tab_pw2pot(m1,k1)*pwexp(m1,ind)
                cdx  = cdx  + tab_pw2der(m1,k1)*pwexp(m1,ind)
                cdxx = cdxx + tab_pw2dxx(m1,k1)*pwexp(m1,ind)
             enddo
+            m1=((npw+1)/2)
+            if (m1.gt.npw2) then
+               cd   = cd   + tab_pw2pot(m1,k1)*pwexp(m1,ind)/2
+               cdx  = cdx  + tab_pw2der(m1,k1)*pwexp(m1,ind)/2
+               cdxx = cdxx + tab_pw2dxx(m1,k1)*pwexp(m1,ind)/2
+            endif
             pot(ind,k1)  = pot(ind,k1)  + dreal(cd)*2
             grad(ind,k1) = grad(ind,k1) + dreal(cdx)*2
             hess(ind,k1) = hess(ind,k1) + dreal(cdxx)*2
@@ -449,8 +471,8 @@ c     nd       vector length (for multiple RHS)
 c     n        number of nodes
 c     npw      number of plane waves
 c     pwexp    plane wave expansion
-c                 NOTE 2D convention is pwexp(npw,npw/2)
-c     ff       complex workspace (n,npw/2)
+c                 NOTE 2D convention is pwexp(npw,((npw+1)/2))
+c     ff       complex workspace (n,((npw+1)/2))
 c     tab_pw2pot  precomputed table of 1D conversion 
 c
 c     OUTPUT:
@@ -459,11 +481,13 @@ c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 pot(nd,n,n)
       complex *16 tab_pw2pot(npw,n)
-      complex *16 pwexp(npw,npw/2,nd),cd
-      complex *16 ff(n,npw/2)
+      complex *16 pwexp(npw,((npw+1)/2),nd),cd
+      complex *16 ff(n,((npw+1)/2))
 c
+      npw2=npw/2
+      
       do ind = 1,nd
-         do m2 = 1,npw/2
+         do m2 = 1,((npw+1)/2)
          do k1 = 1,n
             cd=0.0d0
             do m1 = 1,npw
@@ -476,9 +500,13 @@ c
          do k2 = 1,n
          do k1 = 1,n
             cd = 0.0d0
-            do m2 = 1,npw/2
+            do m2 = 1,npw2
                cd = cd+tab_pw2pot(m2,k2)*ff(k1,m2)
             enddo
+            m2=((npw+1)/2)
+            if (m2.gt.npw2) then
+               cd = cd+tab_pw2pot(m2,k2)*ff(k1,m2)/2
+            endif
             pot(ind,k1,k2)=pot(ind,k1,k2)+dreal(cd)*2
          enddo
          enddo
@@ -516,12 +544,14 @@ c----------------------------------------------------------------------c
       real *8 grad(nd,2,n,n)
       complex *16 tab_pw2pot(npw,n)
       complex *16 tab_pw2der(npw,n)
-      complex *16 ff(npw/2,n)
-      complex *16 ffx(npw/2,n)
-      complex *16 pwexp(npw,npw/2,nd),cd,cdx,cdy
+      complex *16 ff(((npw+1)/2),n)
+      complex *16 ffx(((npw+1)/2),n)
+      complex *16 pwexp(npw,((npw+1)/2),nd),cd,cdx,cdy
 c
+      npw2=npw/2
+      
       do ind = 1,nd
-         do m2 = 1,npw/2
+         do m2 = 1,((npw+1)/2)
          do k1 = 1,n
             cd=0.0d0
             cdx=0.0d0
@@ -539,12 +569,19 @@ c
             cd = 0.0d0
             cdx = 0.0d0
             cdy = 0.0d0
-            do m2 = 1,npw/2
+            do m2 = 1,npw2
                cd  = cd  + tab_pw2pot(m2,k2)*ff(m2,k1)
                cdy = cdy + tab_pw2der(m2,k2)*ff(m2,k1)
                
                cdx = cdx + tab_pw2pot(m2,k2)*ffx(m2,k1)
             enddo
+            m2=((npw+1)/2)
+            if (m2.gt.npw2) then
+               cd  = cd  + tab_pw2pot(m2,k2)*ff(m2,k1)/2
+               cdy = cdy + tab_pw2der(m2,k2)*ff(m2,k1)/2
+               
+               cdx = cdx + tab_pw2pot(m2,k2)*ffx(m2,k1)/2
+            endif
             pot(ind,k1,k2)=pot(ind,k1,k2)+dreal(cd)*2
             grad(ind,1,k1,k2)=grad(ind,1,k1,k2)+dreal(cdx)*2
             grad(ind,2,k1,k2)=grad(ind,2,k1,k2)+dreal(cdy)*2
@@ -591,14 +628,16 @@ c----------------------------------------------------------------------c
       complex *16 tab_pw2pot(npw,n)
       complex *16 tab_pw2der(npw,n)
       complex *16 tab_pw2dxx(npw,n)
-      complex *16 ff(npw/2,n)
-      complex *16 ffx(npw/2,n)
-      complex *16 ffxx(npw/2,n)
-      complex *16 pwexp(npw,npw/2,nd),cd,cdx,cdy
+      complex *16 ff(((npw+1)/2),n)
+      complex *16 ffx(((npw+1)/2),n)
+      complex *16 ffxx(((npw+1)/2),n)
+      complex *16 pwexp(npw,((npw+1)/2),nd),cd,cdx,cdy
       complex *16 cdxx,cdxy,cdyy
 c
+      npw2=npw/2
+      
       do ind = 1,nd
-         do m2 = 1,npw/2
+         do m2 = 1,((npw+1)/2)
          do k1 = 1,n
             cd=0.0d0
             cdx=0.0d0
@@ -622,7 +661,7 @@ c
             cdxx = 0.0d0
             cdxy = 0.0d0
             cdyy = 0.0d0
-            do m2 = 1,npw/2
+            do m2 = 1,npw2
                cd   = cd   + tab_pw2pot(m2,k2)*ff(m2,k1)
                cdy  = cdy  + tab_pw2der(m2,k2)*ff(m2,k1)
                cdyy = cdyy + tab_pw2dxx(m2,k2)*ff(m2,k1)
@@ -632,6 +671,17 @@ c
 
                cdxx = cdxx + tab_pw2pot(m2,k2)*ffxx(m2,k1)
             enddo
+            m2=((npw+1)/2)
+            if (m2.gt.npw2) then
+               cd   = cd   + tab_pw2pot(m2,k2)*ff(m2,k1)/2
+               cdy  = cdy  + tab_pw2der(m2,k2)*ff(m2,k1)/2
+               cdyy = cdyy + tab_pw2dxx(m2,k2)*ff(m2,k1)/2
+
+               cdx  = cdx  + tab_pw2pot(m2,k2)*ffx(m2,k1)/2
+               cdxy = cdxy + tab_pw2der(m2,k2)*ffx(m2,k1)/2
+
+               cdxx = cdxx + tab_pw2pot(m2,k2)*ffxx(m2,k1)/2
+            endif
             pot(ind,k1,k2)=pot(ind,k1,k2)+dreal(cd)*2
 
             grad(ind,1,k1,k2)=grad(ind,1,k1,k2)+dreal(cdx)*2
@@ -667,23 +717,25 @@ c     nd       vector length (for multiple RHS)
 c     n        number of Legendre nodes
 c     npw      number of plane waves
 c     pwexp    plane wave expansion
-c                 NOTE 3D convention is pwexp(npw,npw,npw/2)
+c                 NOTE 3D convention is pwexp(npw,npw,((npw+1)/2))
 c     tab_pw2pot  precomputed table of 1D conversion 
 c
 c     OUTPUT:
 c     pot      potential values on the tensor grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
-      complex *16 pwexp(npw,npw,npw/2,nd)
+      complex *16 pwexp(npw,npw,((npw+1)/2),nd)
       complex *16 tab_pw2pot(npw,n)
       real *8 pot(nd,n,n,n)
 
-      complex *16 ff(n,npw,npw/2)
-      complex *16 ff2(n,n,npw/2)
+      complex *16 ff(n,npw,((npw+1)/2))
+      complex *16 ff2(n,n,((npw+1)/2))
       complex *16 cd
 c
+      npw2=npw/2
+      
       do ind = 1,nd
-         do m3 = 1,npw/2
+         do m3 = 1,((npw+1)/2)
          do m2 = 1,npw
          do k1 = 1,n
             cd=0.0d0
@@ -695,7 +747,7 @@ c
          enddo
          enddo
 c
-         do m3 = 1,npw/2
+         do m3 = 1,((npw+1)/2)
          do k2 = 1,n
          do k1 = 1,n
             cd = 0.0d0
@@ -711,9 +763,13 @@ c
          do k2 = 1,n
          do k1 = 1,n
             cd = 0.0d0
-            do m3 = 1,npw/2
+            do m3 = 1,npw2
                cd = cd+tab_pw2pot(m3,k3)*ff2(k1,k2,m3)
             enddo
+            m3=((npw+1)/2)
+            if (m3.gt.npw2) then
+               cd = cd+tab_pw2pot(m3,k3)*ff2(k1,k2,m3)/2
+            endif
             pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+dreal(cd)*2
          enddo
          enddo
@@ -739,7 +795,7 @@ c     nd       vector length (for multiple RHS)
 c     n        number of Legendre nodes
 c     npw      number of plane waves
 c     pwexp    plane wave expansion
-c                 NOTE 3D convention is pwexp(npw,npw,npw/2)
+c                 NOTE 3D convention is pwexp(npw,npw,((npw+1)/2))
 c     tab_pw2pot  precomputed table of 1D conversion 
 c     tab_pw2deriv  precomputed table of deriv of 1D conversion 
 c
@@ -748,22 +804,24 @@ c     pot      potential values on the tensor grid
 c     grad     grad values on the tensor grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
-      complex *16 pwexp(npw,npw,npw/2,nd)
+      complex *16 pwexp(npw,npw,((npw+1)/2),nd)
       complex *16 tab_pw2pot(npw,n)
       complex *16 tab_pw2der(npw,n)
       real *8 pot(nd,n,n,n)
       real *8 grad(nd,3,n,n,n)
 
-      complex *16 ff(n,npw,npw/2)
-      complex *16 ffx(n,npw,npw/2)
+      complex *16 ff(n,npw,((npw+1)/2))
+      complex *16 ffx(n,npw,((npw+1)/2))
       
-      complex *16 ff2(n,n,npw/2)
-      complex *16 ff2x(n,n,npw/2)
-      complex *16 ff2y(n,n,npw/2)
+      complex *16 ff2(n,n,((npw+1)/2))
+      complex *16 ff2x(n,n,((npw+1)/2))
+      complex *16 ff2y(n,n,((npw+1)/2))
       complex *16 cd,cdx,cdy,cdz
 c
+      npw2=npw/2
+      
       do ind = 1,nd
-        do m3 = 1,npw/2
+        do m3 = 1,((npw+1)/2)
         do m2 = 1,npw
         do k1 = 1,n
            cd=0.0d0
@@ -778,7 +836,7 @@ c
         enddo
         enddo
 c
-        do m3 = 1,npw/2
+        do m3 = 1,((npw+1)/2)
         do k2 = 1,n
         do k1 = 1,n
            cd = 0.0d0
@@ -804,13 +862,21 @@ c
            cdx = 0.0d0
            cdy = 0.0d0
            cdz = 0.0d0
-           do m3 = 1,npw/2
+           do m3 = 1,npw2
               cd  = cd  + tab_pw2pot(m3,k3)*ff2(k1,k2,m3)
               cdz = cdz + tab_pw2der(m3,k3)*ff2(k1,k2,m3)
               
               cdx = cdx + tab_pw2pot(m3,k3)*ff2x(k1,k2,m3)
               cdy = cdy + tab_pw2pot(m3,k3)*ff2y(k1,k2,m3)
            enddo
+           m3=((npw+1)/2)
+           if (m3.gt.npw2) then
+              cd  = cd  + tab_pw2pot(m3,k3)*ff2(k1,k2,m3)/2
+              cdz = cdz + tab_pw2der(m3,k3)*ff2(k1,k2,m3)/2
+              
+              cdx = cdx + tab_pw2pot(m3,k3)*ff2x(k1,k2,m3)/2
+              cdy = cdy + tab_pw2pot(m3,k3)*ff2y(k1,k2,m3)/2
+           endif
            pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+dreal(cd)*2
            grad(ind,1,k1,k2,k3)=grad(ind,1,k1,k2,k3)+dreal(cdx)*2
            grad(ind,2,k1,k2,k3)=grad(ind,2,k1,k2,k3)+dreal(cdy)*2
@@ -840,7 +906,7 @@ c     nd       vector length (for multiple RHS)
 c     n        number of Legendre nodes
 c     npw      number of plane waves
 c     pwexp    plane wave expansion
-c                 NOTE 3D convention is pwexp(npw,npw,npw/2)
+c                 NOTE 3D convention is pwexp(npw,npw,((npw+1)/2))
 c     tab_pw2pot  precomputed table of 1D conversion 
 c     tab_pw2der  precomputed table of first deriv of 1D conversion 
 c     tab_pw2dxx  precomputed table of second deriv of 1D conversion 
@@ -851,7 +917,7 @@ c     grad     grad values on the tensor grid
 c     hess     hess values on the tensor grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
-      complex *16 pwexp(npw,npw,npw/2,nd)
+      complex *16 pwexp(npw,npw,((npw+1)/2),nd)
       complex *16 tab_pw2pot(npw,n)
       complex *16 tab_pw2der(npw,n)
       complex *16 tab_pw2dxx(npw,n)
@@ -859,22 +925,24 @@ c----------------------------------------------------------------------c
       real *8 grad(nd,3,n,n,n)
       real *8 hess(nd,6,n,n,n)
 
-      complex *16 ff(n,npw,npw/2)
-      complex *16 ffx(n,npw,npw/2)
-      complex *16 ffxx(n,npw,npw/2)
+      complex *16 ff(n,npw,((npw+1)/2))
+      complex *16 ffx(n,npw,((npw+1)/2))
+      complex *16 ffxx(n,npw,((npw+1)/2))
       
-      complex *16 ff2(n,n,npw/2)
-      complex *16 ff2x(n,n,npw/2)
-      complex *16 ff2xy(n,n,npw/2)
-      complex *16 ff2xx(n,n,npw/2)
-      complex *16 ff2y(n,n,npw/2)
-      complex *16 ff2yy(n,n,npw/2)
+      complex *16 ff2(n,n,((npw+1)/2))
+      complex *16 ff2x(n,n,((npw+1)/2))
+      complex *16 ff2xy(n,n,((npw+1)/2))
+      complex *16 ff2xx(n,n,((npw+1)/2))
+      complex *16 ff2y(n,n,((npw+1)/2))
+      complex *16 ff2yy(n,n,((npw+1)/2))
       
       complex *16 cd,cdx,cdy,cdz,cdxx,cdyy,cdzz,cdxy,cdxz,cdyz
 c
+      npw2=npw/2
+      
       do ind = 1,nd
 c       transformation in x
-        do m3 = 1,npw/2
+        do m3 = 1,((npw+1)/2)
         do m2 = 1,npw
         do k1 = 1,n
            cd=0.0d0
@@ -892,7 +960,7 @@ c       transformation in x
         enddo
         enddo
 c       transformation in y
-        do m3 = 1,npw/2
+        do m3 = 1,((npw+1)/2)
         do k2 = 1,n
         do k1 = 1,n
            cd = 0.0d0
@@ -934,7 +1002,7 @@ c       transformation in z
            cdxy = 0.0d0
            cdxz = 0.0d0
            cdyz = 0.0d0
-           do m3 = 1,npw/2
+           do m3 = 1,npw2
               cd   = cd  +  tab_pw2pot(m3,k3)*ff2(k1,k2,m3)
               cdz  = cdz +  tab_pw2der(m3,k3)*ff2(k1,k2,m3)
               cdzz = cdzz + tab_pw2dxx(m3,k3)*ff2(k1,k2,m3)
@@ -949,6 +1017,22 @@ c       transformation in z
               cdxy = cdxy + tab_pw2pot(m3,k3)*ff2xy(k1,k2,m3)
               cdyy = cdyy + tab_pw2pot(m3,k3)*ff2yy(k1,k2,m3)
            enddo
+           m3=((npw+1)/2)
+           if (m3.gt.npw2) then
+              cd   = cd  +  tab_pw2pot(m3,k3)*ff2(k1,k2,m3)/2
+              cdz  = cdz +  tab_pw2der(m3,k3)*ff2(k1,k2,m3)/2
+              cdzz = cdzz + tab_pw2dxx(m3,k3)*ff2(k1,k2,m3)/2
+
+              cdx  = cdx  + tab_pw2pot(m3,k3)*ff2x(k1,k2,m3)/2
+              cdxz = cdxz + tab_pw2der(m3,k3)*ff2x(k1,k2,m3)/2
+
+              cdy  = cdy  + tab_pw2pot(m3,k3)*ff2y(k1,k2,m3)/2
+              cdyz = cdyz + tab_pw2der(m3,k3)*ff2y(k1,k2,m3)/2
+
+              cdxx = cdxx + tab_pw2pot(m3,k3)*ff2xx(k1,k2,m3)/2
+              cdxy = cdxy + tab_pw2pot(m3,k3)*ff2xy(k1,k2,m3)/2
+              cdyy = cdyy + tab_pw2pot(m3,k3)*ff2yy(k1,k2,m3)/2
+           endif
            pot(ind,k1,k2,k3)=pot(ind,k1,k2,k3)+dreal(cd)*2
            
            grad(ind,1,k1,k2,k3)=grad(ind,1,k1,k2,k3)+dreal(cdx)*2
@@ -1000,7 +1084,7 @@ C
       implicit real *8 (a-h,o-z)
       real *8 ts(npw)
       
-      complex *16 wshift(npw**ndim/2,(2*nmax+1)**ndim)
+      complex *16 wshift(((npw+1)/2)*npw**(ndim-1),(2*nmax+1)**ndim)
 
       if (ndim.eq.1) then
          call  g1d_mk_pw_translation_matrices(xmin,npw,ts,nmax,
@@ -1039,7 +1123,7 @@ C
       implicit real *8 (a-h,o-z)
       real *8 ts(npw)
       
-      complex *16 wshift(npw/2,(2*nmax+1))
+      complex *16 wshift(((npw+1)/2),(2*nmax+1))
       
       complex *16,allocatable:: ww(:,:)
 
@@ -1064,7 +1148,7 @@ C
       do k1=-nmax,nmax
          k=k+1
          j=0   
-         do j1=1,npw/2
+         do j1=1,((npw+1)/2)
             j=j+1
             wshift(j,k) = ww(j1,k1)
          enddo
@@ -1096,7 +1180,7 @@ C
       implicit real *8 (a-h,o-z)
       real *8 ts(npw)
       
-      complex *16 wshift(npw*npw/2,(2*nmax+1)**2)
+      complex *16 wshift(npw*((npw+1)/2),(2*nmax+1)**2)
       
       complex *16,allocatable:: ww(:,:)
 
@@ -1122,7 +1206,7 @@ C
       do k2=-nmax,nmax
          k=k+1
          j=0   
-         do j1=1,npw/2
+         do j1=1,((npw+1)/2)
          do j2=1,npw
             j=j+1
             wshift(j,k) = ww(j2,k2)*ww(j1,k1)
@@ -1157,7 +1241,7 @@ C
       implicit real *8 (a-h,o-z)
       real *8 ts(npw)
       
-      complex *16 wshift(npw*npw*npw/2,(2*nmax+1)**3)
+      complex *16 wshift(npw*npw*((npw+1)/2),(2*nmax+1)**3)
       
       complex *16,allocatable:: ww(:,:)
 
@@ -1184,7 +1268,7 @@ C
       do k3=-nmax,nmax
          k=k+1
          j=0   
-         do j1=1,npw/2
+         do j1=1,((npw+1)/2)
          do j2=1,npw
          do j3=1,npw
             j=j+1
@@ -1231,7 +1315,7 @@ C
       implicit real *8 (a-h,o-z)
       integer ndim
       real *8 xmin
-      complex *16 wshift(npw**ndim/2,2**ndim,nmax)
+      complex *16 wshift(((npw+1)/2)*npw**(ndim-1),2**ndim,nmax)
       real *8 ts(npw)
 
       if (ndim.eq.1) then
@@ -1272,7 +1356,7 @@ c                merge mp and split loc stage
 C
       implicit real *8 (a-h,o-z)
       real *8 xmin
-      complex *16 wshift(npw/2,2,nmax)
+      complex *16 wshift(((npw+1)/2),2,nmax)
       real *8 ts(npw)
       complex *16 ztmp
       complex *16 eye
@@ -1292,7 +1376,7 @@ C
       enddo
       
       do k1=1,nmax
-         do j1=1,npw/2
+         do j1=1,((npw+1)/2)
 c           p    
             wshift(j1,1,k1) = ww(j1,k1)
 c           m
@@ -1327,7 +1411,7 @@ c                merge mp and split loc stage
 C
       implicit real *8 (a-h,o-z)
       real *8 xmin
-      complex *16 wshift(npw*npw/2,4,nmax)
+      complex *16 wshift(npw*((npw+1)/2),4,nmax)
       real *8 ts(npw)
       complex *16 ztmp
       complex *16 eye
@@ -1348,7 +1432,7 @@ C
       
       do k1=1,nmax
          j=0
-         do j1=1,npw/2
+         do j1=1,((npw+1)/2)
          do j2=1,npw
             j=j+1
 c           pp            
@@ -1390,7 +1474,7 @@ c                merge mp and split loc stage
 C
       implicit real *8 (a-h,o-z)
       real *8 xmin
-      complex *16 wshift(npw*npw*npw/2,8,nmax)
+      complex *16 wshift(npw*npw*((npw+1)/2),8,nmax)
       real *8 ts(npw)
       complex *16 ztmp
       complex *16 eye
@@ -1411,7 +1495,7 @@ C
       
       do k1=1,nmax
          j=0
-         do j1=1,npw/2
+         do j1=1,((npw+1)/2)
          do j2=1,npw
          do j3=1,npw
             j=j+1

@@ -111,6 +111,9 @@ c
       integer, allocatable :: iaddr(:,:)
       real *8, allocatable :: rmlexp(:)
 
+      real *8, allocatable :: pot2(:,:,:)
+      real *8, allocatable :: grad2(:,:,:,:)
+      real *8, allocatable :: hess2(:,:,:,:)
 c
 cc      temporary variables
 c
@@ -188,13 +191,82 @@ C$        time2=omp_get_wtime()
       if( ifprint .eq. 1 ) call prin2('time in allocating rmlexp=*',
      1   time2-time1,1)
 c
+
+      nhess=ndim*(ndim+1)/2
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
-      call bfgtmain(nd,ndim,delta,eps,ipoly,iperiod,norder,npbox,
-     1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
-     2    iaddr,rmlexp,npwlevel,pmax,npw,
-     3    ifpgh,pot,grad,hess,
-     4    ntarg,targs,ifpghtarg,pote,grade,hesse,timeinfo)
+
+      if (ifpgh.ge.ifpghtarg) then
+         call bfgtmain(nd,ndim,delta,eps,ipoly,iperiod,norder,npbox,
+     1       nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
+     2       iaddr,rmlexp,npwlevel,pmax,npw,
+     3       ifpgh,pot,grad,hess,
+     4       ntarg,targs,ifpghtarg,pote,grade,hesse,timeinfo)
+      elseif (ifpghtarg.eq.3 .and. ifpgh.eq.1) then
+         allocate(grad2(nd,ndim,npbox,nboxes))
+         allocate(hess2(nd,nhess,npbox,nboxes))
+         do i=1,nboxes
+         do j=1,npbox
+         do k=1,ndim
+         do ind=1,nd
+            grad2(ind,k,j,i) = 0
+         enddo
+         enddo
+         enddo
+         enddo
+      
+         do i=1,nboxes
+         do j=1,npbox
+         do k=1,nhess
+         do ind=1,nd
+            hess2(ind,k,j,i) = 0
+         enddo
+         enddo
+         enddo
+         enddo
+
+         ifpgh2=ifpghtarg
+
+         call bfgtmain(nd,ndim,delta,eps,ipoly,iperiod,norder,npbox,
+     1       nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
+     2       iaddr,rmlexp,npwlevel,pmax,npw,
+     3       ifpgh2,pot,grad2,hess2,
+     4       ntarg,targs,ifpghtarg,pote,grade,hesse,timeinfo)
+      elseif (ifpghtarg.eq.3 .and. ifpgh.eq.2) then
+         allocate(hess2(nd,nhess,npbox,nboxes))
+         do i=1,nboxes
+         do j=1,npbox
+         do k=1,nhess
+         do ind=1,nd
+            hess2(ind,k,j,i) = 0
+         enddo
+         enddo
+         enddo
+         enddo
+         ifpgh2=ifpghtarg
+         call bfgtmain(nd,ndim,delta,eps,ipoly,iperiod,norder,npbox,
+     1       nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
+     2       iaddr,rmlexp,npwlevel,pmax,npw,
+     3       ifpgh2,pot,grad,hess2,
+     4       ntarg,targs,ifpghtarg,pote,grade,hesse,timeinfo)
+      elseif (ifpghtarg.eq.2 .and. ifpgh.eq.1) then
+         allocate(grad2(nd,ndim,npbox,nboxes))
+         do i=1,nboxes
+         do j=1,npbox
+         do k=1,ndim
+         do ind=1,nd
+            grad2(ind,k,j,i) = 0
+         enddo
+         enddo
+         enddo
+         enddo
+         ifpgh2=ifpghtarg
+         call bfgtmain(nd,ndim,delta,eps,ipoly,iperiod,norder,npbox,
+     1       nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
+     2       iaddr,rmlexp,npwlevel,pmax,npw,
+     3       ifpgh2,pot,grad2,hess,
+     4       ntarg,targs,ifpghtarg,pote,grade,hesse,timeinfo)
+      endif
       
       call cpu_time(time2)
 C$        time2=omp_get_wtime()
@@ -617,7 +689,7 @@ c        step 1: convert function values to planewave expansions
 c
     
       if(ifprint.eq.1) 
-     1   call prinf("=== STEP 1 (values -> mp pwexps) ====*",i,0)
+     1   call prinf("=== STEP 1 (values -> mp pwexps) ===*",i,0)
       
       call cpu_time(time1)
 C$        time1=omp_get_wtime()
@@ -919,7 +991,7 @@ C$    time2=omp_get_wtime()
       
  4000 continue
       if(ifprint .ge. 1)
-     $     call prinf('=== STEP 8 (refine if needed) =====*',i,0)
+     $     call prinf('=== STEP 8 (refine if needed) ===*',i,0)
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
 
@@ -930,7 +1002,7 @@ C$    time1=omp_get_wtime()
       allocate(irefinelev(nboxes))
       allocate(imaxrefinelev(nboxes))
 
-      iptype=0
+      iptype=2
       eta=1.0d0
 
       allocate(rmask(npbox))
@@ -1149,14 +1221,12 @@ C$    time2=omp_get_wtime()
       call prinf('laddr=*', itree(iptr(1)),2*(nlevels+1))
       if (nnewboxes.lt.0.1d0*nboxes0) goto 4800      
 
-
-
       
       
 
 
       if(ifprint .ge. 1)
-     $     call prinf('=== STEP 9 (coarsen if possible) =====*',i,0)
+     $     call prinf('=== STEP 9 (coarsen if possible) ===*',i,0)
 c
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
@@ -1193,7 +1263,7 @@ cccc      goto 5000
 
  4800 continue
       if(ifprint .ge. 1)
-     1    call prinf('=== STEP 10 (2:1 rebalance) =====*',i,0)
+     1    call prinf('=== STEP 10 (2:1 rebalance) ===*',i,0)
 c
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
@@ -1225,7 +1295,7 @@ cccc      call prinf('laddr=*', itree(iptr(1)),2*(nlevels+1))
       
  5000 continue
       if(ifprint .ge. 1)
-     $     call prinf('=== STEP 11 (extra targets) =====*',i,0)
+     $     call prinf('=== STEP 11 (extra targets) ===*',i,0)
 c
 cc
       call cpu_time(time1)

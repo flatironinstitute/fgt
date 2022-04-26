@@ -53,23 +53,23 @@ c     dimension of the underlying space
 
       eps = 0.5d-12
       if (ndim.eq.2) eps=0.5d-9
-      if (ndim.eq.3) eps=0.5d-5
+      if (ndim.eq.3) eps=0.5d-4
 c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
       ipoly=0
 c     polynomial expansion order for each leaf box
-      norder = 16
+      norder = 8
 c     number of extra targets
       ntarg = 1000 000
 c     gaussian variance
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
-      delta = 6d-3
+      delta = 6d-5
 c     for exact solution
       dpars(51)=delta
 
 c     number of right-hand sides
       nd = 1
 c     0: free space; 1: doubly periodic
-      iperiod=1
+      iperiod=0
       ipars(5)=iperiod
       
 c     p in L^p norm - 0: L^infty norm; 1: L^1 norm; 2: L^2 norm
@@ -158,22 +158,22 @@ c     fourth gaussian
             targs(j,i) = hkrand(0)-0.5d0
          enddo
       enddo
-      
+
       call cpu_time(t1)
 C$      t1 = omp_get_wtime()
 
-      call vol_tree_mem(ndim,ipoly,iperiod,eps,zk,boxlen,norder,iptype,
-     1    eta,rhsfun,nd,dpars,zpars,ipars,nboxes,nlevels,ltree,rintl)
-
+      call vol_tree_mem(ndim,ipoly,iperiod,eps,zk,boxlen,
+     1    norder,iptype,eta,rhsfun,nd,dpars,zpars,ipars,
+     2    nboxes,nlevels,ltree,rintl)
       call prinf('nboxes=*',nboxes,1)
       call prinf('nlevels=*',nlevels,1)
       
       allocate(fvals(nd,npbox,nboxes),centers(ndim,nboxes))
       allocate(boxsize(0:nlevels),itree(ltree))
 
-      call vol_tree_build(ndim,ipoly,iperiod,eps,zk,boxlen,norder,
-     1    iptype,eta,rhsfun,nd,dpars,zpars,ipars,rintl,nboxes,
-     2    nlevels,ltree,itree,iptr,centers,boxsize,fvals)
+      call vol_tree_build(ndim,ipoly,iperiod,eps,zk,boxlen,
+     1    norder,iptype,eta,rhsfun,nd,dpars,zpars,ipars,rintl,
+     2    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals)
       call prinf('laddr=*',itree,2*(nlevels+1))
       call cpu_time(t2)
 C$      t2 = omp_get_wtime()      
@@ -274,7 +274,8 @@ c     compute exact solutions on tensor grid
           endif
         enddo
       enddo
-      
+
+      if (1.eq.2) then
 c     construct 1D differentiation matrix
       allocate(adiff(norder,norder))
       do 2600 i=1,norder
@@ -292,19 +293,28 @@ c
  2400    continue
 c 
  2600 continue
+      endif
       
-      call treedata_derror(nd,nlevels,itree,iptr,
-     1    npbox,potex,pot,abserrp,rnormp,nleaf)
-      call treedata_derror(nd*ndim,nlevels,itree,iptr,
-     1    npbox,gradex,grad,abserrg,rnormg,nleaf)
-      call treedata_derror(nd*nhess,nlevels,itree,iptr,
-     1    npbox,hessex,hess,abserrh,rnormh,nleaf)
-      errp = abserrp/rnormp
-      errg = abserrg/rnormg
-      errh = abserrh/rnormh
-      call prin2('relative pot l2 error=*',errp,1)
-      call prin2('relative grad l2 error=*',errg,1)
-      call prin2('relative hess l2 error=*',errh,1)
+      if (ifpgh.ge.1) then
+         call treedata_derror(nd,nlevels,itree,iptr,
+     1       npbox,potex,pot,abserrp,rnormp,nleaf)
+         errp = abserrp/rnormp
+         call prin2('relative pot l2 error=*',errp,1)
+      endif
+
+      if (ifpgh.ge.2) then
+         call treedata_derror(nd*ndim,nlevels,itree,iptr,
+     1       npbox,gradex,grad,abserrg,rnormg,nleaf)
+         errg = abserrg/rnormg
+         call prin2('relative grad l2 error=*',errg,1)
+      endif
+
+      if (ifpgh.ge.3) then
+         call treedata_derror(nd*nhess,nlevels,itree,iptr,
+     1       npbox,hessex,hess,abserrh,rnormh,nleaf)
+         errh = abserrh/rnormh
+         call prin2('relative hess l2 error=*',errh,1)
+      endif
 c
 c     compute exact solutions on arbitrary targets      
       allocate(potexe(nd,ntarg))
@@ -324,10 +334,12 @@ c     compute relative error
          call derr(potexe,pote,nd*ntarg,errpe)
          call prin2('relative pottarg l2 error=*',errpe,1)
       endif
+
       if (ifpghtarg.ge.2) then
          call derr(gradexe,grade,nd*ndim*ntarg,errge)
          call prin2('relative gradtarg l2 error=*',errge,1)
       endif
+
       if (ifpghtarg.ge.3) then
          call derr(hessexe,hesse,nd*nhess*ntarg,errhe)
          call prin2('relative hesstarg l2 error=*',errhe,1)

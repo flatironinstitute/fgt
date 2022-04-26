@@ -3291,7 +3291,7 @@ c           get the data on the child box by interpolation
                call ortho_eval_nd(ndim,nh,norder,hcoefs,
      1             norder,hess(1,1,1,jbox),polyv(1,1,1,j))
             endif
-            
+
             iparent(jbox) = ibox
             nchild(jbox) = 0
             do l=1,mc

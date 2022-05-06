@@ -176,6 +176,39 @@ c
 c
 c
 c
+      subroutine polytens_ind2pow_2d(ndeg,type,iind2p)
+      integer ndeg, iind2p(2,*)
+      character type
+
+      integer i, j, ipol
+
+
+      if (type .eq. 'f' .or. type .eq. 'F') then
+         ipol = 0
+         do i = 1,ndeg+1
+            do j = 1,ndeg+1
+               ipol = ipol+1
+               iind2p(1,ipol) = j-1
+               iind2p(2,ipol) = i-1                
+            enddo
+         enddo
+      else if (type .eq. 't' .or. type .eq. 'T') then
+         ipol = 0
+         do i = 1,ndeg+1
+            do j = 1,ndeg+1+1-i
+               ipol = ipol+1
+               iind2p(1,ipol) = j-1
+               iind2p(2,ipol) = i-1
+            enddo
+         enddo
+      endif
+
+      return
+      end
+c
+c
+c
+c
       subroutine polytens_ind2pow_3d(ndeg,type,iind2p)
       integer ndeg, iind2p(3,*)
       character type
@@ -250,37 +283,6 @@ c
 c
 c
 c
-c
-c
-      subroutine polytens_ind2pow_2d(ndeg,type,iind2p)
-      integer ndeg, iind2p(2,*)
-      character type
-
-      integer i, j, ipol
-
-
-      if (type .eq. 'f' .or. type .eq. 'F') then
-         ipol = 0
-         do i = 1,ndeg+1
-            do j = 1,ndeg+1
-               ipol = ipol+1
-               iind2p(1,ipol) = j-1
-               iind2p(2,ipol) = i-1                
-            enddo
-         enddo
-      else if (type .eq. 't' .or. type .eq. 'T') then
-         ipol = 0
-         do i = 1,ndeg+1
-            do j = 1,ndeg+1+1-i
-               ipol = ipol+1
-               iind2p(1,ipol) = j-1
-               iind2p(2,ipol) = i-1
-            enddo
-         enddo
-      endif
-
-      return
-      end
 c
 c
       subroutine polytens_exps_nd(ndim,ipoly,itype,n,type,x,
@@ -1586,15 +1588,22 @@ c
       real *8 rmask(npols)
 
       call polytens_ind2pow(ndim,norder-1,'f',iind2p)
+
+      n=max(iptype,1)
+      morder=norder
+c     when ndim=1, use the last two coefficients
+      if (ndim.eq.1) morder=norder-1
       
       rsum = 0
       do i=1,npols
         rmask(i) = 0.0d0
         i1=0
         do k=1,ndim
-           i1=i1+iind2p(k,i)
+cccc           i1=i1+iind2p(k,i)
+           i1=i1+(iind2p(k,i)+1)**n
         enddo
-        if(i1.eq.norder-1) then
+cccc        if(i1.eq.norder-1) then
+        if(i1 .ge. morder**n) then
           rmask(i) = 1.0d0
           rsum = rsum + 1
         endif

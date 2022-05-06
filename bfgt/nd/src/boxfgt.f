@@ -25,7 +25,7 @@ c            0: Legendre polynomials
 c            1: Chebyshev polynomials
 c         iperiod - integer
 c            0: free space
-c            1: doubly periodic
+c            1: periodic
 c         norder - integer
 c           order of expansions for input function value array
 c         npbox - integer
@@ -405,8 +405,11 @@ c
 c
 cc        temporary variables
 c
+c     direction interaction list
       integer, allocatable :: nlist1(:),list1(:,:)
+c     plane wave interaction list
       integer, allocatable :: nlistpw(:), listpw(:,:)
+c     box flag array
       integer, allocatable :: ifpwexp(:)
 
       integer ndirect
@@ -417,7 +420,8 @@ c
       real *8, allocatable :: umat_nd(:,:,:)
 
       real *8 ws(200),ts(200)
-      
+
+c     plane wave m2m,l2l, and m2l translation operators
       complex *16, allocatable :: wpwshift(:,:)
       complex *16, allocatable :: wpwmsshift(:,:,:)
 
@@ -437,7 +441,7 @@ c     for asymptotic calculations
       real *8, allocatable :: gvals(:,:,:,:)
       real *8, allocatable :: hvals(:,:,:,:)
 
-c     for checking whether the potential is resolved
+c     for refinement and coarsening
       integer, allocatable :: ifrefine(:),irefinelev(:),imaxrefinelev(:)
       integer nblock(0:nlevels),ilevstart(0:nlevels+1)
       integer isgn(ndim,2**ndim)
@@ -605,7 +609,6 @@ c     values, used in direct evaluation
      3       ind_loc(1,1,-nloctab,ilev))
       enddo
 
-c
       
 c     direct evaluation if the cutoff level is >= the maximum level 
       if (npwlevel .ge. nlevels) goto 1800
@@ -683,7 +686,10 @@ C$    time2=omp_get_wtime()
 
 
       
-c
+
+
+
+      
 c
 c        step 1: convert function values to planewave expansions
 c
@@ -720,6 +726,9 @@ C$       time2 = omp_get_wtime()
 
 
 
+
+
+
       
       if(ifprint .ge. 1)
      1    call prinf('=== STEP 2 (merge mp pwexps) ====*',i,0)
@@ -746,17 +755,18 @@ C$OMP$SCHEDULE(DYNAMIC)
         enddo
 C$OMP END PARALLEL DO    
  1200 continue
-
-      
+     
       call cpu_time(time2)
 C$    time2=omp_get_wtime()
       timeinfo(3)=time2-time1
-c
+
 
 
 
 
       
+
+
       
       if(ifprint.ge.1)
      1    call prinf('=== STEP 3 (mp to loc) ===*',i,0)
@@ -784,14 +794,14 @@ c           shift PW expansions
         enddo
 C$OMP END PARALLEL DO        
  1300 continue
-c
-
-      
+c      
       call cpu_time(time2)
 C$    time2=omp_get_wtime()
       timeinfo(4) = time2-time1
 
 cccc      call prin2('timeinfo4=*',time2-time1,1)
+
+
 
 
 
@@ -833,6 +843,9 @@ C$    time2=omp_get_wtime()
 
 
 
+
+
+
       
       if(ifprint.ge.1)
      1    call prinf('=== STEP 5 (eval loc pwexps) ===*',i,0)
@@ -867,6 +880,10 @@ C$    time2 = omp_get_wtime()
 
 
       
+
+
+
+
       
  1800 continue
 
@@ -908,6 +925,9 @@ C$    time2=omp_get_wtime()
       allocate(coefsp(nd,npbox,nboxes))
       goto 4000
 ccc      goto 3000
+
+
+
 
 
 
@@ -984,6 +1004,9 @@ c     also use asymptotic expansion to evaluate gradient and hessian
 C$    time2=omp_get_wtime()  
       timeinfo(8) = time2-time1
       
+
+
+
 
 
 
@@ -1199,7 +1222,6 @@ cccc                     print *, k, kdad, imaxrefinelev(kdad)
       enddo
       if(ifprint .ge. 1) call prinf('nnewboxes=*',nnewboxes,1)
 
-
 c     call tree_reorg
       if (nnewboxes.eq.0) goto 4600
       call fgt_vol_tree_reorg(ndim,nboxes,nd,npbox,
@@ -1219,11 +1241,15 @@ c     call tree_reorg
 C$    time2=omp_get_wtime()  
       timeinfo(9) = time2-time1
       call prinf('laddr=*', itree(iptr(1)),2*(nlevels+1))
+      if (nnewboxes.eq.0) goto 5000
       if (nnewboxes.lt.0.1d0*nboxes0) goto 4800      
-
       
       
 
+
+
+
+      
 
       if(ifprint .ge. 1)
      $     call prinf('=== STEP 9 (coarsen if possible) ===*',i,0)
@@ -1254,10 +1280,12 @@ C$    time2=omp_get_wtime()
       if(ifprint.ge.1)
      1    call prinf('and nboxes0=*', nboxes0,1)
 cccc      call prinf('laddr=*', itree(iptr(1)),2*(nlevels+1))
+cccc      goto 5000      
+
+
       
 
 
-cccc      goto 5000
 
 
 
@@ -1297,7 +1325,6 @@ cccc      call prinf('laddr=*', itree(iptr(1)),2*(nlevels+1))
       if(ifprint .ge. 1)
      $     call prinf('=== STEP 11 (extra targets) ===*',i,0)
 c
-cc
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
 
@@ -1364,7 +1391,6 @@ C$    time2=omp_get_wtime()
 
       npwlevel=npwlevel0
       iperiod=iperiod0
-
       
       if(ifprint.eq.1) then 
          call prin2('timeinfo=*',timeinfo,11)

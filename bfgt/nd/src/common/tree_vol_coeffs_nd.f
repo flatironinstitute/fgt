@@ -142,9 +142,10 @@ c
 
       real *8, allocatable :: fval1(:,:,:,:),centerstmp(:,:,:)
       real *8, allocatable :: boxsize(:)
+      real *8, allocatable :: rmask(:)
       integer, allocatable :: irefinebox(:)
 
-      real *8 rsc,ra,utmp,vtmp
+      real *8 rsc,rsum,ra,utmp,vtmp
       integer nbloc,nbctr,nbadd,irefine,ilev,ifirstbox,ilastbox
       integer nbtot,iii,idim,iper,isep,nrefine
 
@@ -181,8 +182,13 @@ c
          centers(i,1) = 0
       enddo
 c
-c
+c     compute rmask and rsum for estimating whether the function is resolved
+      allocate(rmask(npbox))
 
+      call tens_prod_get_rmask(ndim,iptype,norder,npbox,
+     1    rmask,rsum)
+      
+c
       allocate(grid(ndim,npbox))
 c
 c     Generate a grid on the box [-1/2,1/2]^2
@@ -288,8 +294,8 @@ c
         print *, ilev, rint,rsc
 
         call vol_tree_find_box_refine(ndim,nd,iptype,eta,eps,zk,
-     1      norder,npbox,fvals,npols,umat,boxsize(ilev),nbmax,
-     2      ifirstbox,nbloc,rsc,irefinebox,irefine)
+     1      norder,npbox,fvals,npols,umat,rmask,rsum,boxsize(ilev),
+     2      nbmax,ifirstbox,nbloc,rsc,irefinebox,irefine)
      
 
 c
@@ -502,12 +508,13 @@ c      real *8 xq(norder),wts(norder),umat(norder,norder)
 c      real *8 vmat(norder,norder)
       real *8, allocatable :: xq(:),wts(:),umat(:,:),vmat(:,:)
       real *8, allocatable :: grid(:,:),ximat(:,:),qwts(:)
+      real *8, allocatable :: rmask(:)
       real *8 rintl(0:nlevels)
       real *8 xy(ndim)
 
       integer i,ilev,irefine,itype,nbmax,nlmax,npbox,npc,ii
       integer ifirstbox,ilastbox,nbctr,nbloc
-      real *8 rsc
+      real *8 rsc,rsum
 
       real *8 ra
       integer j,nboxes0,npols,mc,mnbors,nrefine
@@ -582,6 +589,12 @@ c
         call fun(nd,xy,dpars,zpars,ipars,fvals(1,i,1))
       enddo
 
+c     compute rmask and rsum for estimating whether the function is resolved
+      allocate(rmask(npbox))
+
+      call tens_prod_get_rmask(ndim,iptype,norder,npbox,
+     1    rmask,rsum)
+      
 
 c
 c       Reset nlevels, nboxes
@@ -606,8 +619,8 @@ c
         if(iptype.eq.0) rsc = 1.0d0
         rsc = rsc*rintl(ilev)
         call vol_tree_find_box_refine(ndim,nd,iptype,eta,eps,zk,
-     1      norder,npbox,fvals,npols,umat,boxsize(ilev),nboxes,
-     2      ifirstbox,nbloc,rsc,irefinebox,irefine)
+     1      norder,npbox,fvals,npols,umat,rmask,rsum,boxsize(ilev),
+     2      nboxes,ifirstbox,nbloc,rsc,irefinebox,irefine)
         
 
         if(irefine.eq.1) then
@@ -662,16 +675,15 @@ c
 c
 c
       subroutine vol_tree_find_box_refine(ndim,nd,iptype,eta,eps,
-     1  zk,norder,npbox,fvals,npols,umat,
+     1  zk,norder,npbox,fvals,npols,umat,rmask,rsum,
      2  boxsize,nboxes,ifirstbox,nbloc,rsc,irefinebox,irefine)
       implicit none
       integer ndim,nd,npc,npbox,norder,iptype,npols
       integer nboxes,nbloc
       real *8 eta,eps,fvals(nd,npbox,nboxes)
-      real *8 umat(norder,norder)
+      real *8 umat(norder,norder),rmask(npbox)
       real *8 rsc
-      real *8, allocatable :: fcoefs(:,:,:),rmask(:)
-      integer, allocatable :: iind2p(:,:)
+      real *8, allocatable :: fcoefs(:,:,:)
       real *8 alpha,beta,boxsize,rsum
       integer irefinebox(nbloc)
       
@@ -681,7 +693,6 @@ c
       integer irefine
 
       integer i,j,k,l,ibox,ifunif,i1
-      integer nordertail
       real *8 rscale2,erra,bs,bs2
 
       character *1 transa,transb
@@ -695,33 +706,6 @@ c
 
 
       allocate(fcoefs(nd,npols,nbloc))
-      allocate(iind2p(ndim,npols))
-      call polytens_ind2pow(ndim,norder-1,'f',iind2p)
-
-      
-      allocate(rmask(npols))
-
-      rsum = 0
-
-      nordertail = norder-2
-      if(norder.le.3) nordertail = norder-1
-      do i=1,npols
-        rmask(i) = 0.0d0
-        i1=0
-        do k=1,ndim
-           i1=i1+iind2p(k,i)
-        enddo
-        if(i1.ge.nordertail) then
-          rmask(i) = 1.0d0
-          rsum = rsum + 1
-        endif
-      enddo
-
-      if(iptype.eq.2) rsum = sqrt(rsum)
-      if(iptype.eq.0) rsum = 1
-      
-
-
 
       alpha = 1
       beta = 0
@@ -2315,8 +2299,9 @@ c
          nblock(i)=0
       enddo
       
-      iptype=0
-      eta=1.0d0
+      iptype=2
+cccc      eta=1.0d0
+      eta=0.0d0
 
       call tens_prod_get_rmask(ndim,iptype,norder,npbox,
      1    rmask,rsum)

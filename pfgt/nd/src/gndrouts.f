@@ -1,76 +1,76 @@
 c     This file contains the following subroutines
 c
-c     g3dformhc_vec : computes the Hermite expansion about the center CENT
+c     gndformhc_vec : computes the Hermite expansion about the center CENT
 c                     due to sources of strength charge()
 c
-c     g3dformhd_vec : computes the Hermite expansion about the center CENT
+c     gndformhd_vec : computes the Hermite expansion about the center CENT
 c                     due to dipoles
 c
-c     g3dformhcd_vec : computes the Hermite expansion about the center CENT
+c     gndformhcd_vec : computes the Hermite expansion about the center CENT
 c                     due to charges and dipoles
 c
-C     g3dhevalp_vec : evaluates the Hermite expansion 
+C     gndhevalp_vec : evaluates the Hermite expansion 
 C                         potential only.
 c      
-C     g3dhevalg_vec : evaluates the Hermite expansion 
+C     gndhevalg_vec : evaluates the Hermite expansion 
 C                         pot/grad
 c      
-C     g3dhevalh_vec : evaluates the Hermite expansion 
+C     gndhevalh_vec : evaluates the Hermite expansion 
 C                         pot/grad/Hessian
       
-c     g3dformlc_vec : computes the Taylor expansion about the center CENT
+c     gndformlc_vec : computes the Taylor expansion about the center CENT
 c                     due to sources of strength charge()
 c
-c     g3dformld_vec : computes the Taylor expansion about the center CENT
+c     gndformld_vec : computes the Taylor expansion about the center CENT
 c                     due to dipoles
 c
-c     g3dformlcd_vec : computes the Taylor expansion about the center CENT
+c     gndformlcd_vec : computes the Taylor expansion about the center CENT
 c                     due to charges and dipoles
 c
-C     g3dlevalp_vec : evaluates the local Taylor expansion 
+C     gndlevalp_vec : evaluates the local Taylor expansion 
 C                         potential only.
 c      
-C     g3dlevalg_vec : evaluates the local Taylor expansion 
+C     gndlevalg_vec : evaluates the local Taylor expansion 
 C                         pot/grad
 c      
-C     g3dlevalh_vec : evaluates the local Taylor expansion 
+C     gndlevalh_vec : evaluates the local Taylor expansion 
 C                         pot/grad/Hessian
 c                      
-c     g3dformpwc_vec : computes the PW expansion due to charges directly
+c     gndformpwc_vec : computes the PW expansion due to charges directly
 c      
-c     g3dformpwd_vec : computes the PW expansion due to dipoles directly
+c     gndformpwd_vec : computes the PW expansion due to dipoles directly
 c                      
 c      
-c     g3dformpwcd_vec : computes the PW expansion directly due to charges and dipoles
+c     gndformpwcd_vec : computes the PW expansion directly due to charges and dipoles
 c                      
 c      
-c     g3dpwevalp_vec : evaluates the PW expansion directly
+c     gndpwevalp_vec : evaluates the PW expansion directly
 c                      potential only
 c      
-c     g3dpwevalg_vec : evaluates the PW expansion directly
+c     gndpwevalg_vec : evaluates the PW expansion directly
 c                      potential + gradient
 c      
-c     g3dpwevalh_vec : evaluates the PW expansion directly
+c     gndpwevalh_vec : evaluates the PW expansion directly
 c                      potential + gradient + hessian
 c 
-c     g3dformpwc_fast_vec : computes the PW expansion due to charges
+c     gndformpwc_fast_vec : computes the PW expansion due to charges
 c                      type 1 NUFFT is called once
 c      
-c     g3dformpwd_fast_vec : computes the PW expansion due to dipoles
+c     gndformpwd_fast_vec : computes the PW expansion due to dipoles
 c                      type 1 NUFFT is called three times using finufft3d1many
 c      
-c     g3dformpwcd_fast_vec : computes the PW expansion due to charges and dipoles
+c     gndformpwcd_fast_vec : computes the PW expansion due to charges and dipoles
 c                      type 1 NUFFT is called four times using finufft3d1many
 c      
-c     g3dpwevalp_fast_vec : evaluates the PW expansion
+c     gndpwevalp_fast_vec : evaluates the PW expansion
 c                      potential only, type 2 NUFFT is called once
 c                      using finufft3d2many
 c      
-c     g3dpwevalg_fast_vec : evaluates the PW expansion
+c     gndpwevalg_fast_vec : evaluates the PW expansion
 c                      potential + gradient
 c                      4 type 2 NUFFTs are called using finufft3d2many 
 c      
-c     g3dpwevalh_fast_vec : evaluates the PW expansion
+c     gndpwevalh_fast_vec : evaluates the PW expansion
 c                      potential + gradient + hessian
 c                      10 type 2 NUFFTs are called using finufft3d2many
 c      
@@ -80,10 +80,10 @@ c
 c     pw_translation_matrices : returns precomputed translation matrices
 c                   for PW mp to loc translations
 c
-c     g3dshiftpw_vec : translates PW expansion via precomputed translation 
+c     gndshiftpw_vec : translates PW expansion via precomputed translation 
 c                      matrices
 c
-c     g3dcopypwexp_vec : copy PW expansion
+c     gndcopypwexp_vec : copy PW expansion
 c
 c
 c*********************************************************************
@@ -91,7 +91,7 @@ C
 C form Hermite expansions (charge, dipole, charge & dipole)
 C
 C*********************************************************************
-      subroutine g3dformhc_vec(nd,delta,sources,ns,charge,cent,
+      subroutine gndformhc_vec(nd,delta,sources,ns,charge,cent,
      1            nterms,ffexp)
 C
 C     This subroutine computes the Hermite expansion about
@@ -179,7 +179,7 @@ c
 C
 C
 C*********************************************************************C
-      subroutine g3dformhd_vec(nd,delta,sources,ns,rnormal,dipstr,
+      subroutine gndformhd_vec(nd,delta,sources,ns,rnormal,dipstr,
      1            center,nterms,ffexp)
 C
 C     This subroutine computes the Hermite expansion about
@@ -281,7 +281,7 @@ C
 C
 C
 C*********************************************************************C
-      subroutine g3dformhcd_vec(nd,delta,sources,ns,charge,rnormal,
+      subroutine gndformhcd_vec(nd,delta,sources,ns,charge,rnormal,
      1            dipstr,center,nterms,ffexp)
 C
 C     This subroutine computes the Hermite expansion about
@@ -390,7 +390,7 @@ C
 C eval Hermite expansions (pot, pot+grad, pot+grad+hess)
 C
 C*********************************************************************
-      subroutine g3dhevalp_vec(nd,delta,cent,nterms,ffexp,
+      subroutine gndhevalp_vec(nd,delta,cent,nterms,ffexp,
      1    targ,ntarg,pot)
 C
 C     This subroutine evaluates the far field expansion FFEXP about
@@ -473,7 +473,7 @@ c
 C
 c
 C***********************************************************************
-      subroutine g3dhevalg_vec(nd,delta,cent,nterms,ffexp,
+      subroutine gndhevalg_vec(nd,delta,cent,nterms,ffexp,
      1           targ,ntarg,pot,grad)
 
 C
@@ -588,7 +588,7 @@ C
 C
 c
 C***********************************************************************
-      subroutine g3dhevalh_vec(nd,delta,cent,nterms,ffexp,
+      subroutine gndhevalh_vec(nd,delta,cent,nterms,ffexp,
      1           targ,ntarg,pot,grad,hess)
 
 C
@@ -763,7 +763,7 @@ C
 C     form local subroutines (charge, dipole, charge+dipole)
 C
 C***********************************************************************
-      subroutine g3dformlc_vec(nd,delta,sources,ns,charge,center,
+      subroutine gndformlc_vec(nd,delta,sources,ns,charge,center,
      1            nlocal,local)
 C
 C     This subroutine computes the Taylor expansions about
@@ -836,7 +836,7 @@ c
 C
 C
 C
-      subroutine g3dformld_vec(nd,delta,sources,ns,rnormal,dipstr,
+      subroutine gndformld_vec(nd,delta,sources,ns,rnormal,dipstr,
      1            center,nlocal,local)
 C
 C     This subroutine computes the Taylor expansions about
@@ -925,7 +925,7 @@ C
 C
 C
 C
-      subroutine g3dformlcd_vec(nd,delta,sources,ns,charge,rnormal,
+      subroutine gndformlcd_vec(nd,delta,sources,ns,charge,rnormal,
      1            dipstr,center,nlocal,local)
 C
 C     This subroutine computes the Taylor expansions about
@@ -1024,7 +1024,7 @@ C     eval local subroutines (pot, pot+grad, pot+grad+hess)
 C
 C***********************************************************************
 C
-      subroutine g3dlevalp_vec(nd,delta,center,nlocal,local,
+      subroutine gndlevalp_vec(nd,delta,center,nlocal,local,
      1              targ,ntarg,pot)
 C
 C     This subroutine evaluates the local expansion about
@@ -1091,7 +1091,7 @@ C
 C
 C
 C
-      subroutine g3dlevalg_vec(nd,delta,center,nlocal,local,
+      subroutine gndlevalg_vec(nd,delta,center,nlocal,local,
      1              targ,ntarg,pot,grad)
 C
 C     This subroutine evaluates the local expansion about
@@ -1190,7 +1190,7 @@ C
 C
 C
 C
-      subroutine g3dlevalh_vec(nd,delta,center,nlocal,local,
+      subroutine gndlevalh_vec(nd,delta,center,nlocal,local,
      1              targ,ntarg,pot,grad,hess)
 C
 C     This subroutine evaluates the local expansion about
@@ -1345,7 +1345,7 @@ C
 C 3D translations (h2l, h2pw, h2pw_real)
 C
 c***********************************************************************      
-      subroutine g3dherm2local_vec(nd,nlocal,ntermsh,h2l,
+      subroutine gndherm2local_vec(nd,nlocal,ntermsh,h2l,
      1    hexp,local)
 C
 C     This subroutine converts the Hermite expansion to 
@@ -1457,7 +1457,7 @@ C
 C
 C
 C
-      subroutine g3dh2pw_vec(nd,ntermsh,npw,h2x,
+      subroutine gndh2pw_vec(nd,ntermsh,npw,h2x,
      1    hexp,pwexp)
 C
 C     This subroutine converts the Hermite expansion to the PW
@@ -1544,7 +1544,7 @@ C
 C
 C
 C
-      subroutine g3dh2pw_real_vec(nd,ntermsh,npw,h2x,
+      subroutine gndh2pw_real_vec(nd,ntermsh,npw,h2x,
      1    hexp,pwexp)
 C
 C     This subroutine converts the Hermite expansion to the PW
@@ -1675,7 +1675,7 @@ C
 C 3D translations pw2local, pw2local_real
 C
 c***********************************************************************      
-      subroutine g3dpw2local_vec(nd,nlocal,npw,pw2l,
+      subroutine gndpw2local_vec(nd,nlocal,npw,pw2l,
      1    pwexp,local)
 C
 C     This subroutine converts four SOE expansions to local
@@ -1753,7 +1753,7 @@ C
 C
 C
 C
-      subroutine g3dpw2local_real_vec(nd,nlocal,npw,pw2l,
+      subroutine gndpw2local_real_vec(nd,nlocal,npw,pw2l,
      1    pwexp,local)
 C
 C     This subroutine converts four SOE expansions to local
@@ -1929,7 +1929,7 @@ C
 C     form PW exp subroutines (charge, dipole, charge+dipole)
 C
 C***********************************************************************
-      subroutine g3dformpwc_vec(nd,delta,sources,ns,charge,center,
+      subroutine gndformpwc_vec(nd,delta,sources,ns,charge,center,
      1    npw,ws,ts,pwexp)
 C
 C     This subroutine computes the PW expansions about
@@ -2021,7 +2021,7 @@ c
 C
 C
 C
-      subroutine g3dformpwd_vec(nd,delta,sources,ns,rnormal,dipstr,
+      subroutine gndformpwd_vec(nd,delta,sources,ns,rnormal,dipstr,
      1    center,npw,ws,ts,pwexp)
 C
 C     This subroutine computes the PW expansions about
@@ -2127,7 +2127,7 @@ c
 C
 C
 C
-      subroutine g3dformpwcd_vec(nd,delta,sources,ns,charge,
+      subroutine gndformpwcd_vec(nd,delta,sources,ns,charge,
      1    rnormal,dipstr,center,npw,ws,ts,pwexp)
 C
 C     This subroutine computes the PW expansions about
@@ -2247,7 +2247,7 @@ c
 C
 C
 C
-      subroutine g3dpwevalp_vec(nd,delta,center,npw,wx,tx,
+      subroutine gndpwevalp_vec(nd,delta,center,npw,wx,tx,
      1              pwexp,targ,ntarg,pot)
 C
 C     This subroutine evaluates the plane wave 
@@ -2349,7 +2349,7 @@ c
 C
 C
 C
-      subroutine g3dpwevalg_vec(nd,delta,center,npw,wx,tx,
+      subroutine gndpwevalg_vec(nd,delta,center,npw,wx,tx,
      1              pwexp,targ,ntarg,pot,grad)
 C
 C     This subroutine evaluates the plane wave 
@@ -2472,7 +2472,7 @@ c
 C
 C
 C
-      subroutine g3dpwevalh_vec(nd,delta,center,npw,wx,tx,
+      subroutine gndpwevalh_vec(nd,delta,center,npw,wx,tx,
      1              pwexp,targ,ntarg,pot,grad,hess)
 C
 C     This subroutine evaluates the plane wave 
@@ -2640,217 +2640,14 @@ C
 C
 c
 C
-C
-C                  
-c      
-c
 c*********************************************************************
 C
 C form PW expansions (charge, dipole, charge & dipole) using NUFFT
 C
 C*********************************************************************
-      subroutine g3dformpwc_fast_vec(nd,delta,eps,sources,ns,charge,
-     1            cent,npw,ws,ts,wnufft,ffexp)
-C
-C     This subroutine computes the PW expansion about
-C     the center CENT due to the sources at locations
-C     SOURCES  of strength CHARGE.
-C
-C     INPUT:
-C
-c     nd            = vector length (parallel)
-C     delta         = Gaussian variance
-c     eps           = prescribed precision
-C     sources       = source locations
-C     ns            = number of sources
-C     charge        = strengths of sources
-C     cent          = center of the expansion
-C     npw           = number of terms in 1D PW expansion
-C     ws,ts         = 1D pw expansion weights and nodes
-C     wnufft        = real *8 (nexp) weights for nufft, tensor product of 1d weights
-C
-C     OUTPUT:
-C
-C     ffexp     = PW expansion
-C---------------------------------------------------------------------
-C
-      implicit real *8 (a-h,o-z)
-c     our fortran-header, always needed
-      include '/home/shidong/finufft/include/finufft.fh'
-
-      integer ns,npw
-      real *8 cent(3),sources(3,ns),charge(nd,ns)
-      real *8 ws(-npw/2:npw/2-1), ts(-npw/2:npw/2-1)
-      real *8 wnufft(npw*npw*npw/2)
-      complex *16 ffexp(npw*npw*npw/2,nd)
-      real *8 x,y,chg
-      real *8, allocatable ::  xj(:),yj(:),zj(:)
-      complex *16, allocatable :: cj(:,:),fk(:,:,:,:),wj(:)
-c     for default opts, make a null pointer...
-      type(finufft_opts), pointer :: defopts => null()
-      
-c     this (since unallocated) used to pass a NULL ptr to FINUFFT...
-      integer*8, allocatable :: null
-      integer*8 ns8, npw8
-      complex *16 eye
-      eye = dcmplx(0,1)
-
-      npw2=npw/2
-      
-      allocate(xj(ns))
-      allocate(yj(ns))
-      allocate(zj(ns))
-      allocate(cj(ns,nd))
-      allocate(wj(ns))
-      allocate(fk(-npw2:npw2-1,-npw2:npw2-1,-npw2:npw2-1,nd))
-c
-      dsq = 2*ts(0)/dsqrt(delta)
-C
-C     accumulate expansion due to each source.
-C
-      do j=1,ns
-         xj(j) = (sources(1,j) - cent(1))*dsq
-         yj(j) = (sources(2,j) - cent(2))*dsq
-         zj(j) = (sources(3,j) - cent(3))*dsq
-         wj(j) = exp(-0.5d0*eye*(xj(j)+yj(j)+zj(j)))
-      enddo
-
-      do ind = 1,nd
-         do j=1,ns
-            cj(j,ind) = charge(ind,j)*wj(j)
-         enddo
-      enddo
-      
-      ns8=ns
-      npw8=npw
-      iflag = -1
-
-cccc      call cpu_time(t1)
-      call finufft3d1many(nd,ns8,xj,yj,zj,cj,iflag,eps,npw8,npw8,npw8,
-     1       fk,defopts,ier)
-cccc     1       fk,null,ier)
-cccc      call cpu_time(t2)
-cccc      print *, 'nufft1 time=', t2-t1
-cccc  print *, 'ier=', ier
-      do ind=1,nd
-         j=0
-         do k3=-npw2,-1
-            do k2=-npw2,npw2-1
-               do k1=-npw2,npw2-1
-                  j=j+1
-                  ffexp(j,ind)=fk(k1,k2,k3,ind)*wnufft(j)
-               enddo
-            enddo
-         enddo
-      enddo
-
-      return
-      end
-c
-C
-C
-C
-      subroutine g3dformpwd_fast_vec(nd,delta,eps,sources,ns,rnormal,
-     1    dipstr,cent,npw,ws,ts,wnufft,ffexp)
-C
-C     This subroutine computes the PW expansion about
-C     the center CENT due to the sources at locations
-C     SOURCES  of strength CHARGE.
-C
-C     INPUT:
-C
-c     nd            = vector length (parallel)
-C     delta         = Gaussian variance
-C     sources       = source locations
-C     ns            = number of sources
-C     rnormal       = dipole directions
-C     dipstr        = dipole strengths 
-C     cent          = center of the expansion
-C     npw           = number of terms in 1D PW expansion
-C     ws,ts         = 1D pw expansion weights and nodes
-C     wnufft        = real *8 (nexp) weights for nufft, tensor product of 1d weights
-C
-C     OUTPUT:
-C
-C     ffexp     = PW expansion
-C---------------------------------------------------------------------
-C
-      implicit real *8 (a-h,o-z)
-      integer ns,npw
-      real *8 cent(3),sources(3,ns),dipstr(nd,ns)
-      real *8 rnormal(3,ns)
-      real *8 ws(-npw/2:npw/2-1), ts(-npw/2:npw/2-1)
-      real *8 wnufft(npw*npw*npw/2)
-      complex *16 ffexp(npw*npw*npw/2,nd)
-      real *8 x,y,chg
-      real *8, allocatable ::  xj(:),yj(:),zj(:)
-      complex *16, allocatable :: cj(:,:,:),fk(:,:,:,:,:),wj(:)
-c     this (since unallocated) used to pass a NULL ptr to FINUFFT...
-      integer*8, allocatable :: null
-      integer*8 ns8, npw8
-      complex *16 eye,ztmp
-      eye = dcmplx(0,1)
-
-      npw2=npw/2
-      
-      allocate(xj(ns))
-      allocate(yj(ns))
-      allocate(zj(ns))
-      allocate(cj(ns,3,nd))
-      allocate(wj(ns))
-      allocate(fk(-npw2:npw2-1,-npw2:npw2-1,-npw2:npw2-1,3,nd))
-c
-      dsq0 = 1/dsqrt(delta)
-      dsq = 2*ts(0)/dsqrt(delta)
-C
-C     accumulate expansion due to each source.
-C
-      do j=1,ns
-         xj(j) = (sources(1,j) - cent(1))*dsq
-         yj(j) = (sources(2,j) - cent(2))*dsq
-         zj(j) = (sources(3,j) - cent(3))*dsq
-         wj(j) = exp(-0.5d0*eye*(xj(j)+yj(j)+zj(j)))
-      enddo
-      
-      do ind = 1,nd
-         do j=1,ns
-            ztmp = -eye*wj(j)*(dipstr(ind,j)*dsq0)
-            cj(j,1,ind) = ztmp*rnormal(1,j)
-            cj(j,2,ind) = ztmp*rnormal(2,j)
-            cj(j,3,ind) = ztmp*rnormal(3,j)
-         enddo
-      enddo
-      
-      ns8=ns
-      npw8=npw
-      iflag = -1
-c     total number of NUFFTs
-      ntrans = 3*nd
-      call finufft3d1many(ntrans,ns8,xj,yj,zj,cj,iflag,eps,
-     1       npw8,npw8,npw8,fk,null,ier)
-cccc  print *, 'ier=', ier
-      do ind=1,nd
-         j=0
-         do k3=-npw2,-1
-            do k2=-npw2,npw2-1
-               do k1=-npw2,npw2-1
-                  j=j+1
-                  ffexp(j,ind)=wnufft(j)*(fk(k1,k2,k3,1,ind)*ts(k1)+
-     1                fk(k1,k2,k3,2,ind)*ts(k2)+
-     2                fk(k1,k2,k3,3,ind)*ts(k3))
-               enddo
-            enddo
-         enddo
-      enddo
-
-      return
-      end
-c
-C
-C
-C
-      subroutine g3dformpwcd_fast_vec(nd,delta,eps,sources,ns,charge,
-     1    rnormal,dipstr,cent,npw,ws,ts,wnufft,ffexp)
+      subroutine gnd_formpw(nd,dim,delta,eps,sources,ns,
+     1    ifcharge,charge,ifdipole,rnormal,dipstr,cent,
+     2    hpw,nexp,wnufft,ffexp,fftplan)
 C
 C     This subroutine computes the PW expansion about
 C     the center CENT due to the sources at locations
@@ -2877,72 +2674,422 @@ C     ffexp     = PW expansion
 C---------------------------------------------------------------------
 C
       implicit real *8 (a-h,o-z)
-      integer ns,npw
-      real *8 cent(3),sources(3,ns),dipstr(nd,ns)
-      real *8 rnormal(3,ns),charge(nd,ns)
-      real *8 ws(-npw/2:npw/2-1), ts(-npw/2:npw/2-1)
-      real *8 wnufft(npw*npw*npw/2)
-      complex *16 ffexp(npw*npw*npw/2,nd)
-      real *8 x,y,chg
+      integer ns,dim
+      real *8 cent(dim),sources(dim,ns),dipstr(nd,ns)
+      real *8 rnormal(dim,ns),charge(nd,ns)
+      real *8 wnufft(nexp,dim+1)
+      complex *16 ffexp(nexp,nd)
       real *8, allocatable ::  xj(:),yj(:),zj(:)
-      complex *16, allocatable :: cj(:,:,:),fk(:,:,:,:,:),wj(:)
-c     this (since unallocated) used to pass a NULL ptr to FINUFFT...
-      integer*8, allocatable :: null
-      integer*8 ns8, npw8
+      complex *16, allocatable :: cj(:,:,:),fk(:,:,:),wj(:)
+
+c     to pass null pointers to unused arguments...
+      real *8, pointer :: dummy => null()
+
+c     this is what you use as the "opaque" ptr to ptr to finufft_plan...
+      integer *8 fftplan
+      integer *8 ns8
       complex *16 eye,ztmp
       eye = dcmplx(0,1)
 
-      npw2=npw/2
-      
+      if (ifcharge.eq.1 .and. ifdipole.eq.0) then
+         kstart=1
+         kend=1
+      elseif (ifcharge.eq.0 .and. ifdipole.eq.1) then
+         kstart=2
+         kend=dim+1
+      elseif (ifcharge.eq.1 .and. ifdipole.eq.1) then
+         kstart=1
+         kend=dim+1
+      else
+         return
+      endif
+
       allocate(xj(ns))
-      allocate(yj(ns))
-      allocate(zj(ns))
-      allocate(cj(ns,0:3,nd))
-      allocate(wj(ns))
-      allocate(fk(-npw2:npw2-1,-npw2:npw2-1,-npw2:npw2-1,0:3,nd))
+      allocate(cj(ns,kstart:kend,nd))
+      allocate(fk(nexp,kstart:kend,nd))
 c
       dsq0 = 1/dsqrt(delta)
-      dsq = 2*ts(0)/dsqrt(delta)
+      dsq = hpw/dsqrt(delta)
 C
 C     accumulate expansion due to each source.
 C
       do j=1,ns
          xj(j) = (sources(1,j) - cent(1))*dsq
-         yj(j) = (sources(2,j) - cent(2))*dsq
-         zj(j) = (sources(3,j) - cent(3))*dsq
-         wj(j) = exp(-0.5d0*eye*(xj(j)+yj(j)+zj(j)))
       enddo
+
+      if (dim.ge.2) then
+         allocate(yj(ns))
+         do j=1,ns
+            yj(j) = (sources(2,j) - cent(2))*dsq
+         enddo
+      endif
+
+      if (dim.ge.3) then
+         allocate(zj(ns))
+         do j=1,ns
+            zj(j) = (sources(3,j) - cent(3))*dsq
+         enddo
+      endif
+
+      if (ifcharge.eq.1 .and. ifdipole.eq.0) then
+         do ind = 1,nd
+         do j=1,ns
+            cj(j,kstart,ind) = charge(ind,j)
+         enddo
+         enddo
+      elseif (ifcharge.eq.0 .and. ifdipole.eq.1) then
+         do ind = 1,nd
+         do j=1,ns
+            ztmp = -eye*dipstr(ind,j)*dsq0
+            do k=1,dim
+               cj(j,k+1,ind) = ztmp*rnormal(k,j)
+            enddo
+         enddo
+         enddo
+      elseif (ifcharge.eq.1 .and. ifdipole.eq.1) then
+         do ind = 1,nd
+         do j=1,ns
+            cj(j,kstart,ind) = charge(ind,j)
+            ztmp = -eye*dipstr(ind,j)*dsq0
+            do k=1,dim
+               cj(j,k+1,ind) = ztmp*rnormal(k,j)
+            enddo
+         enddo
+         enddo
+      endif
       
+      ns8=ns
+      call finufft_setpts(fftplan,ns8,xj,yj,zj,dummy,dummy,
+     1    dummy,dummy,ier)
+      call finufft_execute(fftplan,cj,fk,ier)
+
+      do ind=1,nd
+         do j=1,nexp
+            ztmp=0
+            do k=kstart,kend
+               ztmp=ztmp+wnufft(j,k)*fk(j,k,ind)
+            enddo
+            ffexp(j,ind)=ztmp
+         enddo
+      enddo
+
+      return
+      end
+c
+C
+C
+C      
+C
+C                  
+c      
+c
+c*********************************************************************
+C
+C form PW expansions (charge) using NUFFT
+C
+C*********************************************************************
+      subroutine gnd_formpwc(nd,dim,delta,eps,sources,ns,charge,
+     1            cent,hpw,nexp,wnufft,ffexp,fftplan)
+C
+C     This subroutine computes the PW expansion about
+C     the center CENT due to the sources at locations
+C     SOURCES  of strength CHARGE.
+C
+C     INPUT:
+C
+c     nd            = vector length (parallel)
+C     delta         = Gaussian variance
+c     eps           = prescribed precision
+C     sources       = source locations
+C     ns            = number of sources
+C     charge        = strengths of sources
+C     cent          = center of the expansion
+C     hpw           = stepsize in the Fourier space
+C     ws,ts         = 1D pw expansion weights and nodes
+C     wnufft        = real *8 (nexp) weights for nufft, tensor product of 1d weights
+C
+C     OUTPUT:
+C
+C     ffexp     = PW expansion
+C---------------------------------------------------------------------
+C
+      implicit real *8 (a-h,o-z)
+      integer ns,dim
+      real *8 cent(dim),sources(dim,ns),charge(nd,ns)
+      real *8 wnufft(nexp,dim+1)
+      complex *16 ffexp(nexp,nd)
+      real *8, allocatable ::  xj(:),yj(:),zj(:)
+      complex *16, allocatable :: cj(:,:),fk(:,:)
+
+c     to pass null pointers to unused arguments...
+      real *8, pointer :: dummy => null()
+
+c     this is what you use as the "opaque" ptr to ptr to finufft_plan...
+      integer *8 fftplan
+      integer *8 ns8
+      
+      allocate(xj(ns))
+      allocate(cj(ns,nd))
+      allocate(fk(nexp,nd))
+c
+      dsq = hpw/dsqrt(delta)
+C
+C     accumulate expansion due to each source.
+C
+      do j=1,ns
+         xj(j) = (sources(1,j) - cent(1))*dsq
+      enddo
+
+      if (dim.ge.2) then
+         allocate(yj(ns))
+         do j=1,ns
+            yj(j) = (sources(2,j) - cent(2))*dsq
+         enddo
+      endif
+
+      if (dim.ge.3) then
+         allocate(zj(ns))
+         do j=1,ns
+            zj(j) = (sources(3,j) - cent(3))*dsq
+         enddo
+      endif
+
       do ind = 1,nd
          do j=1,ns
-            cj(j,0,ind) = charge(ind,j)*wj(j)
-            ztmp = -eye*wj(j)*(dipstr(ind,j)*dsq0)
-            cj(j,1,ind) = ztmp*rnormal(1,j)
-            cj(j,2,ind) = ztmp*rnormal(2,j)
-            cj(j,3,ind) = ztmp*rnormal(3,j)
+            cj(j,ind) = charge(ind,j)
          enddo
       enddo
       
       ns8=ns
-      npw8=npw
-      iflag = -1
-c     total number of NUFFTs
-      ntrans = 4*nd
-      call finufft3d1many(ntrans,ns8,xj,yj,zj,cj,iflag,eps,
-     1       npw8,npw8,npw8,fk,null,ier)
-cccc  print *, 'ier=', ier
+
+      call finufft_setpts(fftplan,ns8,xj,yj,zj,dummy,dummy,
+     1    dummy,dummy,ier)
+      call finufft_execute(fftplan,cj,fk,ier)
+
       do ind=1,nd
-         j=0
-         do k3=-npw2,-1
-            do k2=-npw2,npw2-1
-               do k1=-npw2,npw2-1
-                  j=j+1
-                  ffexp(j,ind)=wnufft(j)*(fk(k1,k2,k3,0,ind)+
-     1                fk(k1,k2,k3,1,ind)*ts(k1)+
-     1                fk(k1,k2,k3,2,ind)*ts(k2)+
-     2                fk(k1,k2,k3,3,ind)*ts(k3))
-               enddo
+         do j=1,nexp
+            ffexp(j,ind)=fk(j,ind)*wnufft(j,1)
+         enddo
+      enddo
+
+      return
+      end
+c
+C
+C
+C
+C
+C                  
+c      
+c
+c*********************************************************************
+C
+C form PW expansions (dipole) using NUFFT
+C
+C*********************************************************************
+      subroutine gnd_formpwd(nd,dim,delta,eps,sources,ns,rnormal,
+     1    dipstr,cent,hpw,nexp,wnufft,ffexp,fftplan)
+C
+C     This subroutine computes the PW expansion about
+C     the center CENT due to the sources at locations
+C     SOURCES  of strength CHARGE.
+C
+C     INPUT:
+C
+c     nd            = vector length (parallel)
+C     delta         = Gaussian variance
+C     sources       = source locations
+C     ns            = number of sources
+C     rnormal       = dipole directions
+C     dipstr        = dipole strengths 
+C     cent          = center of the expansion
+C     npw           = number of terms in 1D PW expansion
+C     ws,ts         = 1D pw expansion weights and nodes
+C     wnufft        = real *8 (nexp) weights for nufft, tensor product of 1d weights
+C
+C     OUTPUT:
+C
+C     ffexp     = PW expansion
+C---------------------------------------------------------------------
+C
+      implicit real *8 (a-h,o-z)
+      integer ns,dim
+      real *8 cent(dim),sources(dim,ns),dipstr(nd,ns)
+      real *8 rnormal(dim,ns)
+      real *8 wnufft(nexp,dim+1)
+      complex *16 ffexp(nexp,nd)
+
+      real *8, allocatable ::  xj(:),yj(:),zj(:)
+      complex *16, allocatable :: cj(:,:,:),fk(:,:,:)
+
+c     to pass null pointers to unused arguments...
+      real *8, pointer :: dummy => null()
+c     this is what you use as the "opaque" ptr to ptr to finufft_plan...
+      integer *8 fftplan
+      integer *8 ns8
+      complex *16 eye,ztmp
+      eye = dcmplx(0,1)
+      
+      allocate(xj(ns))
+      allocate(cj(ns,3,nd))
+      allocate(fk(nexp,3,nd))
+c
+      dsq0 = 1/dsqrt(delta)
+      dsq = hpw/dsqrt(delta)
+C
+C     accumulate expansion due to each source.
+C
+      do j=1,ns
+         xj(j) = (sources(1,j) - cent(1))*dsq
+      enddo
+
+      if (dim.ge.2) then
+         allocate(yj(ns))
+         do j=1,ns
+            yj(j) = (sources(2,j) - cent(2))*dsq
+         enddo
+      endif
+
+      if (dim.ge.3) then
+         allocate(zj(ns))
+         do j=1,ns
+            zj(j) = (sources(3,j) - cent(3))*dsq
+         enddo
+      endif
+
+      do ind = 1,nd
+         do j=1,ns
+            ztmp = -eye*dipstr(ind,j)*dsq0
+            do k=1,dim
+               cj(j,k,ind) = ztmp*rnormal(k,j)
             enddo
+         enddo
+      enddo
+      
+      ns8=ns
+      call finufft_setpts(fftplan,ns8,xj,yj,zj,dummy,dummy,
+     1    dummy,dummy,ier)
+      call finufft_execute(fftplan,cj,fk,ier)
+
+      do ind=1,nd
+         do j=1,nexp
+            ztmp=0
+            do k=1,dim
+               ztmp=ztmp+wnufft(j,k+1)*fk(j,k,ind)
+            enddo
+            ffexp(j,ind)=ztmp
+         enddo
+      enddo
+
+      return
+      end
+c
+C
+C
+C
+C
+C                  
+c      
+c
+c*********************************************************************
+C
+C form PW expansions (charge & dipole) using NUFFT
+C
+C*********************************************************************
+      subroutine gnd_formpwcd(nd,dim,delta,eps,sources,ns,charge,
+     1    rnormal,dipstr,cent,hpw,nexp,wnufft,ffexp,fftplan)
+C
+C     This subroutine computes the PW expansion about
+C     the center CENT due to the sources at locations
+C     SOURCES  of strength CHARGE.
+C
+C     INPUT:
+C
+c     nd            = vector length (parallel)
+C     delta         = Gaussian variance
+c     eps           = prescribed precision
+C     sources       = source locations
+C     ns            = number of sources
+C     charge        = strengths of sources
+C     rnormal       = dipole directions
+C     dipstr        = dipole strengths 
+C     cent          = center of the expansion
+C     npw           = number of terms in 1D PW expansion
+C     ws,ts         = 1D pw expansion weights and nodes
+C     wnufft        = real *8 weights for nufft, tensor product of 1d weights
+C
+C     OUTPUT:
+C
+C     ffexp     = PW expansion
+C---------------------------------------------------------------------
+C
+      implicit real *8 (a-h,o-z)
+      integer ns,dim
+      real *8 cent(dim),sources(dim,ns),dipstr(nd,ns)
+      real *8 rnormal(dim,ns),charge(nd,ns)
+      real *8 wnufft(nexp,dim+1)
+      complex *16 ffexp(nexp,nd)
+      real *8, allocatable ::  xj(:),yj(:),zj(:)
+      complex *16, allocatable :: cj(:,:,:),fk(:,:,:),wj(:)
+
+c     to pass null pointers to unused arguments...
+      real *8, pointer :: dummy => null()
+
+c     this is what you use as the "opaque" ptr to ptr to finufft_plan...
+      integer *8 fftplan
+      integer*8 ns8
+      complex *16 eye,ztmp
+      eye = dcmplx(0,1)
+
+      allocate(xj(ns))
+      allocate(cj(ns,0:3,nd))
+      allocate(fk(nexp,0:3,nd))
+c
+      dsq0 = 1/dsqrt(delta)
+      dsq = hpw/dsqrt(delta)
+C
+C     accumulate expansion due to each source.
+C
+      do j=1,ns
+         xj(j) = (sources(1,j) - cent(1))*dsq
+      enddo
+
+      if (dim.ge.2) then
+         allocate(yj(ns))
+         do j=1,ns
+            yj(j) = (sources(2,j) - cent(2))*dsq
+         enddo
+      endif
+
+      if (dim.ge.3) then
+         allocate(zj(ns))
+         do j=1,ns
+            zj(j) = (sources(3,j) - cent(3))*dsq
+         enddo
+      endif
+
+      do ind = 1,nd
+         do j=1,ns
+            cj(j,0,ind) = charge(ind,j)
+            ztmp = -eye*dipstr(ind,j)*dsq0
+            do k=1,dim
+               cj(j,k,ind) = ztmp*rnormal(k,j)
+            enddo
+         enddo
+      enddo
+      
+      ns8=ns
+      call finufft_setpts(fftplan,ns8,xj,yj,zj,dummy,dummy,
+     1    dummy,dummy,ier)
+      call finufft_execute(fftplan,cj,fk,ier)
+
+      do ind=1,nd
+         do j=1,nexp
+            ztmp=0
+            do k=0,dim
+               ztmp=ztmp+wnufft(j,k)*fk(j,k,ind)
+            enddo
+            ffexp(j,ind)=ztmp
          enddo
       enddo
 
@@ -2954,18 +3101,11 @@ C
 C      
 c*********************************************************************
 C
-C evaluate PW expansions (potential, pot + grad, pot + grad + hess)
-C using NUFFT
+C evaluate PW expansions (potential) using NUFFT
 C
 C*********************************************************************
-C
-C
-c
-C
-C
-C
-      subroutine g3dpwevalp_fast_vec(nd,delta,eps,center,npw,ws,ts,
-     1              pwexp,targ,nt,pot)
+      subroutine gnd_pwevalp(nd,dim,delta,eps,center,hpw,
+     1    nexp,pwexp,targ,nt,pot,fftplan)
 C
 C     This subroutine evaluates the plane wave 
 C     expansions about CENTER at location TARG
@@ -2977,7 +3117,7 @@ c     nd            = vector length (for multiple charges at same locations)
 C     delta         = Gaussian variance
 c     eps           = prescribed precision
 C     center        = center of the expansion
-C     npw           = number of Fourier plane waves
+C     hpw           = stepsize in the Fourier space
 C     ws,ts         = planewave weights and nodes
 C     pwexp         = pw expansions 
 C     targ          = target locations
@@ -2987,74 +3127,55 @@ C     OUTPUT:
 C     pot           = potential (or vectorized potentials) incremented
 C
       implicit real *8 (a-h,o-z)
-
-c     our fortran-header, always needed
-      include '/home/shidong/finufft/include/finufft.fh'
-      
-      integer nd,npw,ntarg
-      real *8 delta,center(3),targ(3,nt)
+      integer nd,dim
+      real *8 delta,center(dim),targ(dim,nt)
       real *8 pot(nd,nt)
       
-      real *8 ws(-npw/2:npw/2-1),ts(-npw/2:npw/2-1)
-      complex *16 pwexp(npw*npw*npw/2,nd)
-      integer*8 nt8, npw8
+      complex *16 pwexp(nexp,nd)
+c     this is what you use as the "opaque" ptr to ptr to finufft_plan...
+      integer *8 fftplan
+      integer *8 nt8
 
-      integer i,ind,j1,j2,j,npw2,itarg,k
-      real *8 x,y,dsq
-      complex *16 eye
-      complex *16 qqx,qqy,qq1,qq2
+c     to pass null pointers to unused arguments...
+      real *8, pointer :: dummy => null()
       
-      complex *16 z,cd
       real *8, allocatable ::  xj(:),yj(:),zj(:)
-      complex *16, allocatable :: cj(:,:),fk(:,:),wj(:)
-
-c     for default opts, make a null pointer...
-      type(finufft_opts), pointer :: defopts => null()
-      
-c     this (since unallocated) used to pass a NULL ptr to FINUFFT...
-      integer*8, allocatable :: null
+      complex *16, allocatable :: cj(:,:),fk(:,:)
 C
-      eye = dcmplx(0,1)
-      nexp = npw*npw*npw/2
       
       allocate(xj(nt))
-      allocate(yj(nt))
-      allocate(zj(nt))
       allocate(cj(nt,nd))
-      allocate(wj(nt))
-      allocate(fk(2*nexp,nd))
+      allocate(fk(nexp,nd))
       
-      dsq = 2*ts(0)/dsqrt(delta)
+      dsq = hpw/dsqrt(delta)
 C
       do j=1,nt
          xj(j) = (targ(1,j) - center(1))*dsq
-         yj(j) = (targ(2,j) - center(2))*dsq
-         zj(j) = (targ(3,j) - center(3))*dsq
-         wj(j) = exp(0.5d0*eye*(xj(j)+yj(j)+zj(j)))
-      enddo
-      
-      do ind = 1,nd
-         do j=1,nexp
-            fk(j,ind)=pwexp(j,ind)
-         enddo
-         do j=nexp+1,2*nexp
-            fk(j,ind)=0
-         enddo
       enddo
 
+      if (dim.ge.2) then
+         allocate(yj(nt))
+         do j=1,nt
+            yj(j) = (targ(2,j) - center(2))*dsq
+         enddo
+      endif
+
+      if (dim.ge.3) then
+         allocate(zj(nt))
+         do j=1,nt
+            zj(j) = (targ(3,j) - center(3))*dsq
+         enddo
+      endif
+
       nt8=nt
-      npw8=npw
-      iflag = 1
-cccc      call cpu_time(t1)
-      call finufft3d2many(nd,nt8,xj,yj,zj,cj,iflag,eps,npw8,npw8,npw8,
-     1    fk,defopts,ier)
-cccc     1    fk,null,ier)
-cccc      call cpu_time(t2)
-cccc      print *, 'nufft2 time=', t2-t1
+
+      call finufft_setpts(fftplan,nt8,xj,yj,zj,dummy,dummy,
+     1    dummy,dummy,ier)
+      call finufft_execute(fftplan,cj,pwexp,ier)
       
       do ind=1,nd
          do j=1,nt
-            pot(ind,j)=pot(ind,j)+dreal(cj(j,ind)*wj(j))*2
+            pot(ind,j)=pot(ind,j)+dreal(cj(j,ind))
          enddo
       enddo
 c
@@ -3066,7 +3187,12 @@ c
 C
 C
 C
-      subroutine g3dpwevalg_fast_vec(nd,delta,eps,center,npw,ws,ts,
+c*********************************************************************
+C
+C evaluate PW expansions (pot + grad) using NUFFT
+C
+C*********************************************************************
+      subroutine gndpwevalg_fast_vec(nd,delta,eps,center,npw,ws,ts,
      1              pwexp,targ,nt,pot,grad)
 C
 C     This subroutine evaluates the plane wave 
@@ -3181,8 +3307,13 @@ c
 C
 C
 C
-      subroutine g3dpwevalh_fast_vec(nd,delta,eps,center,npw,ws,ts,
-     1              pwexp,targ,nt,pot,grad,hess)
+c*********************************************************************
+C
+C evaluate PW expansions (pot, pot+grad, pot+grad+hess) using NUFFT
+C
+C*********************************************************************
+      subroutine gnd_pweval(nd,dim,delta,eps,center,hpw,
+     1    nexp,wnufftgh,pwexp,targ,nt,ifpgh,pot,grad,hess,fftplan)
 C
 C     This subroutine evaluates the plane wave 
 C     expansions about CENTER at location TARG
@@ -3206,108 +3337,126 @@ C     grad          = gradient (or vectorized gradients) incremented
 C     hess          = hessian (or vectorized hessians) incremented
 C
       implicit real *8 (a-h,o-z)
-      integer nd,npw,ntarg
-      real *8 delta,center(3),targ(3,nt)
-      real *8 pot(nd,nt),grad(nd,3,nt),hess(nd,6,nt)
-      
-      real *8 ws(-npw/2:npw/2-1),ts(-npw/2:npw/2-1)
-      complex *16 pwexp(npw*npw*npw/2,nd)
-      integer*8 nt8, npw8
+      integer nd,dim
+      real *8 delta,center(dim),targ(dim,nt)
+      real *8 pot(nd,nt),grad(nd,dim,*),hess(nd,dim*(dim+1)/2,*)
+      real *8 wnufftgh(nexp,dim+dim*(dim+1)/2)
+      complex *16 pwexp(nexp,nd)
 
-      integer i,ind,j1,j2,j,npw2,itarg,k
-      real *8 x,y,dsq
-      complex *16 eye
-      complex *16 qqx,qqy,qq1,qq2
-      
-      complex *16 z,cd
       real *8, allocatable ::  xj(:),yj(:),zj(:)
-      complex *16, allocatable :: cj(:,:,:),fk(:,:,:),wj(:)
-      complex *16, allocatable :: cp(:)
-      
-c     this (since unallocated) used to pass a NULL ptr to FINUFFT...
-      integer*8, allocatable :: null
+      complex *16, allocatable :: cj(:,:,:),fk(:,:,:)
+
+c     to pass null pointers to unused arguments...
+      real *8, pointer :: dummy => null()
+
+c     this is what you use as the "opaque" ptr to ptr to finufft_plan...
+      integer *8 fftplan 
+      integer*8 nt8
+      complex *16 z,z2
+      complex *16 eye
 C
       eye = dcmplx(0,1)
-
-      nexp = npw*npw*npw/2
       
-      allocate(xj(nt))
-      allocate(yj(nt))
-      allocate(zj(nt))
-      allocate(cj(nt,0:9,nd))
-      allocate(wj(nt))
-      allocate(fk(2*nexp,0:9,nd))
-      allocate(cp(-npw/2:npw/2-1))
-      
-      dsq = 2*ts(0)/dsqrt(delta)
+      dsq = hpw/dsqrt(delta)
 C
+C     accumulate expansion due to each source.
+C
+      allocate(xj(nt))
       do j=1,nt
          xj(j) = (targ(1,j) - center(1))*dsq
-         yj(j) = (targ(2,j) - center(2))*dsq
-         zj(j) = (targ(3,j) - center(3))*dsq
-         wj(j) = exp(0.5d0*eye*(xj(j)+yj(j)+zj(j)))
       enddo
+
+      if (dim.ge.2) then
+         allocate(yj(nt))
+         do j=1,nt
+            yj(j) = (targ(2,j) - center(2))*dsq
+         enddo
+      endif
+
+      if (dim.ge.3) then
+         allocate(zj(nt))
+         do j=1,nt
+            zj(j) = (targ(3,j) - center(3))*dsq
+         enddo
+      endif
 
       z = eye/dsqrt(delta)
-      do j=-npw/2,npw/2-1
-         cp(j) = z*ts(j)
-      enddo
+      z2= z*z
+
+      kstart=0
+      kend=0
+
+      if (ifpgh.eq.1) kend=0
+      if (ifpgh.eq.2) kend=dim
+      if (ifpgh.eq.3) kend=dim+dim*(dim+1)/2
+      allocate(cj(nt,nd,kstart:kend))
+
+      if (ifpgh.eq.1) goto 1200
+      allocate(fk(nexp,nd,kstart:kend))
       
       do ind = 1,nd
-         j=0
-         do j3=-npw/2,-1
-            do j2=-npw/2,npw/2-1
-               do j1=-npw/2,npw/2-1
-                  j=j+1
-                  fk(j,0,ind)=pwexp(j,ind)
-
-                  fk(j,1,ind)=pwexp(j,ind)*cp(j1)
-                  fk(j,2,ind)=pwexp(j,ind)*cp(j2)
-                  fk(j,3,ind)=pwexp(j,ind)*cp(j3)
-                  
-                  fk(j,4,ind)=pwexp(j,ind)*cp(j1)*cp(j1)
-                  fk(j,5,ind)=pwexp(j,ind)*cp(j2)*cp(j2)
-                  fk(j,6,ind)=pwexp(j,ind)*cp(j3)*cp(j3)
-
-                  fk(j,7,ind)=pwexp(j,ind)*cp(j1)*cp(j2)
-                  fk(j,8,ind)=pwexp(j,ind)*cp(j1)*cp(j3)
-                  fk(j,9,ind)=pwexp(j,ind)*cp(j2)*cp(j3)
-               enddo
-            enddo
-         enddo
-         
-         do k=0,9
-            do j=nexp+1,2*nexp
-               fk(j,k,ind)=0
-            enddo
+         do j=1,nexp
+            fk(j,0,ind)=pwexp(j,ind)
          enddo
       enddo
 
-      nt8=nt
-      npw8=npw
-      ntrans=10*nd
-      iflag = 1
+      if (ifpgh.ge.2) then
+         do k=1,dim
+         do ind = 1,nd
+         do j=1,nexp
+            fk(j,ind,k)=pwexp(j,ind)*wnufftgh(j,k)*z
+         enddo
+         enddo
+         enddo
+      endif
       
-      call finufft3d2many(ntrans,nt8,xj,yj,zj,cj,iflag,eps,
-     1    npw8,npw8,npw8,fk,null,ier)
+      if (ifpgh.eq.3) then
+         do k=dim+1,dim+dim*(dim+1)/2
+         do ind = 1,nd
+         do j=1,nexp
+            fk(j,ind,k)=pwexp(j,ind)*wnufftgh(j,k)*z2
+         enddo
+         enddo
+         enddo
+      endif
+
+ 1200 continue
+      
+      nt8=nt
+      call finufft_setpts(fftplan,nt8,xj,yj,zj,dummy,dummy,
+     1    dummy,dummy,ier)
+      if (ifpgh.eq.1) then
+         call finufft_execute(fftplan,cj,pwexp,ier)
+      else
+         call finufft_execute(fftplan,cj,fk,ier)
+      endif
       
       do ind=1,nd
-         do j=1,nt
-            pot(ind,j)=pot(ind,j)+dreal(cj(j,0,ind)*wj(j))*2
-            
-            grad(ind,1,j)=grad(ind,1,j)+dreal(cj(j,1,ind)*wj(j))*2
-            grad(ind,2,j)=grad(ind,2,j)+dreal(cj(j,2,ind)*wj(j))*2
-            grad(ind,3,j)=grad(ind,3,j)+dreal(cj(j,3,ind)*wj(j))*2
-            
-            hess(ind,1,j)=hess(ind,1,j)+dreal(cj(j,4,ind)*wj(j))*2
-            hess(ind,2,j)=hess(ind,2,j)+dreal(cj(j,5,ind)*wj(j))*2
-            hess(ind,3,j)=hess(ind,3,j)+dreal(cj(j,6,ind)*wj(j))*2
-            hess(ind,4,j)=hess(ind,4,j)+dreal(cj(j,7,ind)*wj(j))*2
-            hess(ind,5,j)=hess(ind,5,j)+dreal(cj(j,8,ind)*wj(j))*2
-            hess(ind,6,j)=hess(ind,6,j)+dreal(cj(j,9,ind)*wj(j))*2
-         enddo
+      do j=1,nt
+         pot(ind,j)=pot(ind,j)+dreal(cj(j,ind,0))
       enddo
-c
+      enddo
+
+      if (ifpgh.ge.2) then
+         do ind=1,nd
+         do j=1,nt
+         do k=1,dim      
+            grad(ind,k,j)=grad(ind,k,j)+dreal(cj(j,ind,k))
+         enddo
+         enddo
+         enddo
+      endif
+
+      if (ifpgh.eq.3) then
+         do ind=1,nd
+         do j=1,nt
+         do k=1,dim*(dim+1)/2   
+            hess(ind,k,j)=hess(ind,k,j)+dreal(cj(j,ind,k+dim))
+         enddo
+         enddo
+         enddo
+      endif
+c     
       return
       end
 C
@@ -3334,7 +3483,7 @@ C
       w = h/(2.0d0*dsqrt(pi))
 
       do j =-npw2,npw2-1
-         ts(j) = (j+0.5d0)*h
+         ts(j) = j*h
          ws(j) = w*dexp(-ts(j)*ts(j)/4)
       enddo
 c
@@ -3344,61 +3493,12 @@ C
 C
 c
 C
-c*********************************************************************
+c************************************************************************
 C
-C shift PW expansions (mp to loc at the cutoff level)
+C     make plane-wave translation matrices at the cutoff level (mp to loc)
 C
-C*********************************************************************
-      subroutine nufft_weights(npw,ws,ts,
-     1    nexp,wnufft)
-C
-C     This subroutine precomputes all translation matrices for all SOE/X
-C     expansions from child to parent or vice versa.
-C
-c     used in mp to mp or loc to loc stage
-c      
-C     INPUT
-C
-c     nd      = vector length (for multiple charges at same locations)
-C     npw     = number of terms in plane wave exp
-C     nmax    = number of different translation lengths in the whole scheme 
-C     ts      = pw nodes
-c      
-C     OUTPUT:
-C
-C     wshift  = table of translation matrices for PW shift 
-C
-      implicit real *8 (a-h,o-z)
-      real *8 ws(-npw/2:npw/2-1),ts(-npw/2:npw/2-1)
-      
-      real *8 wnufft(nexp)
-      
-      complex *16 eye,ztmp
-C
-      eye = dcmplx(0,1)
-      
-      j=0
-      do j1=-npw/2,-1
-         do j2=-npw/2,npw/2-1
-            do j3=-npw/2,npw/2-1
-               j=j+1
-               wnufft(j) = ws(j3)*ws(j2)*ws(j1)
-            enddo
-         enddo
-      enddo
-c
-      return
-      end
-c
-c
-c     
-c
-c*********************************************************************
-C
-C shift PW expansions (mp to loc, mp to mp, loc to loc)
-C
-C*********************************************************************
-      subroutine pw_translation_matrices(xmin,npw,ts,nmax,
+C************************************************************************
+      subroutine gnd_mk_translation_matrices(dim,xmin,npw,ts,nmax,
      1              wshift)
 C
 C     This subroutine precomputes all translation matrices for PW
@@ -3416,9 +3516,10 @@ C
 C     wshift  = table of translation matrices for PW shift 
 C
       implicit real *8 (a-h,o-z)
+      integer dim
       real *8 ts(npw)
       
-      complex *16 wshift(npw*npw*npw/2,-nmax:nmax,-nmax:nmax,-nmax:nmax)
+      complex *16 wshift(npw**dim,(2*nmax+1)**dim)
       
       complex *16,allocatable:: ww(:,:)
 
@@ -3438,22 +3539,50 @@ C
             ww(j1,-k1) = dconjg(ww(j1,k1))
          enddo
       enddo
-      
-      do k1=-nmax,nmax
-      do k2=-nmax,nmax
-      do k3=-nmax,nmax
-         j=0   
-         do j1=1,npw/2
-         do j2=1,npw
-         do j3=1,npw
-            j=j+1
-            wshift(j,k3,k2,k1) = ww(j3,k3)*ww(j2,k2)*ww(j1,k1)
+
+      if (dim.eq.1) then
+         k=0
+         do k1=-nmax,nmax
+            k=k+1
+            j=0   
+            do j1=1,npw
+               j=j+1
+               wshift(j,k) = ww(j1,k1)
+            enddo
+         enddo
+      elseif (dim.eq.2) then
+         k=0
+         do k1=-nmax,nmax
+         do k2=-nmax,nmax
+            k=k+1
+            j=0   
+            do j1=1,((npw+1)/2)
+            do j2=1,npw
+               j=j+1
+               wshift(j,k) = ww(j2,k2)*ww(j1,k1)
+            enddo
+            enddo
+         enddo
+         enddo
+      elseif (dim.eq.3) then
+         k=0
+         do k1=-nmax,nmax
+         do k2=-nmax,nmax
+         do k3=-nmax,nmax
+            k=k+1
+            j=0   
+            do j1=1,npw
+            do j2=1,npw
+            do j3=1,npw
+               j=j+1
+               wshift(j,k) = ww(j3,k3)*ww(j2,k2)*ww(j1,k1)
+            enddo
+            enddo
+            enddo
          enddo
          enddo
          enddo
-      enddo
-      enddo
-      enddo
+      endif
 c
       return
       end
@@ -3461,90 +3590,114 @@ c
 c
 c     
 c
-      subroutine merge_split_pw_matrices(xmin,npw,ts,nmax,
-     1           wshift)
+c*********************************************************************
 C
-C     This subroutine precomputes all translation matrices for 
-c     PW translations from child to parent or vice versa.
+C shift PW expansions (mp to loc at the cutoff level)
 C
+C*********************************************************************
+      subroutine nufft_weights(dim,npw,ws,ts,
+     1    nexp,wnufftcd,wnufftgh)
+C
+C     This subroutine precomputes all translation matrices for all SOE/X
+C     expansions from child to parent or vice versa.
+C
+c     used in mp to mp or loc to loc stage
+c      
 C     INPUT
 C
-c     xmin     = half of the scaled (by 1/sqrt(delta) size of the box 
-c                at the finest level
-C     npw      = number of terms in 1d PW expansion
-C     ws,ts    = real *8, 1d PW expansion weights and nodes
-C     nmax     = number of different translation lengths in the whole scheme 
-C
+c     nd      = vector length (for multiple charges at same locations)
+C     npw     = number of terms in plane wave exp
+C     nmax    = number of different translation lengths in the whole scheme 
+C     ts      = pw nodes
+c      
 C     OUTPUT:
 C
-C     wshift   = table of translation matrices for PW  shift used in
-c                merge mp and split loc stage
+C     wshift  = table of translation matrices for PW shift 
 C
       implicit real *8 (a-h,o-z)
-      real *8 xmin
-      complex *16 wshift(npw*npw*npw/2,8,nmax)
-      real *8 ts(npw)
-      complex *16 ztmp
-      complex *16 eye
-      complex *16, allocatable:: ww(:,:)
-C
-      eye =dcmplx(0,1)
+      integer dim
+      real *8 ws(npw),ts(npw)
       
-      allocate(ww(npw,nmax))
-
-
-      do j1=1,npw
-         ztmp = exp(eye*ts(j1)*xmin)
-         do k1=1,nmax
-            ww(j1,k1) = ztmp
-            ztmp = ztmp*ztmp
-         enddo
-      enddo
+      real *8 wnufftcd(nexp,dim+1),wnufftgh(nexp,dim+dim*(dim+1)/2)
       
-      do k1=1,nmax
-         j=0
-         do j1=1,npw/2
-         do j2=1,npw
-         do j3=1,npw
+      j=0
+      if (dim.eq.1) then
+         do j1=1,npw
             j=j+1
-c           pp p              
-            wshift(j,1,k1) = ww(j3,k1)*ww(j2,k1)
-     1          *ww(j1,k1)
-c           pm p
-            wshift(j,2,k1) = ww(j3,k1)*conjg(ww(j2,k1))
-     1          *ww(j1,k1)
-c           mp p
-            wshift(j,3,k1) = conjg(ww(j3,k1))*ww(j2,k1)
-     1          *ww(j1,k1)
-c           mm p
-            wshift(j,4,k1) = conjg(ww(j3,k1))*conjg(ww(j2,k1))
-     1          *ww(j1,k1)
+            wnufftcd(j,1) = ws(j1)
+            wnufftcd(j,2) = ws(j1)*ts(j1)
+         enddo
+      elseif (dim.eq.2) then
+         do j2=1,npw
+         do j1=1,npw
+            j=j+1
+            wnufftcd(j,1) = ws(j1)*ws(j2)
+            wnufftcd(j,2) = wnufftcd(j,1)*ts(j1)
+            wnufftcd(j,3) = wnufftcd(j,1)*ts(j2)
+         enddo
+         enddo
+      elseif (dim.eq.3) then
+         do j3=1,npw
+         do j2=1,npw
+         do j1=1,npw
+            j=j+1
+            wnufftcd(j,1) = ws(j1)*ws(j2)*ws(j3)
+            wnufftcd(j,2) = wnufftcd(j,1)*ts(j1)
+            wnufftcd(j,3) = wnufftcd(j,1)*ts(j2)
+            wnufftcd(j,4) = wnufftcd(j,1)*ts(j3)
+         enddo
+         enddo
+         enddo
+      endif
+c
+      
+      j=0
+      if (dim.eq.1) then
+         do j1=1,npw
+            j=j+1
+            wnufftgh(j,1) = ts(j1)
+            wnufftgh(j,2) = ts(j1)*ts(j1)
+         enddo
+      elseif (dim.eq.2) then
+         do j2=1,npw
+         do j1=1,npw
+            j=j+1
+            wnufftgh(j,1) = ts(j1)
+            wnufftgh(j,2) = ts(j2)
             
-c           pp m              
-            wshift(j,5,k1) = ww(j3,k1)*ww(j2,k1)
-     1          *conjg(ww(j1,k1))
-c           pm m
-            wshift(j,6,k1) = ww(j3,k1)*conjg(ww(j2,k1))
-     1          *conjg(ww(j1,k1))
-c           mp m
-            wshift(j,7,k1) = conjg(ww(j3,k1))*ww(j2,k1)
-     1          *conjg(ww(j1,k1))
-c           mm m
-            wshift(j,8,k1) = conjg(ww(j3,k1))*conjg(ww(j2,k1))
-     1          *conjg(ww(j1,k1))
-            
+            wnufftgh(j,3) = ts(j1)*ts(j1)
+            wnufftgh(j,4) = ts(j2)*ts(j2)
+            wnufftgh(j,5) = ts(j1)*ts(j2)
+         enddo
+         enddo
+      elseif (dim.eq.3) then
+         do j3=1,npw
+         do j2=1,npw
+         do j1=1,npw
+            j=j+1
+            wnufftgh(j,1) = ts(j1)
+            wnufftgh(j,2) = ts(j2)
+            wnufftgh(j,3) = ts(j3)
+
+            wnufftgh(j,4) = ts(j1)*ts(j1)
+            wnufftgh(j,5) = ts(j2)*ts(j2)
+            wnufftgh(j,6) = ts(j3)*ts(j3)
+
+            wnufftgh(j,7) = ts(j1)*ts(j2)
+            wnufftgh(j,8) = ts(j1)*ts(j3)
+            wnufftgh(j,9) = ts(j2)*ts(j3)
          enddo
          enddo
          enddo
-      enddo
+      endif
 
       return
       end
 c
 c
+c     
 c
-c      
-      subroutine g3dshiftpw_vec(nd,nexp,pwexp1,
+      subroutine gndshiftpw_vec(nd,nexp,pwexp1,
      1              pwexp2,wshift)
 C
 C     This subroutine converts the PW expansion (pwexp1) about
@@ -3583,7 +3736,7 @@ c
 C
 c
 C
-      subroutine g3dcopypwexp_vec(nd,nexp,pwexp1,
+      subroutine gndcopypwexp_vec(nd,nexp,pwexp1,
      1              pwexp2)
 C
 C     This subroutine copy one PW expansion (pwexp1) 
@@ -3618,7 +3771,7 @@ C
 c
 C
 C***********************************************************************
-      subroutine g3dhermzero_vec(nd,hexp,ntermsh)
+      subroutine gndhermzero_vec(nd,hexp,ntermsh)
       implicit none
 C***********************************************************************
 c
@@ -3648,7 +3801,7 @@ c
 c      
 c      
 C***********************************************************************
-      subroutine g3dlocalzero_vec(nd,local,nlocal)
+      subroutine gndlocalzero_vec(nd,local,nlocal)
       implicit none
 C***********************************************************************
 c
@@ -3679,7 +3832,7 @@ c
 c      
 c
 cC***********************************************************************
-      subroutine g3dpwzero_vec(nd,pwexp,npw)
+      subroutine gndpwzero_vec(nd,pwexp,npw)
       implicit none
 C***********************************************************************
 c

@@ -58,8 +58,6 @@ c     polynomial type: 0 - Legendre polynomials; 1 - Chebyshev polynomials
       ipoly=0
 c     polynomial expansion order for each leaf box
       norder = 8
-c     number of extra targets
-      ntarg = 1000 000
 c     gaussian variance
       delta = 1d-1/5120*(1-1/sqrt(5.0d0))/2
       delta = 4d-3
@@ -116,7 +114,7 @@ c     proper normalization of the input data
 c     first gaussian
 c     centers
       dpars(1) = 0.64d0
-      dpars(2) = 0.55d0
+      dpars(2) = 0.75d0
       dpars(3) = 0.44d0
 c     variance
       dpars(4) = rsig
@@ -125,11 +123,11 @@ c     strength
 
 c     second gaussian
       dpars(6) = 0.36d0
-      dpars(7) = 0.45d0
+      dpars(7) = 0.25d0
       dpars(8) = 0.25d0
 
       dpars(9) = rsig
-      dpars(10) = -0.5d0/pi/rsign
+      dpars(10) = 1/pi/rsign
 
       
 c     third gaussian
@@ -148,20 +146,38 @@ c     fourth gaussian
       dpars(19) = rsig/1.2d0
       dpars(20) = 1/pi/rsign
 
-
+c     number of extra targets
+      if (ndim.eq.2) then
+         nx=2000
+         ntarg = nx**ndim
+      else
+         ntarg = 1 000 000
+      endif
+      
       nhess = ndim*(ndim+1)/2
       allocate(targs(ndim,ntarg),pote(nd,ntarg))
       allocate(grade(nd,ndim,ntarg),hesse(nd,nhess,ntarg))
 
-      do i=1,ntarg
-         do j=1,ndim
-            targs(j,i) = hkrand(0)-0.5d0
+      if (ndim.eq.2) then
+         hx=1.0d0/(nx-1)
+         do i=1,nx
+            do j=1,nx
+               ii=(i-1)*nx+j
+               targs(1,ii)=-0.5d0+(i-1)*hx
+               targs(2,ii)=-0.5d0+(j-1)*hx
+            enddo
          enddo
-      enddo
+      else
+         do i=1,ntarg
+            do j=1,ndim
+               targs(j,i) = hkrand(0)-0.5d0
+            enddo
+         enddo
+      endif
 
 c     ifnewtree=1 - will go through refinement and coarsening
 c              =0 - no check, evaluate at targets without any accuracy guarantee
-      ifnewtree=0
+      ifnewtree=1
       
       call cpu_time(t1)
 C$      t1 = omp_get_wtime()
@@ -197,19 +213,6 @@ c     compute the number of leaf boxes
       call prin2('speed in points per sec=*',
      1   (nboxes*npbox+0.0d0)/(t2-t1),1)
 
-c     plot the tree
-      ifplot=0
-      if (ifplot.eq.1) then
-         fname1 = 'trgtree.data'
-         fname2 = 'src.data'
-         fname3 = 'targ.data'
-      
-         ns=0
-         nt=0
-         call print_tree_matlab(ndim,itree,ltree,nboxes,centers,
-     1       boxsize,nlevels,iptr,ns,src,nt,targ,fname1,fname2,fname3)
-      endif
-      
 c     allocate memory and initialization
 
       allocate(pot(nd,npbox,nboxes))
@@ -247,6 +250,20 @@ C$     t2 = omp_get_wtime()
       call prin2('time taken in fgt=*',t2-t1,1)
       call prin2('speed in pps=*',
      1    (npbox*nlfbox+ntarg+0.0d0)/(t2-t1),1)
+
+c     plot the tree
+      ifplot=1
+      if (ifplot.eq.1) then
+         fname1 = 'tree.data'
+         fname2 = 'src.data'
+         fname3 = 'targ.data'
+      
+         ns=0
+         nt=0
+         call print_tree_matlab(ndim,itree,ltree,nboxes,centers,
+     1       boxsize,nlevels,iptr,ns,src,nt,targ,fname1,fname2,fname3)
+      endif
+      
 
       allocate(potex(nd,npbox,nboxes))
       allocate(gradex(nd,ndim,npbox,nboxes))
@@ -330,7 +347,15 @@ c     compute exact solutions on arbitrary targets
      1       potexe(1,j),gradexe(1,1,j),hessexe(1,1,j))
          call rhsfun(nd,targs(1,j),dpars,zpars,ipars,fval)
          rerr=abs(potexe(1,j)-pote(1,j))
-         write(35,*) targs(1,j), fval, potexe(1,j), rerr
+         write(38,*) targs(1,j)
+         write(39,*) targs(2,j)
+         write(40,*) fval
+         write(41,*) potexe(1,j)
+         write(42,*) pote(1,j)
+         write(43,*) rerr
+         write(44,*) rerr
+         
+c         write(35,*) targs(1,j), fval, potexe(1,j), rerr
       enddo
 c
 c     compute relative error
@@ -858,7 +883,7 @@ c          files with name fname1, fname2, fname3,
 c            which contains the tree info, source points, target points
 c            file can be plotted using the matlab script
 c            tree_plot.m
-
+c
       implicit real *8 (a-h,o-z)
       integer itree(ltree),ltree,nboxes,nlevels,iptr(12),ns,nt
       real *8 centers(ndim,nboxes),boxsize(0:nlevels)

@@ -1225,6 +1225,109 @@ C
 C form PW expansions (charge, dipole, charge & dipole)
 C
 C*********************************************************************
+      subroutine g2dformpwc_fast(nd,delta,eps,sources,ns,charge,
+     1            cent,npw,ws,ts,nexp,wnufft,ffexp,fftplan)
+C
+C     This subroutine computes the PW expansion about
+C     the center CENT due to the sources at locations
+C     SOURCES  of strength CHARGE.
+C
+C     INPUT:
+C
+c     nd            = vector length (parallel)
+C     delta         = Gaussian variance
+C     sources   = source locations
+C     ns        = number of sources
+C     charge    = strengths of sources
+C     cent      = center of the expansion
+C     npw    = number of terms in PW expansion
+C
+C     OUTPUT:
+C
+C     ffexp     = PW expansion
+C---------------------------------------------------------------------
+C
+      implicit real *8 (a-h,o-z)
+
+c     our fortran-header, always needed
+      include '/home/shidong/finufft/include/finufft.fh'
+
+      integer ns,npw
+      real *8 cent(2),sources(2,ns),charge(nd,ns)
+      real *8 ws(-npw/2:npw/2-1), ts(-npw/2:npw/2-1)
+      real *8 wnufft(nexp)
+      complex *16 ffexp(nexp,nd)
+      real *8 x,y,chg,sj
+      real *8, allocatable ::  xj(:),yj(:)
+      complex *16, allocatable :: cj(:,:),fk(:,:,:),wj(:)
+c     this (since unallocated) used to pass a NULL ptr to FINUFFT...
+      integer*8, allocatable :: null
+      integer*8 ns8, npw8
+      complex *16 eye
+
+c     to pass null pointers to unused arguments...
+      real*8, pointer :: dummy => null()
+
+c     this is what you use as the "opaque" ptr to ptr to finufft_plan...
+      integer*8 fftplan
+c     this is how you create the options struct in fortran...
+      type(finufft_opts) opts
+c     or this is if you want default opts, make a null pointer...
+      type(finufft_opts), pointer :: defopts => null()
+      
+      eye = dcmplx(0,1)
+
+      npw2=npw/2
+      
+      allocate(xj(ns))
+      allocate(yj(ns))
+      allocate(cj(ns,nd))
+      allocate(wj(ns))
+      allocate(fk(-npw2:npw2-1,-npw2:npw2-1,nd))
+c
+      dsq = 2*ts(0)/dsqrt(delta)
+C
+C     accumulate expansion due to each source.
+C
+      do j=1,ns
+         xj(j) = (sources(1,j) - cent(1))*dsq
+         yj(j) = (sources(2,j) - cent(2))*dsq
+         wj(j) = exp(-0.5d0*eye*(xj(j)+yj(j)))
+cccc         sj = -0.5d0*(xj(j)+yj(j))
+cccc         wj(j) = dcmplx(cos(sj),sin(sj))
+      enddo
+
+      do ind = 1,nd
+         do j=1,ns
+            cj(j,ind) = charge(ind,j)*wj(j)
+         enddo
+      enddo
+      
+      ns8=ns
+      npw8=npw
+      iflag = -1
+      call finufft_setpts(fftplan,ns8,xj,yj,dummy,dummy,dummy,
+     1    dummy,dummy,ier)
+      call finufft_execute(fftplan,cj,fk,ier)
+cccc      call finufft2d1many(nd,ns8,xj,yj,cj,iflag,eps,npw8,npw8,
+cccc     1       fk,null,ier)
+cccc  print *, 'ier=', ier
+      do ind=1,nd
+         j=0
+         do k2=-npw2,-1
+            do k1=-npw2,npw2-1
+               j=j+1
+               ffexp(j,ind)=fk(k1,k2,ind)*wnufft(j)
+            enddo
+         enddo
+      enddo
+
+      return
+      end
+c
+C
+C
+C
       subroutine g2dformpwc_vec(nd,delta,eps,sources,ns,charge,
      1            cent,npw,ws,ts,nexp,wnufft,ffexp)
 C
@@ -1260,6 +1363,8 @@ c     this (since unallocated) used to pass a NULL ptr to FINUFFT...
       integer*8, allocatable :: null
       integer*8 ns8, npw8
       complex *16 eye
+
+      
       eye = dcmplx(0,1)
 
       npw2=npw/2

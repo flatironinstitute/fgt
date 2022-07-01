@@ -104,9 +104,7 @@ c
 cc     additional fmm variables
 
       integer *8 lmptot
-      integer ntermmax
       integer, allocatable :: iaddr(:,:)
-      integer, allocatable :: ntermsh(:),nlocal(:)
       real *8, allocatable :: rmlexp(:)
 
 c
@@ -120,11 +118,11 @@ c
       done = 1
       pi = atan(done)*4.0d0
       
-      ifprint = 1
+      ifprint = 0
 
       call pts_tree_boxsize0(delta,eps,sources,ns,targ,nt,
      1    npwlevel,bs0,cen0)
-      write(6,*) ' npwlevel',npwlevel
+cccc      write(6,*) ' npwlevel',npwlevel
 
 C
 C     if box is too small as compared with delta, there is no need
@@ -155,11 +153,11 @@ c
       idivflag =0
 c     ndiv0 is the maximum number of points per box above the cutoff level
 c     it determines the speed of the algorithm when delta goes to zero.
-      ndiv0 = 10
+      ndiv0 = 40
 c     ndiv is the maximum number of points per box at or below the cutoff level
 c     it's determined by numerical experiments on finding the crossover point
 c     between direct evaluation and the fast scheme.
-      ndiv = 80
+      ndiv = 40
 c
       ifunif = 0
       iper = 0
@@ -169,25 +167,10 @@ c     call the tree memory management
 c     code to determine number of boxes,
 c     number of levels and length of tree
 c
-c     1. determine the maximum level - it seems that the best strategy for point FGT
-c     is to stop refinement as long as the Hermite expansion length is less
-c     than 20 for high precision calculation
-      nlmax = npwlevel + 4
-      nlevstart=max(npwlevel,0)
-      
-      bsize = bs0/2**nlevstart
-      do i = nlevstart,100
-         call g2dhlterms(2,bsize,delta,eps,nlocal0)
-         if (nlocal0 .le. 18) then
-            nlmax = i
-            exit
-         endif
-         bsize = bsize/2
-      enddo
-
+      nlmax = npwlevel+4
       if (npwlevel .ge. 0) nlmax=npwlevel+1
       
-      write(6,*) ' nlmax',nlmax
+cccc      write(6,*) ' nlmax',nlmax
       
       nlmin = 0
       call pts_tree_mem(sources,ns,targ,nt,idivflag,
@@ -195,8 +178,8 @@ c     than 20 for high precision calculation
      2    ndiv0,npwlevel,bs0,cen0,nlevels,nboxes,ltree) 
 
 c 
-      write(6,*) ' nlevels',nlevels
-      write(6,*) ' nboxes',nboxes
+cccc      write(6,*) ' nlevels',nlevels
+cccc      write(6,*) ' nboxes',nboxes
 
       allocate(itree(ltree))
       allocate(boxsize(0:nlevels))
@@ -210,7 +193,7 @@ c
      3    ltree,itree,iptr,tcenters,boxsize)
 cccc      write(6,*) ' boxsize',boxsize(0)
 cccc      write(6,*) ' cutoff length', boxsize(0)/2**npwlevel/sqrt(delta)
-      write(6,*) ' nperbox',ns*4/(3*nboxes)
+cccc      write(6,*) ' nperbox',ns*4/(3*nboxes)
 
       allocate(isrc(ns),isrcse(2,nboxes))
       allocate(itarg(nt),itargse(2,nboxes))
@@ -327,39 +310,12 @@ c
         enddo
       endif
 c
-c     compute scaling factor for multipole/local expansions
-c     and lengths of multipole and local expansions
-c
-      allocate(ntermsh(0:nlevels))
-      allocate(nlocal(0:nlevels))
-
-      do i=0,nlevels
-         nlocal(i)=0
-         ntermsh(i)=0
-      enddo
-
-      ntermmax = 0
-      nadd = ifdipole+max(ifpgh,ifpghtarg)
-      do i = max(npwlevel,0),nlevels
-         call g2dhlterms(2,boxsize(i),delta,eps,nlocal(i))
-         if (ifdipole.eq.1 .or. ifpgh.ge.2 .or. ifpghtarg.ge.2) then
-            nlocal(i)=nlocal(i)+nadd
-cccc            nlocal(i)=nlocal(i)*1.1
-         endif
-
-         ntermsh(i) = nlocal(i)
-         if (ntermmax .lt. ntermsh(i)) ntermmax = ntermsh(i)
-      enddo
-c
 c     compute the length of plane wave expansion
       bsize = 2*bs0/(2.0d0**(max(npwlevel,0)))
       pweps = eps
       if (nadd .gt. 2) pweps=pweps/100
       call g2dpwterms(bsize,delta,pweps,pmax,npw)
       
-      call prinf(' nlocal =*',nlocal,nlevels+1)
-cccc      call prinf(' ntermmax =*',ntermmax,1)
-cccc      call prin2(' pmax =*',pmax,1)
       call prinf(' npw =*',npw,1)
 c       
 c     Multipole and local expansions will be held in workspace
@@ -392,8 +348,7 @@ c
 c     irmlexp is pointer for workspace need by various expansions.
 c
       call g2dmpalloc(nd,itree,iaddr,
-     1    nlevels,npwlevel,lmptot,
-     2    ntermsh,nlocal,npw)
+     1    nlevels,npwlevel,lmptot,npw)
       if(ifprint .eq. 1) call prinf_long(' lmptot is *',lmptot,1)
 c
       allocate(rmlexp(lmptot),stat=ier)
@@ -417,7 +372,7 @@ C$      time1=omp_get_wtime()
      $   iaddr,rmlexp,
      $   itree,ltree,iptr,nlevels,npwlevel,ndiv,
      $   nboxes,iper,boxsize,tcenters,itree(iptr(1)),
-     $   isrcse,itargse,ntermsh,nlocal,ntermmax,pmax,npw,
+     $   isrcse,itargse,pmax,npw,
      $   ifpgh,potsort,gradsort,hesssort,
      $   ifpghtarg,pottargsort,gradtargsort,
      $   hesstargsort)
@@ -475,7 +430,7 @@ c
      $     iaddr,rmlexp,
      $     itree,ltree,iptr,nlevels,npwlevel,ndiv,
      $     nboxes,iper,boxsize,centers,laddr,
-     $     isrcse,itargse,ntermsh,nlocal,ntermmax,pmax,npw,
+     $     isrcse,itargse,pmax,npw,
      $     ifpgh,pot,grad,hess,
      $     ifpghtarg,pottarg,gradtarg,hesstarg)
 c
@@ -564,9 +519,6 @@ c     itargse in: integer(2,nboxes)
 c               starting and ending location of targets in ibox
 c                in sorted list of sources
 c
-c     ntermsh in:  length of Hermite expansions
-c     nlocal  in:  length of Taylor expansions
-c     ntermmax in: maximum length of Hermite/Taylor expansions
 c     pmax    in:  cutoff limit in the planewave expansion
 c     npw     in:  length of planewave expansions
 c
@@ -625,7 +577,6 @@ c
       real *8 centers(2,*)
 c
       integer laddr(2,0:nlevels)
-      integer ntermsh(0:nlevels),nlocal(0:nlevels),ntermmax
       integer npw,npwhalf
       integer iptr(8),ltree
       integer itree(ltree)
@@ -683,7 +634,7 @@ c     Suppressed if ifprint=0.
 c     Prints timing breakdown and other things if ifprint=1.
 c     Prints timing breakdown, list information, and other things if ifprint=2.
 c
-      ifprint=1
+      ifprint=0
       pi = 4*atan(1.0d0)
 
 
@@ -1292,8 +1243,7 @@ c
 c
 c------------------------------------------------------------------    
       subroutine g2dmpalloc(nd,laddr,iaddr,
-     1    nlevels,npwlevel,lmptot,
-     2    ntermsh,nlocal,npw)
+     1    nlevels,npwlevel,lmptot,npw)
 c     This subroutine determines the size of the array
 c     to be allocated for multipole/local expansions
 c
@@ -1312,12 +1262,6 @@ c     npwlevel    in: Integer
 c                 cutoff level where the plane wave expansion is
 c                 valid at or below ilev = npwlevel
 c
-c     ntermsh     in: Integer(0:nlevels)
-c                 Number of terms requried in the Hermite expansions at each
-c                 level
-c     nlocal      in: Integer(0:nlevels)
-c                 Number of terms requried in the local expansions at each
-c                 level
 c     npw         in: Integer
 c                 Number of terms in the plane wave expansion
 c
@@ -1339,20 +1283,21 @@ c------------------------------------------------------------------
 
       implicit none
       integer nlevels,npwlevel,npw,nd
-      integer ntermsh(0:nlevels),nlocal(0:nlevels)
       integer iaddr(2,*), laddr(2,0:nlevels)
       integer *8 lmptot
       integer ibox,i,istart,nn,itmp,nlevstart
 c
       istart = 1
-      if (npwlevel .eq. nlevels) return
+      if (npwlevel .gt. nlevels) then
+         lmptot=0
+         return
+      endif
       
       nlevstart = 0
       if (npwlevel .ge. 0) nlevstart = npwlevel
 
+      nn = (npw*npw/2)*2*nd
       do i = npwlevel,npwlevel
-
-         nn = (npw*npw/2)*2*nd
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,itmp)
          do ibox = laddr(1,i),laddr(2,i)
@@ -1367,7 +1312,6 @@ C$OMP END PARALLEL DO
 c
       do i = npwlevel,npwlevel
 
-         nn = (npw*npw/2)*2*nd
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,itmp)
          do ibox = laddr(1,i),laddr(2,i)

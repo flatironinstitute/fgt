@@ -75,7 +75,8 @@ COM = src/common
 COMOBJS = $(COM)/prini_new.o \
 	$(COM)/cumsum.o \
 	$(COM)/fmmcommon2d.o \
-	$(COM)/pts_tree3d.o \
+	$(COM)/pts_tree_nd.o \
+	$(COM)/tree_routs_nd.o \
 	$(COM)/tree_routs3d.o 
 
 # Gauss transform objects
@@ -165,7 +166,8 @@ test-dyn: $(DYNAMICLIB)  $(TOBJS) test/fgt3d-dyn
 
 test/fgt3d:
 #	$(FC) $(FFLAGS) test/nufft3d_demo.f test/dirft3d.f $(TOBJS) -o test/int2-test-fgt3d -Llib-static $(LLINKLIB)  $(ABSDYNLIB) $(LIBSFFT)
-	$(FC) $(FFLAGS) test/test_fgt3d.f $(TOBJS) -o test/int2-test-fgt3d -Llib-static $(LLINKLIB)  $(ABSDYNLIB) $(LIBSFFT)
+#	$(FC) $(FFLAGS) test/test_fgt3d_all.f $(TOBJS) -o test/int2-test-fgt3d -Llib-static $(LLINKLIB)  $(ABSDYNLIB) $(LIBSFFT)
+	$(FC) $(FFLAGS) test/example1.f $(TOBJS) -o test/int2-test-fgt3d -Llib-static $(LLINKLIB)  $(ABSDYNLIB) $(LIBSFFT)
 
 
 

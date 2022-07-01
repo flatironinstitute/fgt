@@ -66,7 +66,7 @@ c
 c
 cc      calling sequence variables
 c 
-      integer nd
+      integer nd,dim
       real *8 eps,delta
       integer ns,nt
       integer ifcharge,ifdipole
@@ -110,10 +110,10 @@ cc     additional fmm variables
 c
 cc      temporary variables
 c
-      integer i,ilev,lmptmp,idim,ndim
+      integer i,ilev,lmptmp,id,k,nhess
       integer nlocal0,npw,nadd,ifprint,ier,nlevstart
       integer ibox,istart,iend
-      real *8 omp_get_wtime
+      real *8 omp_get_wtime,pps
       real *8 time1,time2,pi,done,pmax,bs0,cen0(3),bsize,pweps
 
       done = 1
@@ -121,8 +121,8 @@ c
       
       ifprint = 1
 
-      ndim=3
-      call pts_tree_boxsize0(ndim,delta,eps,sources,ns,targ,nt,
+      dim=3
+      call pts_tree_boxsize0(dim,delta,eps,sources,ns,targ,nt,
      1    npwlevel,bs0,cen0)
 cccc      write(6,*) ' npwlevel',npwlevel
 
@@ -131,7 +131,7 @@ C     if box is too small as compared with delta, there is no need
 C     to do anything - simply form local, then eval it.
 c
       if (npwlevel .lt. -2) then
-         call g3dhlterms(ndim,bs0,delta,eps,nlocal0)
+         call gndhlterms(dim,bs0,delta,eps,nlocal0)
          nlocal0 = nlocal0 + max(ifpgh,ifpghtarg) -1 
          write(6,*) ' nlocal0',nlocal0
       
@@ -185,7 +185,7 @@ cccc      write(6,*) ' nlmax',nlmax
 
       
       nlmin = 0
-      call pts_tree_mem(ndim,sources,ns,targ,nt,idivflag,
+      call pts_tree_mem(dim,sources,ns,targ,nt,idivflag,
      1    ndiv,nlmin,nlmax,ifunif,iper,
      2    ndiv0,npwlevel,bs0,cen0,
      3    nlevels,nboxes,ltree) 
@@ -196,11 +196,11 @@ cccc      write(6,*) ' nboxes',nboxes
 
       allocate(itree(ltree))
       allocate(boxsize(0:nlevels))
-      allocate(tcenters(3,nboxes))
+      allocate(tcenters(dim,nboxes))
 c
 c     call the tree code
 c
-      call pts_tree_build(ndim,sources,ns,targ,nt,idivflag,ndiv,
+      call pts_tree_build(dim,sources,ns,targ,nt,idivflag,ndiv,
      1    nlmin,nlmax,ifunif,iper,nlevels,nboxes,
      2    ndiv0,npwlevel,bs0,cen0,
      3    ltree,itree,iptr,tcenters,boxsize)
@@ -211,87 +211,91 @@ cccc      write(6,*) ' nperbox',ns*4/(3*nboxes)
       allocate(isrc(ns),isrcse(2,nboxes))
       allocate(itarg(nt),itargse(2,nboxes))
 
-      call pts_tree_sort(ndim,ns,sources,itree,ltree,nboxes,nlevels,
+      call pts_tree_sort(dim,ns,sources,itree,ltree,nboxes,nlevels,
      1    iptr,tcenters,isrc,isrcse)
 cccc      call prinf('isrcse=*',isrcse,20)
 
-      call pts_tree_sort(ndim,nt,targ,itree,ltree,nboxes,nlevels,iptr,
+      call pts_tree_sort(dim,nt,targ,itree,ltree,nboxes,nlevels,iptr,
      1   tcenters,itarg,itargse)
-      allocate(sourcesort(ndim,ns))
-      allocate(targsort(ndim,nt))
+cccc      call prinf('itargse=*',itargse,nboxes)
+
+      allocate(sourcesort(dim,ns))
+      allocate(targsort(dim,nt))
 
 
       if(ifcharge.eq.1.and.ifdipole.eq.0) then
         allocate(chargesort(nd,ns),dipstrsort(nd,1))
-        allocate(rnormalsort(ndim,1))
+        allocate(rnormalsort(dim,1))
       endif
       if(ifcharge.eq.0.and.ifdipole.eq.1) then
         allocate(chargesort(nd,1),dipstrsort(nd,ns))
-        allocate(rnormalsort(ndim,ns))
+        allocate(rnormalsort(dim,ns))
       endif
       if(ifcharge.eq.1.and.ifdipole.eq.1) then
         allocate(chargesort(nd,ns),dipstrsort(nd,ns))
-        allocate(rnormalsort(ndim,ns))
+        allocate(rnormalsort(dim,ns))
       endif
 
+      nhess = dim*(dim+1)/2
       if(ifpgh.eq.1) then
-        allocate(potsort(nd,ns),gradsort(nd,3,1),hesssort(nd,6,1))
+         allocate(potsort(nd,ns),gradsort(nd,dim,1),
+     1    hesssort(nd,nhess,1))
       else if(ifpgh.eq.2) then
-        allocate(potsort(nd,ns),gradsort(nd,3,ns),hesssort(nd,6,1))
+         allocate(potsort(nd,ns),gradsort(nd,dim,ns),
+     1       hesssort(nd,nhess,1))
       else if(ifpgh.eq.3) then
-        allocate(potsort(nd,ns),gradsort(nd,3,ns),hesssort(nd,6,ns))
+         allocate(potsort(nd,ns),gradsort(nd,dim,ns),
+     1       hesssort(nd,nhess,ns))
       else
-        allocate(potsort(nd,1),gradsort(nd,3,1),hesssort(nd,6,1))
+         allocate(potsort(nd,1),gradsort(nd,dim,1),
+     1       hesssort(nd,nhess,1))
       endif
 c      
       if(ifpghtarg.eq.1) then
-        allocate(pottargsort(nd,nt),gradtargsort(nd,3,1),
-     1     hesstargsort(nd,6,1))
+        allocate(pottargsort(nd,nt),gradtargsort(nd,dim,1),
+     1     hesstargsort(nd,nhess,1))
       else if(ifpghtarg.eq.2) then
-        allocate(pottargsort(nd,nt),gradtargsort(nd,3,nt),
-     1      hesstargsort(nd,6,1))
+        allocate(pottargsort(nd,nt),gradtargsort(nd,dim,nt),
+     1      hesstargsort(nd,nhess,1))
       else if(ifpghtarg.eq.3) then
-        allocate(pottargsort(nd,nt),gradtargsort(nd,3,nt),
-     1     hesstargsort(nd,6,nt))
+        allocate(pottargsort(nd,nt),gradtargsort(nd,dim,nt),
+     1     hesstargsort(nd,nhess,nt))
       else
-        allocate(pottargsort(nd,1),gradtargsort(nd,3,1),
-     1     hesstargsort(nd,6,1))
+        allocate(pottargsort(nd,1),gradtargsort(nd,dim,1),
+     1     hesstargsort(nd,nhess,1))
       endif
 c
 c     initialize potentials,hessians,gradients
 c
       if(ifpgh.eq.1) then
         do i=1,ns
-          do idim=1,nd
-            potsort(idim,i) = 0
+          do id=1,nd
+            potsort(id,i) = 0
           enddo
         enddo
       endif
 
       if(ifpgh.eq.2) then
         do i=1,ns
-          do idim=1,nd
-            potsort(idim,i) = 0
-            gradsort(idim,1,i) = 0
-            gradsort(idim,2,i) = 0
-            gradsort(idim,3,i) = 0
+          do id=1,nd
+             potsort(id,i) = 0
+             do k=1,dim
+                gradsort(id,k,i) = 0
+             enddo
           enddo
         enddo
       endif
 
       if(ifpgh.eq.3) then
         do i=1,ns
-          do idim=1,nd
-            potsort(idim,i) = 0
-            gradsort(idim,1,i) = 0
-            gradsort(idim,2,i) = 0
-            gradsort(idim,3,i) = 0
-            hesssort(idim,1,i) = 0
-            hesssort(idim,2,i) = 0
-            hesssort(idim,3,i) = 0
-            hesssort(idim,4,i) = 0
-            hesssort(idim,5,i) = 0
-            hesssort(idim,6,i) = 0
+          do id=1,nd
+            potsort(id,i) = 0
+            do k=1,dim
+               gradsort(id,k,i) = 0
+            enddo
+            do k=1,nhess
+               hesssort(id,k,i) = 0
+            enddo
           enddo
         enddo
       endif
@@ -299,36 +303,33 @@ c
 
       if(ifpghtarg.eq.1) then
         do i=1,nt
-          do idim=1,nd
-            pottargsort(idim,i) = 0
+          do id=1,nd
+            pottargsort(id,i) = 0
           enddo
         enddo
       endif
 
       if(ifpghtarg.eq.2) then
         do i=1,nt
-          do idim=1,nd
-            pottargsort(idim,i) = 0
-            gradtargsort(idim,1,i) = 0
-            gradtargsort(idim,2,i) = 0
-            gradtargsort(idim,3,i) = 0
+          do id=1,nd
+            pottargsort(id,i) = 0
+            do k=1,dim
+               gradtargsort(id,k,i) = 0
+            enddo
           enddo
         enddo
       endif
 
       if(ifpghtarg.eq.3) then
         do i=1,nt
-          do idim=1,nd
-            pottargsort(idim,i) = 0
-            gradtargsort(idim,1,i) = 0
-            gradtargsort(idim,2,i) = 0
-            gradtargsort(idim,3,i) = 0
-            hesstargsort(idim,1,i) = 0
-            hesstargsort(idim,2,i) = 0
-            hesstargsort(idim,3,i) = 0
-            hesstargsort(idim,4,i) = 0
-            hesstargsort(idim,5,i) = 0
-            hesstargsort(idim,6,i) = 0
+          do id=1,nd
+            pottargsort(id,i) = 0
+            do k=1,dim
+               gradtargsort(id,k,i) = 0
+            enddo
+            do k=1,nhess
+               hesstargsort(id,k,i) = 0
+            enddo
           enddo
         enddo
       endif
@@ -338,7 +339,7 @@ c     compute the length of plane wave expansion
       bsize = 2*bs0/(2.0d0**(max(npwlevel,0)))
       pweps = eps
       if (nadd .gt. 2) pweps=pweps/10
-      call g3dpwterms(bsize,delta,pweps,pmax,npw)
+      call gndpwterms(bsize,delta,pweps,pmax,npw)
       
 cccc      call prinf(' nlocal =*',nlocal,nlevels+1)
 cccc      call prinf(' ntermmax =*',ntermmax,1)
@@ -348,17 +349,17 @@ c
 c
 c     reorder sources
 c
-      call dreorderf(3,ns,sources,sourcesort,isrc)
+      call dreorderf(dim,ns,sources,sourcesort,isrc)
       if(ifcharge.eq.1) 
      1    call dreorderf(nd,ns,charge,chargesort,isrc)
       if(ifdipole.eq.1) then
          call dreorderf(nd,ns,dipstr,dipstrsort,isrc)
-         call dreorderf(3,ns,rnormal,rnormalsort,isrc)
+         call dreorderf(dim,ns,rnormal,rnormalsort,isrc)
       endif
 c
 cc     reorder targets
 c
-      call dreorderf(3,nt,targ,targsort,itarg)
+      call dreorderf(dim,nt,targ,targsort,itarg)
 c
 c     call the main FGT routine
 c
@@ -368,7 +369,7 @@ c     Call main FGT routine
 c
       call cpu_time(time1)
 C$      time1=omp_get_wtime()
-      call fgt3dmain(nd,delta,eps,
+      call fgt3dmain(nd,dim,delta,eps,
      $   ns,sourcesort,
      $   ifcharge,chargesort,
      $   ifdipole,rnormalsort,dipstrsort,
@@ -383,7 +384,8 @@ C$      time1=omp_get_wtime()
 C$        time2=omp_get_wtime()
       if( ifprint .eq. 1 ) then
          call prin2('time in fgt main=*',time2-time1,1)
-         call prin2('points per sec=*',ns/(time2-time1),1)
+         pps=(ns*ifpgh+nt*ifpghtarg+0.0d0)/(time2-time1)
+         call prin2('points per sec=*',pps,1)
       endif
 
 c
@@ -395,13 +397,13 @@ c
 
       if(ifpgh.eq.2) then
         call dreorderi(nd,ns,potsort,pot,isrc)
-        call dreorderiv(nd,3,ns,gradsort,grad,isrc)
+        call dreorderiv(nd,dim,ns,gradsort,grad,isrc)
       endif
 
       if(ifpgh.eq.3) then
         call dreorderi(nd,ns,potsort,pot,isrc)
-        call dreorderiv(nd,3,ns,gradsort,grad,isrc)
-        call dreorderiv(nd,6,ns,hesssort,hess,isrc)
+        call dreorderiv(nd,dim,ns,gradsort,grad,isrc)
+        call dreorderiv(nd,nhess,ns,hesssort,hess,isrc)
       endif
 
       if(ifpghtarg.eq.1) then
@@ -410,13 +412,13 @@ c
 
       if(ifpghtarg.eq.2) then
         call dreorderi(nd,nt,pottargsort,pottarg,itarg)
-        call dreorderiv(nd,3,nt,gradtargsort,gradtarg,itarg)
+        call dreorderiv(nd,dim,nt,gradtargsort,gradtarg,itarg)
       endif
 
       if(ifpghtarg.eq.3) then
         call dreorderi(nd,nt,pottargsort,pottarg,itarg)
-        call dreorderiv(nd,3,nt,gradtargsort,gradtarg,itarg)
-        call dreorderiv(nd,6,nt,hesstargsort,hesstarg,itarg)
+        call dreorderiv(nd,dim,nt,gradtargsort,gradtarg,itarg)
+        call dreorderiv(nd,nhess,nt,hesstargsort,hesstarg,itarg)
       endif
 
       return
@@ -426,7 +428,7 @@ c
 c
 c
 c
-      subroutine fgt3dmain(nd,delta,eps,
+      subroutine fgt3dmain(nd,dim,delta,eps,
      $     nsource,sourcesort,
      $     ifcharge,chargesort,
      $     ifdipole,rnormalsort,dipstrsort,
@@ -553,6 +555,11 @@ c------------------------------------------------------------------
       implicit none
 
       integer nd
+
+c     our fortran-header, always needed
+      include '/home/shidong/finufft/include/finufft.fh'
+      
+      integer dim
       integer iper
       integer nsource,ntarget
       integer ndiv,nlevels,npwlevel
@@ -560,25 +567,25 @@ c------------------------------------------------------------------
       integer ifpgh,ifpghtarg
 
       real *8 eps,delta
-      real *8 sourcesort(3,nsource)
-      real *8 rnormalsort(3,nsource)
+      real *8 sourcesort(dim,nsource)
+      real *8 rnormalsort(dim,nsource)
       real *8 chargesort(nd,*)
       real *8 dipstrsort(nd,*)
-      real *8 targetsort(3,ntarget)
+      real *8 targetsort(dim,ntarget)
       real *8 pot(nd,*)
-      real *8 grad(nd,3,*)
-      real *8 hess(nd,6,*)
+      real *8 grad(nd,dim,*)
+      real *8 hess(nd,dim*(dim+1)/2,*)
       real *8 pottarg(nd,*)
-      real *8 gradtarg(nd,3,*)
-      real *8 hesstarg(nd,6,*)
+      real *8 gradtarg(nd,dim,*)
+      real *8 hesstarg(nd,dim*(dim+1)/2,*)
 c
       real *8 pmax
       real *8 timeinfo(10)
       real *8 timelev(0:200)
-      real *8 centers(3,*)
+      real *8 centers(dim,*)
 c
       integer laddr(2,0:nlevels)
-      integer npw,ndim
+      integer npw
       integer iptr(8)
       integer ltree
       integer itree(ltree)
@@ -588,7 +595,7 @@ c
 c
 c     temp variables
       integer i,j,k,l,idim,ip,isx,ii,j1,j2
-      integer ibox,jbox,ilev,klev,npts,nptssrc,nptstarg,nptsj
+      integer ibox,jbox,ilev,klev,npts,nptssrc,nptstarg,nptsj,nptstmp
       integer nchild,ncoll,nb
       integer isep, mnbors
 
@@ -609,38 +616,57 @@ c
       
       integer ifprint
 
-      integer nexp,nmax,ncutlevbox
+      integer nexp,nmax,ncutlevbox,nhess,mc,ind,iperiod
       integer ncdir,ncddir,nddir,npdir,ngdir,nhdir
       
       integer nn,jx,jy,jz,nlevstart,nlevend
 
       real *8 d,time1,time2,omp_get_wtime
-      real *8 dx,dy,dz
+      real *8 dx,dy,dz,bs0
       real *8 tt1,tt2,xmin,xmin2,t1,t2,dt,dtt
-      real *8 pottmp,gradtmp(2),hesstmp(3)
-      real *8 dmax
+      real *8 dmax,hpw
       
       integer, allocatable :: ifhung(:),ifpwexp(:),iaddr(:,:)
       integer ndirect
       
       real *8, allocatable :: rmlexp(:)
       real *8, allocatable :: ws(:),ts(:)
-      real *8, allocatable :: wnufft(:)
-      complex *16, allocatable :: wpwshift(:,:,:,:)
+      real *8, allocatable :: wnufftcd(:,:),wnufftgh(:,:)
+
+      real *8, allocatable :: targtmp(:,:),pottmp(:,:)
+      real *8, allocatable :: gradtmp(:,:,:),hesstmp(:,:,:)
+      
+      complex *16, allocatable :: wpwshift(:,:)
+
+c     this is what you use as the "opaque" ptr to ptr to finufft_plan...
+      integer *8 fftplan,fftplantarg
+c     this is how you create the options struct in fortran...
+      type(finufft_opts) opts
+c     or this is if you want default opts, make a null pointer...
+      type(finufft_opts), pointer :: defopts => null()
+      integer ttype,ntrans,ntranstarg,ncd,npgh,npghtarg,iflag
+      integer *8 npw8
+      integer *8, allocatable :: n_modes(:)
       
       double precision pi
       complex *16 eye
-C
+
+C     
       eye = dcmplx(0,1)
-      
+      iperiod=0
 c      
 c     ifprint is an internal information printing flag. 
 c     Suppressed if ifprint=0.
 c     Prints timing breakdown and other things if ifprint=1.
 c     Prints timing breakdown, list information, and other things if ifprint=2.
 c
-      ifprint=0
+      ifprint=1
       pi = 4*atan(1.0d0)
+
+      bs0 = boxsize(0)
+      mc = 2**dim
+      mnbors=3**dim
+      nhess=dim*(dim+1)/2
 
       if (npwlevel.ge.0 .and. npwlevel.le.nlevels) then
          ncutlevbox=laddr(2,npwlevel)-laddr(1,npwlevel)+1
@@ -699,7 +725,7 @@ c
 c     
 c     irmlexp is pointer for workspace need by various expansions.
 c
-      call g3dmpalloc(nd,itree,iaddr,
+      call gndmpalloc(nd,dim,itree,iaddr,
      1    nlevels,npwlevel,ifpwexp,lmptot,npw)
       if(ifprint .eq. 1) call prinf_long(' lmptot is *',lmptot,1)
 c
@@ -746,8 +772,7 @@ c     compute list info
 c
       mnbors = 27
       isep = 1
-      ndim=3
-      call compute_mnlist1(ndim,nboxes,nlevels,itree(iptr(1)),
+      call compute_mnlist1(dim,nboxes,nlevels,itree(iptr(1)),
      1  centers,boxsize,itree(iptr(3)),itree(iptr(4)),
      2  itree(iptr(5)),isep,itree(iptr(6)),
      2  itree(iptr(7)),iper,mnlist1)
@@ -768,41 +793,26 @@ c     get planewave nodes and weights
       allocate(ws(-npw/2:npw/2-1))
       allocate(ts(-npw/2:npw/2-1))
       call get_pwnodes(pmax,npw,ws,ts)
+      hpw = ts(1)
 
 c     compute translation matrices for PW expansions
       xmin  = boxsize(npwlevel)/sqrt(delta)
 
       nmax = 1
-      nexp = npw*npw*npw/2
-      allocate(wpwshift(nexp,-nmax:nmax,-nmax:nmax,-nmax:nmax))
-      call pw_translation_matrices(xmin,npw,ts,nmax,wpwshift)
 
-      allocate(wnufft(nexp))
-      call nufft_weights(npw,ws,ts,nexp,wnufft)
+      nexp = npw**dim
+
+      allocate(wpwshift(nexp,(2*nmax+1)**dim))
+      call gnd_mk_translation_matrices(dim,xmin,npw,ts,nmax,
+     1    wpwshift)
+
+      allocate(wnufftcd(nexp,dim+1),wnufftgh(nexp,dim+nhess))
+      call nufft_weights(dim,npw,ws,ts,nexp,wnufftcd,wnufftgh)
 
 c     xmin is used in shiftpw subroutines to
 c     determine the right translation matrices
 c      
       xmin  = boxsize(npwlevel)
-c
-c     ... set all multipole and local expansions to zero
-c
-cccc      do ilev = 0,nlevels
-ccccC$OMP PARALLEL DO DEFAULT (SHARED)
-ccccC$OMP$PRIVATE(ibox)
-cccc         do ibox = laddr(1,ilev),laddr(2,ilev)
-cccc           call g3dsoezero_vec(nd,rmlexp(iaddr(1,ibox)),npw)
-cccc           call g3dsxzero_vec(nd,rmlexp(iaddr(2,ibox)),
-cccc     1          npw,npwhalf)
-cccc           call g3dsoezero_vec(nd,rmlexp(iaddr(3,ibox)),npw)
-cccc           call g3dsxzero_vec(nd,rmlexp(iaddr(4,ibox)),
-cccc     1          npw,npwhalf)
-cccc           call g3dlocalzero_vec(nd,rmlexp(iaddr(5,ibox)),nlocal)
-cccc           call g3dhermzero_vec(nd,rmlexp(iaddr(6,ibox)),ntermsh)
-cccc
-cccc         enddo
-ccccC$OMP END PARALLEL DO         
-cccc       enddo
 c
 c
       ncdir = ndiv
@@ -822,117 +832,63 @@ C$        time1=omp_get_wtime()
 c
 c       ... step 1, form multipole pw expansions at the cutoff level
 c       
+c     mandatory parameters to FINUFFT guru interface... (ttype = trans type)
+      ttype = 1
+      ncd=0
+      if (ifcharge.eq.1) ncd=ncd+1
+      if (ifdipole.eq.1) ncd=ncd+dim
+      ntrans = nd*ncd
+      iflag = -1
+      npw8 = npw
+      allocate(n_modes(dim))
+      do k=1,dim
+         n_modes(k) = npw8
+      enddo
+      
+      call finufft_default_opts(opts)
+      opts%fftw = 0
+cccc      opts%upsampfac = 1.1d0
+
+      call finufft_makeplan(ttype,dim,n_modes,iflag,ntrans,
+     $     eps,fftplan,opts,ier)
+
       do 1100 ilev = npwlevel,npwlevel
 ccc         nb=0
 ccc         dt=0
 C
-         if(ifcharge.eq.1.and.ifdipole.eq.0) then
 C$OMP PARALLEL DO DEFAULT (SHARED)
 C$OMP$PRIVATE(ibox,nchild,istart,iend,npts)
 C$OMP$SCHEDULE(DYNAMIC)
-            do ibox=laddr(1,ilev),laddr(2,ilev)
-               nchild = itree(iptr(4)+ibox-1)
-               istart = isrcse(1,ibox)
-               iend = isrcse(2,ibox)
-               npts = iend-istart+1 
-c              Check if current box needs to form pw exp         
-               if(npts.gt.ndiv) then
-ccc                  nb=nb+1
-ccc                  call cpu_time(t1)
-c                 form the pw expansion
-                  if (npts.gt.ncdir) then
-                     call g3dformpwc_fast_vec(nd,delta,eps,
-     1                   sourcesort(1,istart),npts,
-     2                   chargesort(1,istart),centers(1,ibox),
-     3                   npw,ws,ts,wnufft,rmlexp(iaddr(1,ibox)))
-                  else
-                     call g3dformpwc_vec(nd,delta,
-     1                   sourcesort(1,istart),npts,
-     2                   chargesort(1,istart),centers(1,ibox),
-     3                   npw,ws,ts,rmlexp(iaddr(1,ibox)))
-                  endif
-cccc                  call cpu_time(t2)
-cccc                  dt=dt+t2-t1
-c                 copy the multipole PW exp into local PW exp
-c                 for self interaction 
-                  call g3dcopypwexp_vec(nd,nexp,rmlexp(iaddr(1,ibox)),
-     1                rmlexp(iaddr(2,ibox)))
-               endif
-            enddo
+         do ibox=laddr(1,ilev),laddr(2,ilev)
+            nchild = itree(iptr(4)+ibox-1)
+            istart = isrcse(1,ibox)
+            iend = isrcse(2,ibox)
+            npts = iend-istart+1 
+c           Check if current box needs to form pw exp         
+            if(npts.gt.ndiv) then
+ccc   nb=nb+1
+ccc   call cpu_time(t1)
+c     form the pw expansion
+               call gnd_formpw(nd,dim,delta,eps,sourcesort(1,istart),
+     1             npts,ifcharge,chargesort(1,istart),ifdipole,
+     2             rnormalsort(1,istart),dipstrsort(1,istart),
+     3             centers(1,ibox),hpw,nexp,wnufftcd,
+     4             rmlexp(iaddr(1,ibox)),fftplan)
+cccc  call cpu_time(t2)
+cccc  dt=dt+t2-t1
+c     copy the multipole PW exp into local PW exp
+c     for self interaction 
+               call gndcopypwexp_vec(nd,nexp,rmlexp(iaddr(1,ibox)),
+     1             rmlexp(iaddr(2,ibox)))
+            endif
+         enddo
 C$OMP END PARALLEL DO 
-         endif
-
-         if(ifdipole.eq.1.and.ifcharge.eq.0) then
-C$OMP PARALLEL DO DEFAULT (SHARED)
-C$OMP$PRIVATE(ibox,nchild,istart,iend,npts)
-C$OMP$SCHEDULE(DYNAMIC)
-            do ibox=laddr(1,ilev),laddr(2,ilev)
-               nchild = itree(iptr(4)+ibox-1)
-               istart = isrcse(1,ibox)
-               iend = isrcse(2,ibox)
-               npts = iend-istart+1
-c              Check if current box needs to form pw exp           
-               if(npts.gt.ndiv) then
-c                 form the pw expansion
-                  if (npts.gt.nddir) then
-                     call g3dformpwd_fast_vec(nd,delta,eps,
-     1                   sourcesort(1,istart),npts,
-     2                   rnormalsort(1,istart),dipstrsort(1,istart),
-     3                   centers(1,ibox),
-     4                   npw,ws,ts,wnufft,rmlexp(iaddr(1,ibox)))
-                  else
-                     call g3dformpwd_vec(nd,delta,
-     1                   sourcesort(1,istart),npts,
-     2                   rnormalsort(1,istart),dipstrsort(1,istart),
-     3                   centers(1,ibox),
-     4                   npw,ws,ts,rmlexp(iaddr(1,ibox)))
-                  endif
-c                 copy the multipole PW exp into local PW exp
-                  call g3dcopypwexp_vec(nd,nexp,rmlexp(iaddr(1,ibox)),
-     1                rmlexp(iaddr(2,ibox)))
-               endif
-            enddo
-C$OMP END PARALLEL DO 
-         endif
-
-         if(ifdipole.eq.1.and.ifcharge.eq.1) then
-C$OMP PARALLEL DO DEFAULT (SHARED)
-C$OMP$PRIVATE(ibox,nchild,istart,iend,npts)
-C$OMP$SCHEDULE(DYNAMIC)
-            do ibox=laddr(1,ilev),laddr(2,ilev)
-               nchild = itree(iptr(4)+ibox-1)
-               istart = isrcse(1,ibox)
-               iend = isrcse(2,ibox)
-               npts = iend-istart+1
-c              Check if current box needs to form pw exp          
-               if(npts.gt.ndiv) then
-cccc               if(npts.gt.ndiv.or. ifpwexp(ibox).eq.1) then
-                  if (npts.gt.ncddir) then
-                     call g3dformpwcd_fast_vec(nd,delta,eps,
-     1                   sourcesort(1,istart),npts,chargesort(1,istart),
-     2                   rnormalsort(1,istart),dipstrsort(1,istart),
-     3                   centers(1,ibox),
-     4                   npw,ws,ts,wnufft,rmlexp(iaddr(1,ibox)))
-                  else
-                     call g3dformpwcd_vec(nd,delta,
-     1                   sourcesort(1,istart),npts,chargesort(1,istart),
-     2                   rnormalsort(1,istart),dipstrsort(1,istart),
-     3                   centers(1,ibox),
-     4                   npw,ws,ts,rmlexp(iaddr(1,ibox)))
-                  endif                     
-c                 copy the multipole PW exp into local PW exp
-                  call g3dcopypwexp_vec(nd,nexp,rmlexp(iaddr(1,ibox)),
-     1                rmlexp(iaddr(2,ibox)))
-               endif
-            enddo
-C     $OMP END PARALLEL DO
-         endif
  111     format ('ilev=', i1,4x, 'nb=',i6, 4x,'formpw=', f6.2)
-cccc         write(6,111) ilev,nb,dt
+cccc  write(6,111) ilev,nb,dt
 c     end of ilev do loop
  1100 continue
 
-
+      call finufft_destroy(fftplan,ier)
       
       call cpu_time(time2)
 C$    time2=omp_get_wtime()
@@ -977,12 +933,10 @@ c
               nptsj = jend-jstart+1
               if (nptsj .gt. ndiv) then
 cccc              if (nptsj .gt. ndiv.or. ifpwexp(jbox).eq.1) then
-                jx= nint((centers(1,ibox) - centers(1,jbox))/xmin)
-                jy= nint((centers(2,ibox) - centers(2,jbox))/xmin)
-                jz= nint((centers(3,ibox) - centers(3,jbox))/xmin)
-              
-                call g3dshiftpw_vec(nd,nexp,rmlexp(iaddr(1,jbox)),
-     1              rmlexp(iaddr(2,ibox)),wpwshift(1,jx,jy,jz))
+                 call gnd_find_pwshift_ind(dim,iperiod,centers(1,ibox),
+     1               centers(1,jbox),bs0,xmin,nmax,ind)
+                 call gnd_shiftpw(nd,nexp,rmlexp(iaddr(1,jbox)),
+     1               rmlexp(iaddr(2,ibox)),wpwshift(1,ind))
               endif
             enddo
           endif
@@ -1004,13 +958,38 @@ cccc      call prin2('timeinfo2=*',time2-time1,1)
 c     ... step 5, evaluate all local pw expansions
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
+
+c     mandatory parameters to FINUFFT guru interface... (ttype = trans type)
+      ttype = 2
+      if (ifpgh.eq.1) npgh=1
+      if (ifpgh.eq.2) npgh=1+dim
+      if (ifpgh.eq.3) npgh=1+dim+nhess
+      ntrans = nd*npgh
+
+      if (ifpghtarg.ne.ifpgh .and. ifpghtarg.gt.0) then
+         npghtarg=0
+         if (ifpghtarg.eq.1) npghtarg=1
+         if (ifpghtarg.eq.2) npghtarg=1+dim
+         if (ifpghtarg.eq.3) npghtarg=1+dim+nhess
+         ntranstarg = nd*npghtarg
+      endif
+      iflag = 1
+      
+c     use default options
+      call finufft_makeplan(ttype,dim,n_modes,iflag,ntrans,
+     $     eps,fftplan,opts,ier)
+
+      if (ifpghtarg.ne.ifpgh .and. ifpghtarg.gt.0) then
+         call finufft_makeplan(ttype,dim,n_modes,iflag,ntranstarg,
+     $       eps,fftplantarg,opts,ier)
+      endif
       
       do 1500 ilev = npwlevel,npwlevel
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,istart,iend,i,npts)
 C$OMP$SCHEDULE(DYNAMIC)
          call cpu_time(t1)
-cccc         nb=0
+         nb=0
          do ibox = laddr(1,ilev),laddr(2,ilev)
             if (ifpwexp(ibox).eq.1) then
                istartt = itargse(1,ibox) 
@@ -1021,110 +1000,170 @@ cccc         nb=0
                iends = isrcse(2,ibox)
                nptssrc = iends-istarts+1
 
-cccc               nb=nb+1
-c     evaluate local expansion at targets
-               if(nptstarg.gt.0) then
-                  if (ifpghtarg.eq.1.and.nptstarg.gt.npdir) then
-                     call g3dpwevalp_fast_vec(nd,delta,eps,
-     1                   centers(1,ibox),npw,ws,ts,
-     2                   rmlexp(iaddr(2,ibox)),
-     3                   targetsort(1,istartt),
-     4                   nptstarg,pottarg(1,istartt))
-                  elseif (ifpghtarg.eq.1.and.nptstarg.le.npdir) then
-                     call g3dpwevalp_vec(nd,delta,
-     1                   centers(1,ibox),npw,ws,ts,
-     2                   rmlexp(iaddr(2,ibox)),
-     3                   targetsort(1,istartt),
-     4                   nptstarg,pottarg(1,istartt))
+               nb=nb+1
+               if (ifpghtarg.ne.ifpgh) then
+c                 evaluate local expansion at targets
+                  if (nptstarg.gt.0 .and. ifpghtarg.gt.0) then
+                     call gnd_pweval(nd,dim,delta,eps,centers(1,ibox),
+     1                   hpw,nexp,wnufftgh,rmlexp(iaddr(2,ibox)),
+     2                   targetsort(1,istartt),nptstarg,ifpghtarg,
+     3                   pottarg(1,istartt),gradtarg(1,1,istartt),
+     4                   hesstarg(1,1,istartt),fftplantarg)
                   endif
-                  if (ifpghtarg.eq.2.and.nptstarg.gt.ngdir) then
-                     call g3dpwevalg_fast_vec(nd,delta,eps,
-     1                   centers(1,ibox),npw,ws,ts,
-     2                   rmlexp(iaddr(2,ibox)),
-     3                   targetsort(1,istartt),
-     4                   nptstarg,pottarg(1,istartt),
-     5                   gradtarg(1,1,istartt))
-                  elseif (ifpghtarg.eq.2.and.nptstarg.le.ngdir) then
-                     call g3dpwevalg_vec(nd,delta,
-     1                   centers(1,ibox),npw,ws,ts,
-     2                   rmlexp(iaddr(2,ibox)),
-     3                   targetsort(1,istartt),
-     4                   nptstarg,pottarg(1,istartt),
-     5                   gradtarg(1,1,istartt))
-                  endif
-                  if (ifpghtarg.eq.3.and.nptstarg.gt.nhdir) then
-                     call g3dpwevalh_fast_vec(nd,delta,eps,
-     1                   centers(1,ibox),npw,ws,ts,
-     2                   rmlexp(iaddr(2,ibox)),
-     3                   targetsort(1,istartt),
-     4                   nptstarg,pottarg(1,istartt),
-     5                   gradtarg(1,1,istartt),
-     6                   hesstarg(1,1,istartt))
-                  elseif (ifpghtarg.eq.3.and.nptstarg.le.nhdir) then
-                     call g3dpwevalh_vec(nd,delta,
-     1                   centers(1,ibox),npw,ws,ts,
-     2                   rmlexp(iaddr(2,ibox)),
-     3                   targetsort(1,istartt),
-     4                   nptstarg,pottarg(1,istartt),
-     5                   gradtarg(1,1,istartt),
-     6                   hesstarg(1,1,istartt))
-                  endif
-               endif
 c     
-c     evaluate local expansion at sources
-               if (nptssrc.gt.0) then
-                  if (ifpgh.eq.1.) then
-                     if(nptssrc.gt.npdir) then
-                     call g3dpwevalp_fast_vec(nd,delta,eps,
-     1                   centers(1,ibox),npw,ws,ts,
-     2                   rmlexp(iaddr(2,ibox)),
-     3                   sourcesort(1,istarts),nptssrc,
-     4                   pot(1,istarts))
+c                 evaluate local expansion at sources
+                  if (nptssrc.gt.0) then
+                     call gnd_pweval(nd,dim,delta,eps,centers(1,ibox),
+     1                   hpw,nexp,wnufftgh,rmlexp(iaddr(2,ibox)),
+     2                   sourcesort(1,istarts),nptssrc,ifpgh,
+     3                   pot(1,istarts),grad(1,1,istarts),
+     4                   hess(1,1,istarts),fftplan)
+                  endif
+               else
+c                 evaluate local expansion at targets
+                  if (nptstarg.gt.0 .and. nptssrc.eq.0) then
+                     call gnd_pweval(nd,dim,delta,eps,centers(1,ibox),
+     1                   hpw,nexp,wnufftgh,rmlexp(iaddr(2,ibox)),
+     2                   targetsort(1,istartt),nptstarg,ifpghtarg,
+     3                   pottarg(1,istartt),gradtarg(1,1,istartt),
+     4                   hesstarg(1,1,istartt),fftplan)
+                  endif
+c     
+c                 evaluate local expansion at sources
+                  if (nptssrc.gt.0 .and. nptstarg.eq.0) then
+                     call gnd_pweval(nd,dim,delta,eps,centers(1,ibox),
+     1                   hpw,nexp,wnufftgh,rmlexp(iaddr(2,ibox)),
+     2                   sourcesort(1,istarts),nptssrc,ifpgh,
+     3                   pot(1,istarts),grad(1,1,istarts),
+     4                   hess(1,1,istarts),fftplan)
+                  endif
+                  
+c     evaluate local expansion at sources and targets together using one NUFFT
+                  if (nptssrc.gt.0 .and. nptstarg.gt.0) then
+                     nptstmp=nptssrc+nptstarg
+
+                     allocate(targtmp(dim,nptstmp))
+                     j=0
+                     do i=istarts,iends
+                        j=j+1
+                        do k=1,dim
+                           targtmp(k,j)=sourcesort(k,i)
+                        enddo
+                     enddo
+                     do i=istartt,iendt
+                        j=j+1
+                        do k=1,dim
+                           targtmp(k,j)=targetsort(k,i)
+                        enddo
+                     enddo
+
+                     allocate(pottmp(nd,nptstmp))
+                     do i=1,nptstmp
+                        do ind=1,nd
+                           pottmp(ind,i)=0
+                        enddo
+                     enddo
+                     
+                     if (ifpgh.ge.2) then
+                        allocate(gradtmp(nd,dim,nptstmp))
+                        do i=1,nptstmp
+                        do k=1,dim
+                        do ind=1,nd
+                           gradtmp(ind,k,i)=0
+                        enddo
+                        enddo
+                        enddo
                      else
-                     call g3dpwevalp_vec(nd,delta,
-     1                   centers(1,ibox),npw,ws,ts,
-     2                   rmlexp(iaddr(2,ibox)),
-     3                   sourcesort(1,istarts),nptssrc,
-     4                      pot(1,istarts))
+                        allocate(gradtmp(nd,dim,1))
                      endif
-                  endif
-                  if (ifpgh.eq.2.and.nptssrc.gt.ngdir) then
-                     call g3dpwevalg_fast_vec(nd,delta,eps,
-     1                   centers(1,ibox),npw,ws,ts,
-     2                   rmlexp(iaddr(2,ibox)),
-     3                   sourcesort(1,istarts),nptssrc,
-     4                   pot(1,istarts),grad(1,1,istarts))
-                  elseif (ifpgh.eq.2.and.nptssrc.le.ngdir) then
-                     call g3dpwevalg_vec(nd,delta,
-     1                   centers(1,ibox),npw,ws,ts,
-     2                   rmlexp(iaddr(2,ibox)),
-     3                   sourcesort(1,istarts),nptssrc,
-     4                   pot(1,istarts),grad(1,1,istarts))
-                  endif
-                  if (ifpgh.eq.3.and.nptssrc.gt.nhdir) then
-                     call g3dpwevalh_fast_vec(nd,delta,eps,
-     1                   centers(1,ibox),npw,ws,ts,
-     2                   rmlexp(iaddr(2,ibox)),
-     3                   sourcesort(1,istarts),nptssrc,
-     4                   pot(1,istarts),grad(1,1,istarts),
-     5                   hess(1,1,istarts))
-                  elseif (ifpgh.eq.3.and.nptssrc.le.nhdir) then
-                     call g3dpwevalh_vec(nd,delta,
-     1                   centers(1,ibox),npw,ws,ts,
-     2                   rmlexp(iaddr(2,ibox)),
-     3                   sourcesort(1,istarts),nptssrc,
-     4                   pot(1,istarts),grad(1,1,istarts),
-     5                   hess(1,1,istarts))
+                     
+                     if (ifpgh.eq.3) then
+                        allocate(hesstmp(nd,nhess,nptstmp))
+                        do i=1,nptstmp
+                        do k=1,nhess
+                        do ind=1,nd
+                           hesstmp(ind,k,i)=0
+                        enddo
+                        enddo
+                        enddo
+                     else
+                        allocate(hesstmp(nd,nhess,1))
+                     endif
+                     
+                     call gnd_pweval(nd,dim,delta,eps,centers(1,ibox),
+     1                   hpw,nexp,wnufftgh,rmlexp(iaddr(2,ibox)),
+     2                   targtmp,nptstmp,ifpgh,
+     3                   pottmp,gradtmp,hesstmp,fftplan)
+                     j=0
+                     do i=istarts,iends
+                        j=j+1
+                        do ind=1,nd
+                           pot(ind,i)=pot(ind,i)+pottmp(ind,j)
+                        enddo
+                     enddo
+                     do i=istartt,iendt
+                        j=j+1
+                        do ind=1,nd
+                           pottarg(ind,i)=pottarg(ind,i)+pottmp(ind,j)
+                        enddo
+                     enddo
+
+                     if (ifpgh.ge.2) then
+                        j=0
+                        do i=istarts,iends
+                           j=j+1
+                           do k=1,dim
+                           do ind=1,nd
+                              grad(ind,k,i)=grad(ind,k,i)
+     1                            +gradtmp(ind,k,j)
+                           enddo
+                           enddo
+                        enddo
+                        do i=istartt,iendt
+                           j=j+1
+                           do k=1,dim
+                           do ind=1,nd
+                              gradtarg(ind,k,i)=gradtarg(ind,k,i)
+     1                            +gradtmp(ind,k,j)
+                           enddo
+                           enddo
+                        enddo
+                     endif
+                     
+                     if (ifpgh.eq.3) then
+                        j=0
+                        do i=istarts,iends
+                           j=j+1
+                           do k=1,nhess
+                           do ind=1,nd
+                              hess(ind,k,i)=hess(ind,k,i)
+     1                            +hesstmp(ind,k,j)
+                           enddo
+                           enddo
+                        enddo
+                        do i=istartt,iendt
+                           j=j+1
+                           do k=1,nhess
+                           do ind=1,nd
+                              hesstarg(ind,k,i)=hesstarg(ind,k,i)
+     1                            +hesstmp(ind,k,j)
+                           enddo
+                           enddo
+                        enddo
+                     endif
+                     deallocate(targtmp,pottmp,gradtmp,hesstmp)
                   endif
                endif
             endif
          enddo
          call cpu_time(t2)
  222     format ('ilev=', i1,4x, 'nb=',i6, 4x,'pweval=', f6.2)
-c         write(6,222) ilev,nb,t2-t1
-C$OMP END PARALLEL DO        
+         write(6,222) ilev,nb,t2-t1
+C     $OMP END PARALLEL DO        
  1500 continue
 
+      call finufft_destroy(fftplan,ier)
+      if (ifpghtarg.ne.ifpgh) call finufft_destroy(fftplantarg,ier)
       
       call cpu_time(time2)
 C$    time2 = omp_get_wtime()      
@@ -1165,23 +1204,21 @@ cccc              ibox is the target box
                   istartt = itargse(1,ibox)
                   iendt = itargse(2,ibox)
                   nptstarg = iendt-istartt + 1
-cccc                  if (ibox.eq.jbox .and. ifpwexp(jbox).eq.1) then
-cccc                  else
-                  if (nptstarg .gt. 0) then
-                     call fgt3dpart_direct_vec(nd,delta,dmax,
+                  if (nptstarg.gt.0) then
+                     call fgtpart_direct(nd,dim,delta,dmax,
      1                   jstart,jend,istartt,iendt,sourcesort,
      2                   ifcharge,chargesort,
      3                   ifdipole,rnormalsort,dipstrsort,targetsort,
      4                   ifpghtarg,pottarg,gradtarg,hesstarg)
                   endif
-                  if (nptssrc .gt. 0) then
-                     call fgt3dpart_direct_vec(nd,delta,dmax,
+                  if (nptssrc.gt.0) then
+                     call fgtpart_direct(nd,dim,delta,dmax,
      1                   jstart,jend,istarts,iends,sourcesort,
      2                   ifcharge,chargesort,
      3                   ifdipole,rnormalsort,dipstrsort,sourcesort,
      4                   ifpgh,pot,grad,hess)
                   endif
-cccc                  endif
+                  
                enddo
             endif
          enddo
@@ -1207,7 +1244,7 @@ c
 c
 c
 c------------------------------------------------------------------     
-      subroutine fgt3dpart_direct_vec(nd,delta,dmax,istart,iend,
+      subroutine fgtpart_direct(nd,dim,delta,dmax,istart,iend,
      $    jstart,jend,source,ifcharge,charge,
      2    ifdipole,rnormal,dipstr,
      $    targ,ifpgh,pot,grad,hess)
@@ -1279,6 +1316,7 @@ c
         integer istart,iend,jstart,jend,ns,j,i,ntarg
         integer ifcharge,ifdipole
         integer nd
+        integer dim
         integer ifpgh
 c
         real *8 source(3,*)
@@ -1295,17 +1333,17 @@ c
         
         if(ifcharge.eq.1.and.ifdipole.eq.0) then
           if(ifpgh.eq.1) then
-             call g3d_directcp_vec(nd,delta,dmax,source(1,istart),ns,
+             call gnd_directcp(nd,dim,delta,dmax,source(1,istart),ns,
      1           charge(1,istart),targ(1,jstart),ntarg,pot(1,jstart))
           endif
 
           if(ifpgh.eq.2) then
-             call g3d_directcg_vec(nd,delta,dmax,source(1,istart),ns,
+             call gnd_directcg(nd,dim,delta,dmax,source(1,istart),ns,
      1           charge(1,istart),targ(1,jstart),ntarg,pot(1,jstart),
      2           grad(1,1,jstart))
           endif
           if(ifpgh.eq.3) then 
-             call g3d_directch_vec(nd,delta,dmax,source(1,istart),ns,
+             call gnd_directch(nd,dim,delta,dmax,source(1,istart),ns,
      1           charge(1,istart),targ(1,jstart),ntarg,pot(1,jstart),
      2           grad(1,1,jstart),hess(1,1,jstart))
           endif
@@ -1313,18 +1351,18 @@ c
 
         if(ifcharge.eq.0.and.ifdipole.eq.1) then
           if(ifpgh.eq.1) then
-             call g3d_directdp_vec(nd,delta,dmax,source(1,istart),ns,
+             call gnd_directdp(nd,dim,delta,dmax,source(1,istart),ns,
      1           rnormal(1,istart),dipstr(1,istart),targ(1,jstart),
      2           ntarg,pot(1,jstart))
           endif
 
           if(ifpgh.eq.2) then
-             call g3d_directdg_vec(nd,delta,dmax,source(1,istart),ns,
+             call gnd_directdg(nd,dim,delta,dmax,source(1,istart),ns,
      1           rnormal(1,istart),dipstr(1,istart),targ(1,jstart),
      2           ntarg,pot(1,jstart),grad(1,1,jstart))
           endif
           if(ifpgh.eq.3) then
-             call g3d_directdh_vec(nd,delta,dmax,source(1,istart),ns,
+             call gnd_directdh(nd,dim,delta,dmax,source(1,istart),ns,
      1           rnormal(1,istart),dipstr(1,istart),targ(1,jstart),
      2           ntarg,pot(1,jstart),grad(1,1,jstart),hess(1,1,jstart))
           endif
@@ -1332,18 +1370,18 @@ c
 
         if(ifcharge.eq.1.and.ifdipole.eq.1) then
           if(ifpgh.eq.1) then
-             call g3d_directcdp_vec(nd,delta,dmax,source(1,istart),ns,
+             call gnd_directcdp(nd,dim,delta,dmax,source(1,istart),ns,
      1           charge(1,istart),rnormal(1,istart),dipstr(1,istart),
      2           targ(1,jstart),ntarg,pot(1,jstart))
           endif
 
           if(ifpgh.eq.2) then
-             call g3d_directcdg_vec(nd,delta,dmax,source(1,istart),ns,
+             call gnd_directcdg(nd,dim,delta,dmax,source(1,istart),ns,
      1           charge(1,istart),rnormal(1,istart),dipstr(1,istart),
      2           targ(1,jstart),ntarg,pot(1,jstart),grad(1,1,jstart))
           endif
           if(ifpgh.eq.3) then
-             call g3d_directcdh_vec(nd,delta,dmax,source(1,istart),ns,
+             call gnd_directcdh(nd,dim,delta,dmax,source(1,istart),ns,
      1           charge(1,istart),rnormal(1,istart),dipstr(1,istart),
      2           targ(1,jstart),ntarg,pot(1,jstart),grad(1,1,jstart),
      3           hess(1,1,jstart))
@@ -1359,7 +1397,7 @@ c
 c
 c
 c------------------------------------------------------------------    
-      subroutine g3dmpalloc(nd,laddr,iaddr,
+      subroutine gndmpalloc(nd,dim,laddr,iaddr,
      1    nlevels,npwlevel,ifpwexp,lmptot,npw)
 c     This subroutine determines the size of the array
 c     to be allocated for multipole/local expansions
@@ -1399,6 +1437,7 @@ c                 Total length of expansions array required
 c------------------------------------------------------------------
 
       implicit none
+      integer dim
       integer nlevels,npwlevel,npw,nd
       integer iaddr(2,*), laddr(2,0:nlevels), ifpwexp(*)
       integer *8 lmptot
@@ -1413,7 +1452,9 @@ c
       nlevstart = 0
       if (npwlevel .ge. 0) nlevstart = npwlevel
 
-      nn = (npw*npw*npw/2)*2*nd
+      nn = npw**dim
+      nn = nn*2*nd
+
       itmp=0
       do i = nlevstart,nlevstart
 cccc         print *, 'nboxes at npwlevel=',laddr(2,i)-laddr(1,i)+1
@@ -1540,13 +1581,13 @@ c
 c     form local
 c
       if (ifcharge.eq.1 .and. ifdipole.eq.0) then
-         call g3dformlc_vec(nd,delta,sources,ns,charge,center,
+         call gndformlc_vec(nd,delta,sources,ns,charge,center,
      1       nlocal,local)
       elseif (ifcharge.eq.0 .and. ifdipole.eq.1) then
-         call  g3dformld_vec(nd,delta,sources,ns,rnormal,dipstr,
+         call  gndformld_vec(nd,delta,sources,ns,rnormal,dipstr,
      1       center,nlocal,local)
       elseif (ifcharge.eq.1 .and. ifdipole.eq.1) then
-         call g3dformlcd_vec(nd,delta,sources,ns,charge,rnormal,
+         call gndformlcd_vec(nd,delta,sources,ns,charge,rnormal,
      1       dipstr,center,nlocal,local)
       endif
 
@@ -1556,30 +1597,30 @@ c
 c     targets
 c      
       if(ifpghtarg.eq.1) then
-         call g3dlevalp_vec(nd,delta,center,nlocal,local,
+         call gndlevalp_vec(nd,delta,center,nlocal,local,
      1       targ,nt,pottarg)
       endif
       if(ifpghtarg.eq.2) then
-         call g3dlevalg_vec(nd,delta,center,nlocal,local,
+         call gndlevalg_vec(nd,delta,center,nlocal,local,
      1       targ,nt,pottarg,gradtarg)
       endif
       if(ifpghtarg.eq.3) then
-         call g3dlevalh_vec(nd,delta,center,nlocal,local,
+         call gndlevalh_vec(nd,delta,center,nlocal,local,
      1       targ,nt,pottarg,gradtarg,hesstarg)
       endif
 c
 c     sources
 c      
       if(ifpgh.eq.1) then
-         call g3dlevalp_vec(nd,delta,center,nlocal,local,
+         call gndlevalp_vec(nd,delta,center,nlocal,local,
      1       sources,ns,pot)
       endif
       if(ifpgh.eq.2) then
-         call g3dlevalg_vec(nd,delta,center,nlocal,local,
+         call gndlevalg_vec(nd,delta,center,nlocal,local,
      1       sources,ns,pot,grad)
       endif
       if(ifpgh.eq.3) then
-         call g3dlevalh_vec(nd,delta,center,nlocal,local,
+         call gndlevalh_vec(nd,delta,center,nlocal,local,
      1       sources,ns,pot,grad,hess)
       endif
       

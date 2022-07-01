@@ -1,4 +1,4 @@
-# Makefile for fgt2d
+# Makefile for fgt3d
 # # This is the only makefile; there are no makefiles in subdirectories.
 # Users should not need to edit this makefile (doing so would make it
 # hard to stay up to date with repo version). Rather in order to
@@ -41,15 +41,16 @@ FFTWNAME = fftw3
 FFTWOMPSUFFIX = omp
 
 # omp override for total list of math and FFTW libs (now both precisions)...
-LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)_$(FFTWOMPSUFFIX) -l$(FFTWNAME)f -l$(FFTWNAME)f_$(FFTWOMPSUFFIX) $(LIBS)
+#LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)_$(FFTWOMPSUFFIX) -l$(FFTWNAME)f -l$(FFTWNAME)f_$(FFTWOMPSUFFIX) $(LIBS)
+LIBSFFT := -l$(FFTWNAME)  $(LIBS)
 
-LIBNAME=libfgt2d
+LIBNAME=libfgtnd
 DYNAMICLIB = $(LIBNAME).so
 STATICLIB = $(LIBNAME).a
 LIMPLIB = $(DYNAMICLIB)
 
-LFGTLINKLIB = -lfgt2d
-LLINKLIB = -lfgt2d
+LFGTLINKLIB = -lfgtnd
+LLINKLIB = -lfgtnd
 
 
 # For your OS, override the above by placing make variables in make.inc
@@ -74,16 +75,18 @@ COM = src/common
 COMOBJS = $(COM)/prini_new.o \
 	$(COM)/cumsum.o \
 	$(COM)/fmmcommon2d.o \
-	$(COM)/pts_tree2d4.o \
-	$(COM)/tree_routs4.o 
+	$(COM)/pts_tree_nd.o \
+	$(COM)/tree_routs_nd.o \
+	$(COM)/tree_routs3d.o 
 
 # Gauss transform objects
 GAUSS = src
-GOBJS = $(GAUSS)/fgt2d_fast.o \
-	$(GAUSS)/g2dterms.o \
-	$(GAUSS)/g2ddirect.o \
-	$(GAUSS)/g2drouts.o 
-
+BFGT = ../../bfgt/nd/src
+GOBJS = $(GAUSS)/fgtnd.o \
+	$(GAUSS)/gndterms.o \
+	$(GAUSS)/gnddirect.o \
+	$(GAUSS)/gndrouts.o \
+	$(BFGT)/gndpwrouts.o
 
 # Test objects
 TOBJS = $(COM)/hkrand.o $(COM)/dlaran.o
@@ -98,7 +101,7 @@ default: usage
 
 usage:
 	@echo "-------------------------------------------------------------------------"
-	@echo "Makefile for fgt2d. Specify what to make:"
+	@echo "Makefile for fgt3d. Specify what to make:"
 	@echo "  make install - compile and install the main library"
 	@echo "  make install PREFIX=(INSTALL_DIR) - compile and install the main library at custom location given by PREFIX"
 	@echo "  make lib - compile the main library (in lib/ and lib-static/)"
@@ -149,23 +152,23 @@ install: $(STATICLIB) $(DYNAMICLIB)
 	@echo "    PATH on windows"
 	@echo "    DYLD_LIBRARY_PATH on Mac OSX (not needed if default installation directory is used"
 	@echo " "
-	@echo "In order to link against the dynamic library, use -L"$(FGT_INSTALL_DIR)  " -lfgt2d"
+	@echo "In order to link against the dynamic library, use -L"$(FGT_INSTALL_DIR)  " -lfgt3d"
 
 
 #
 # testing routines
 #
-test: $(STATICLIB) $(TOBJS) test/fgt2d 
+test: $(STATICLIB) $(TOBJS) test/fgtnd 
 	(cd test; ./run_fgttest.sh)
 
 
-test-dyn: $(DYNAMICLIB)  $(TOBJS) test/fgt2d-dyn 
+test-dyn: $(DYNAMICLIB)  $(TOBJS) test/fgtnd-dyn 
 	(cd test; ./run_fgttest.sh)
 
-test/fgt2d:
-#	$(FC) $(FFLAGS) test/nufft3d_demo.f test/dirft3d.f $(TOBJS) -o test/int2-test-fgt2d -Llib-static $(LLINKLIB)  $(ABSDYNLIB) $(LIBSFFT)
-#	$(FC) $(FFLAGS) test/test_fgt2d_all.f $(TOBJS) -o test/int2-test-fgt2d -Llib-static $(LLINKLIB)  $(ABSDYNLIB) $(LIBSFFT)
-	$(FC) $(FFLAGS) test/example1.f $(TOBJS) -o test/int2-test-fgt2d -Llib-static $(LLINKLIB)  $(ABSDYNLIB) $(LIBSFFT)
+test/fgtnd:
+#	$(FC) $(FFLAGS) test/nufft3d_demo.f test/dirft3d.f $(TOBJS) -o test/int2-test-fgt3d -Llib-static $(LLINKLIB)  $(ABSDYNLIB) $(LIBSFFT)
+	$(FC) $(FFLAGS) test/test_fgt3d_all.f $(TOBJS) -o test/int2-test-fgt3d -Llib-static $(LLINKLIB)  $(ABSDYNLIB) $(LIBSFFT)
+#	$(FC) $(FFLAGS) test/example1.f $(TOBJS) -o test/int2-test-fgt3d -Llib-static $(LLINKLIB)  $(ABSDYNLIB) $(LIBSFFT)
 
 
 
@@ -173,15 +176,15 @@ test/fgt2d:
 # Linking test files to dynamic libraries
 #
 
-test/fgt2d-dyn:
-	$(FC) $(FFLAGS) test/test_fgt2d.f $(TOBJS) -o test/int2-test-fgt2d -L$(FGT_INSTALL_DIR)  $(LLINKLIB)  
+test/fgtnd-dyn:
+	$(FC) $(FFLAGS) test/test_fgtnd.f $(TOBJS) -o test/int2-test-fgtnd -L$(FGT_INSTALL_DIR)  $(LLINKLIB)  
 
 
 #
 # build the python bindings/interface
 #
 python: $(STATICLIB)
-	cd python && export FGT2D_LIBS='$(LIBS)' && pip install -e . 
+	cd python && export FGTND_LIBS='$(LIBS)' && pip install -e . 
 
 #
 # housekeeping routines

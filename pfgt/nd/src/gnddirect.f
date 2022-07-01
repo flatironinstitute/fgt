@@ -1,6 +1,6 @@
 c
 c**********************************************************************
-      subroutine g3d_directcp_vec(nd,delta,dmax,sources,ns,charge,
+      subroutine gnd_directcp(nd,dim,delta,dmax,sources,ns,charge,
      $           targ,ntarg,pot)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
@@ -25,17 +25,19 @@ c
 c     pot(nd)       : potential is incremented
 c---------------------------------------------------------------------
       integer i,ns,ii,nd
-      real *8 sources(3,ns),targ(3,*),xdiff,ydiff,zdiff,rr,r
+      integer dim
+      real *8 sources(dim,ns),targ(dim,*)
+      real *8 dr(dim)
       real *8 rtmp,delta
       real *8 pot(nd,ntarg)
       real *8 charge(nd,ns)
 c
       do itarg=1,ntarg
       do i = 1,ns
-         xdiff=targ(1,itarg)-sources(1,i)
-         ydiff=targ(2,itarg)-sources(2,i)
-         zdiff=targ(3,itarg)-sources(3,i)
-         rr=xdiff*xdiff+ydiff*ydiff+zdiff*zdiff
+         rr=0
+         do k=1,dim
+            rr=rr+ (targ(k,itarg)-sources(k,i))**2
+         enddo
          if (rr .lt. dmax) then
             rtmp = dexp(-rr/delta)
             do ii=1,nd
@@ -53,7 +55,7 @@ c
 c
 c
 c**********************************************************************
-      subroutine g3d_directcg_vec(nd,delta,dmax,sources,ns,charge,
+      subroutine gnd_directcg(nd,dim,delta,dmax,sources,ns,charge,
      1             targ,ntarg,pot,grad)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
@@ -80,30 +82,33 @@ c     pot(nd)       : potential is incremented
 c     grad(nd,2)      : gradient is incremented
 c---------------------------------------------------------------------
       integer i,ns,ii,nd
-      real *8 sources(3,ns),targ(3,ntarg)
-      real *8 xdiff,ydiff,zdiff,rr,r,rtmp,delta
-      real *8 pot(nd,ntarg),grad(nd,3,ntarg)
-      real *8 dx,dy,dz,rinc
+      integer dim
+      real *8 sources(dim,ns),targ(dim,ntarg)
+      real *8 dr(dim)
+      real *8 pot(nd,ntarg),grad(nd,dim,ntarg)
       real *8 charge(nd,ns)
 c
       rfac=-2.0d0/delta
       do itarg=1,ntarg
       do i = 1,ns
-         xdiff=targ(1,itarg)-sources(1,i)
-         ydiff=targ(2,itarg)-sources(2,i)
-         zdiff=targ(3,itarg)-sources(3,i)
-         rr=xdiff*xdiff+ydiff*ydiff+zdiff*zdiff
+         do k=1,dim
+            dr(k)=targ(k,itarg)-sources(k,i)
+         enddo
+         rr=0
+         do k=1,dim
+            rr=rr+dr(k)*dr(k)
+         enddo
          if (rr .lt. dmax) then
             rtmp = dexp(-rr/delta)
-            dx = rfac*xdiff
-            dy = rfac*ydiff
-            dz = rfac*zdiff
+            do k=1,dim
+               dr(k)=rfac*dr(k)
+            enddo
             do ii = 1,nd
                rinc = rtmp*charge(ii,i)
                pot(ii,itarg) = pot(ii,itarg) + rinc
-               grad(ii,1,itarg) = grad(ii,1,itarg) + dx*rinc
-               grad(ii,2,itarg) = grad(ii,2,itarg) + dy*rinc
-               grad(ii,3,itarg) = grad(ii,3,itarg) + dz*rinc
+               do k=1,dim
+                  grad(ii,k,itarg) = grad(ii,k,itarg) + dr(k)*rinc
+               enddo
             enddo
          endif
       enddo
@@ -119,7 +124,7 @@ c
 c
 c
 c**********************************************************************
-      subroutine g3d_directch_vec(nd,delta,dmax,sources,ns,charge,
+      subroutine gnd_directch(nd,dim,delta,dmax,sources,ns,charge,
      1           targ,ntarg,pot,grad,hess)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
@@ -151,46 +156,52 @@ c                     using ordering (dxx,dyy,dzz,dxy,dxz,dyz)
       
 c---------------------------------------------------------------------
       integer i,ns,ifexpon,ii,nd
-      real *8 sources(3,ns),targ(3,ntarg)
+      integer dim
+      real *8 sources(dim,ns),targ(dim,ntarg)
       real *8 xdiff,ydiff,zdiff,rr,r,delta
-      real *8 pot(nd,ntarg),grad(nd,3,ntarg),hess(nd,6,ntarg)
-      real *8 rtmp,dx,dy,dz,rinc,dxx,dyy,dzz
-      real *8 dxy,dxz,dyz
+      real *8 pot(nd,ntarg),grad(nd,dim,ntarg)
+      real *8 hess(nd,dim*(dim+1)/2,ntarg)
+      real *8 dr(dim)
+      real *8 dg(dim),dh(dim*(dim+1)/2)
       real *8 charge(nd,ns)
 c
       rfac = -2.0d0/delta
       do itarg=1,ntarg
       do i = 1,ns
-         xdiff=targ(1,itarg)-sources(1,i)
-         ydiff=targ(2,itarg)-sources(2,i)
-         zdiff=targ(3,itarg)-sources(3,i)
-         rr=xdiff*xdiff+ydiff*ydiff+zdiff*zdiff
+         do k=1,dim
+            dr(k)=targ(k,itarg)-sources(k,i)
+         enddo
+         rr=0
+         do k=1,dim
+            rr=rr+dr(k)*dr(k)
+         enddo
          if (rr .lt. dmax) then
             rtmp = dexp(-rr/delta)
-            dx = rfac*xdiff
-            dy = rfac*ydiff
-            dz = rfac*zdiff
-            dxx = rfac + dx*dx
-            dyy = rfac + dy*dy
-            dzz = rfac + dz*dz
-            dxy = dx*dy
-            dxz = dx*dz
-            dyz = dy*dz
+            do k=1,dim
+               dg(k)=rfac*dr(k)
+            enddo
+
+            do k=1,dim
+               dh(k)=rfac+dg(k)*dg(k)
+            enddo
+
+            m=dim
+            do k=1,dim-1
+            do j=k+1,dim
+               m=m+1
+               dh(m)=dg(k)*dg(j)
+            enddo
+            enddo
 c
             do ii = 1,nd
                rinc = rtmp*charge(ii,i)
                pot(ii,itarg) = pot(ii,itarg) + rinc
-            
-               grad(ii,1,itarg) = grad(ii,1,itarg) + dx*rinc
-               grad(ii,2,itarg) = grad(ii,2,itarg) + dy*rinc
-               grad(ii,3,itarg) = grad(ii,3,itarg) + dz*rinc
-
-               hess(ii,1,itarg) = hess(ii,1,itarg) + dxx*rinc
-               hess(ii,2,itarg) = hess(ii,2,itarg) + dyy*rinc
-               hess(ii,3,itarg) = hess(ii,3,itarg) + dzz*rinc
-               hess(ii,4,itarg) = hess(ii,4,itarg) + dxy*rinc
-               hess(ii,5,itarg) = hess(ii,5,itarg) + dxz*rinc
-               hess(ii,6,itarg) = hess(ii,6,itarg) + dyz*rinc
+               do k=1,dim
+                  grad(ii,k,itarg) = grad(ii,k,itarg) + dg(k)*rinc
+               enddo
+               do k=1,dim*(dim+1)/2
+                  hess(ii,k,itarg) = hess(ii,k,itarg) + dh(k)*rinc
+               enddo
             enddo
          endif
       enddo
@@ -204,7 +215,7 @@ c
 c
 c
 c**********************************************************************
-      subroutine g3d_directdp_vec(nd,delta,dmax,sources,ns,
+      subroutine gnd_directdp(nd,dim,delta,dmax,sources,ns,
      $           rnormal,dipstr,targ,ntarg,pot)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
@@ -229,26 +240,32 @@ c
 c     pot(nd)   (complex *16)      : potential is incremented
 c---------------------------------------------------------------------
       integer i,ns,ii,nd
-      real *8 sources(3,ns),rnormal(3,ns),targ(3,ntarg),xdiff,ydiff,zdiff
-      real *8 dx,dy,dz,rtmp,rinc,delta,rr,r
+      integer dim
+      real *8 sources(dim,ns),rnormal(dim,ns),targ(dim,ntarg)
+      real *8 dr(dim)
       real *8 pot(nd,ntarg)
       real *8 dipstr(nd,ns)
 c
       rfac = 2.0d0/delta
       do itarg=1,ntarg
       do i = 1,ns
-         xdiff=targ(1,itarg)-sources(1,i)
-         ydiff=targ(2,itarg)-sources(2,i)
-         zdiff=targ(3,itarg)-sources(3,i)
-         rr=xdiff*xdiff+ydiff*ydiff+zdiff*zdiff
+         do k=1,dim
+            dr(k)=targ(k,itarg)-sources(k,i)
+         enddo
+         rr=0
+         do k=1,dim
+            rr=rr+dr(k)*dr(k)
+         enddo
          if (rr .lt. dmax) then
             rtmp = dexp(-rr/delta)
-            dx = rfac*xdiff
-            dy = rfac*ydiff
-            dz = rfac*zdiff
-            
-            rinc = (dx*rnormal(1,i)+dy*rnormal(2,i)
-     1            +dz*rnormal(3,i))*rtmp
+            do k=1,dim
+               dr(k)=rfac*dr(k)
+            enddo
+            rinc=0
+            do k=1,dim
+               rinc=rinc+dr(k)*rnormal(k,i)
+            enddo
+            rinc=rinc*rtmp
             do ii=1,nd
                pot(ii,itarg) = pot(ii,itarg) + rinc*dipstr(ii,i)
             enddo
@@ -264,7 +281,7 @@ c
 c
 c
 c**********************************************************************
-      subroutine g3d_directdg_vec(nd,delta,dmax,sources,ns,
+      subroutine gnd_directdg(nd,dim,delta,dmax,sources,ns,
      1             rnormal,dipstr,targ,ntarg,pot,grad)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
@@ -293,36 +310,43 @@ c     pot(nd)       : potential is incremented
 c     grad(nd,2)    : gradient is incremented
 c---------------------------------------------------------------------
       integer i,ns,ii,nd
-      real *8 sources(3,ns),rnormal(3,ns),targ(3,ntarg)
-      real *8 xdiff,ydiff,zdiff,rr,r,rtmp,rinc,dx,dy,dz
-      real *8 rincx,rincy,rincz,delta
-      real *8 pot(nd,ntarg),grad(nd,3,ntarg)
+      integer dim
+      real *8 sources(dim,ns),rnormal(dim,ns),targ(dim,ntarg)
+      real *8 dr(dim)
+      real *8 rincg(dim),delta
+      real *8 pot(nd,ntarg),grad(nd,dim,ntarg)
       real *8 dipstr(nd,ns)
 c
       rfac = 2.0d0/delta
       do itarg=1,ntarg
       do i = 1,ns
-         xdiff=targ(1,itarg)-sources(1,i)
-         ydiff=targ(2,itarg)-sources(2,i)
-         zdiff=targ(3,itarg)-sources(3,i)
-         rr=xdiff*xdiff+ydiff*ydiff+zdiff*zdiff
+         do k=1,dim
+            dr(k)=targ(k,itarg)-sources(k,i)
+         enddo
+         rr=0
+         do k=1,dim
+            rr=rr+dr(k)*dr(k)
+         enddo
          if (rr .lt. dmax) then         
             dtmp = dexp(-rr/delta)
+            do k=1,dim
+               dr(k)=rfac*dr(k)
+            enddo
 
-            dx = rfac*xdiff
-            dy = rfac*ydiff
-            dz = rfac*zdiff
-            rinc = (dx*rnormal(1,i)+dy*rnormal(2,i)+dz*rnormal(3,i))
-            rincx = rnormal(1,i)*rfac - rinc*dx
-            rincy = rnormal(2,i)*rfac - rinc*dy
-            rincz = rnormal(3,i)*rfac - rinc*dz
+            rinc=0
+            do k=1,dim
+               rinc=rinc+dr(k)*rnormal(k,i)
+            enddo
+            do k=1,dim
+               rincg(k)=rnormal(k,i)*rfac-rinc*dr(k)
+            enddo
 c     
             do ii = 1,nd
                rtmp = dtmp*dipstr(ii,i)
                pot(ii,itarg) = pot(ii,itarg) + rinc*rtmp
-               grad(ii,1,itarg) = grad(ii,1,itarg) + rincx*rtmp
-               grad(ii,2,itarg) = grad(ii,2,itarg) + rincy*rtmp
-               grad(ii,3,itarg) = grad(ii,3,itarg) + rincz*rtmp
+               do k=1,dim
+                  grad(ii,k,itarg) = grad(ii,k,itarg) + rincg(k)*rtmp
+               enddo
             enddo
          endif
       enddo
@@ -339,7 +363,7 @@ c
 c
 c
 c**********************************************************************
-      subroutine g3d_directdh_vec(nd,delta,dmax,sources,ns,
+      subroutine gnd_directdh(nd,dim,delta,dmax,sources,ns,
      1           rnormal,dipstr,targ,ntarg,pot,grad,hess)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
@@ -370,56 +394,62 @@ c     grad(nd)  (complex *16)      : gradient is incremented
 c     hess(nd)  (complex *16)      : Hessian is incremented
 c---------------------------------------------------------------------
       integer i,ns,ifexpon,ii,nd
-      real *8 sources(3,ns),rnormal(3,ns),targ(3,ntarg)
-      real *8 xdiff,ydiff,zdiff,rr,r,rtmp,rinc,dx,dy,dz
-      real *8 rincx,rincy,rincz,delta
-      real *8 rincxx,rincyy,rinczz
-      real *8 rincxy,rincxz,rincyz
-      real *8 pot(nd,ntarg),grad(nd,3,ntarg),hess(nd,6,ntarg)
+      integer dim
+      real *8 sources(dim,ns),rnormal(dim,ns),targ(dim,ntarg)
+      real *8 dr(dim),rincg(dim),rinch(dim*(dim+1)/2)
+      real *8 pot(nd,ntarg),grad(nd,dim,ntarg)
+      real *8 hess(nd,dim*(dim+1)/2,ntarg)
       real *8 dipstr(nd,ns)
 
 c
       rfac = 2.0d0/delta
       do itarg=1,ntarg
       do i = 1,ns
-         xdiff=targ(1,itarg)-sources(1,i)
-         ydiff=targ(2,itarg)-sources(2,i)
-         zdiff=targ(3,itarg)-sources(3,i)
-         rr=xdiff*xdiff+ydiff*ydiff+zdiff*zdiff
+         do k=1,dim
+            dr(k)=targ(k,itarg)-sources(k,i)
+         enddo
+         rr=0
+         do k=1,dim
+            rr=rr+dr(k)*dr(k)
+         enddo
          if (rr .lt. dmax) then         
             dtmp = dexp(-rr/delta)
-            dx = rfac*xdiff
-            dy = rfac*ydiff
-            dz = rfac*zdiff
+            do k=1,dim
+               dr(k)=rfac*dr(k)
+            enddo
+
+            rinc=0
+            do k=1,dim
+               rinc=rinc+dr(k)*rnormal(k,i)
+            enddo
             
-            rinc = (dx*rnormal(1,i)+dy*rnormal(2,i)+dz*rnormal(3,i))
-            rincx = rnormal(1,i)*rfac - rinc*dx
-            rincy = rnormal(2,i)*rfac - rinc*dy
-            rincz = rnormal(3,i)*rfac - rinc*dz
-            
-            rincxx = -rfac*(dx*rnormal(1,i)+rinc) - rincx*dx
-            rincyy = -rfac*(dy*rnormal(2,i)+rinc) - rincy*dy
-            rinczz = -rfac*(dz*rnormal(3,i)+rinc) - rincz*dz
-            
-            rincxy = -rfac*dx*rnormal(2,i) - rincx*dy
-            rincxz = -rfac*dx*rnormal(3,i) - rincx*dz
-            rincyz = -rfac*dy*rnormal(3,i) - rincy*dz
+            do k=1,dim
+               rincg(k)=rnormal(k,i)*rfac-rinc*dr(k)
+            enddo
+
+            do k=1,dim
+               rinch(k)=-rfac*(dr(k)*rnormal(k,i)+rinc)
+     1             - rincg(k)*dr(k)
+            enddo
+
+            m=dim
+            do k=1,dim-1
+            do j=k+1,dim
+               m=m+1
+               rinch(m)=-rfac*dr(k)*rnormal(j,i) - rincg(k)*dr(j)
+            enddo
+            enddo
 c
             do ii = 1,nd
                rtmp = dtmp*dipstr(ii,i)
                
                pot(ii,itarg) = pot(ii,itarg) + rinc*rtmp
-               grad(ii,1,itarg) = grad(ii,1,itarg) + rincx*rtmp
-               grad(ii,2,itarg) = grad(ii,2,itarg) + rincy*rtmp
-               grad(ii,3,itarg) = grad(ii,3,itarg) + rincz*rtmp
-               
-               hess(ii,1,itarg) = hess(ii,1,itarg) + rincxx*rtmp
-               hess(ii,2,itarg) = hess(ii,2,itarg) + rincyy*rtmp
-               hess(ii,3,itarg) = hess(ii,3,itarg) + rinczz*rtmp
-
-               hess(ii,4,itarg) = hess(ii,4,itarg) + rincxy*rtmp
-               hess(ii,5,itarg) = hess(ii,5,itarg) + rincxz*rtmp
-               hess(ii,6,itarg) = hess(ii,6,itarg) + rincyz*rtmp
+               do k=1,dim
+                  grad(ii,k,itarg) = grad(ii,k,itarg) + rincg(k)*rtmp
+               enddo
+               do k=1,dim*(dim+1)/2
+                  hess(ii,k,itarg) = hess(ii,k,itarg) + rinch(k)*rtmp
+               enddo
             enddo
          endif
       enddo
@@ -433,7 +463,7 @@ c
 c
 c
 c**********************************************************************
-      subroutine g3d_directcdp_vec(nd,delta,dmax,sources,ns,
+      subroutine gnd_directcdp(nd,dim,delta,dmax,sources,ns,
      $           charge,rnormal,dipstr,targ,ntarg,pot)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
@@ -461,8 +491,9 @@ c
 c     pot(nd)       : potential is incremented
 c---------------------------------------------------------------------
       integer i,ns,ii,nd
-      real *8 sources(3,ns),rnormal(3,ns),targ(3,ntarg)
-      real *8 xdiff,ydiff,zdiff,rr,r,rtmp,rinc,dx,dy,dz,delta
+      integer dim
+      real *8 sources(dim,ns),rnormal(dim,ns),targ(dim,ntarg)
+      real *8 dr(dim)
       real *8 pot(nd,ntarg)
       real *8 charge(nd,ns),dipstr(nd,ns)
 
@@ -470,21 +501,27 @@ c
       rfac = 2.0d0/delta
       do itarg=1,ntarg
       do i = 1,ns
-         xdiff=targ(1,itarg)-sources(1,i)
-         ydiff=targ(2,itarg)-sources(2,i)
-         zdiff=targ(3,itarg)-sources(3,i)
-         rr=xdiff*xdiff+ydiff*ydiff+zdiff*zdiff
+         do k=1,dim
+            dr(k)=targ(k,itarg)-sources(k,i)
+         enddo
+         rr=0
+         do k=1,dim
+            rr=rr+dr(k)*dr(k)
+         enddo
          if (rr .lt. dmax) then         
             rtmp = dexp(-rr/delta)
             do ii=1,nd
                pot(ii,itarg) = pot(ii,itarg) + rtmp*charge(ii,i)
             enddo
 c
-            dx = rfac*xdiff
-            dy = rfac*ydiff
-            dz = rfac*zdiff
-            rinc = (dx*rnormal(1,i)+dy*rnormal(2,i)
-     1          +dz*rnormal(3,i))*rtmp
+            do k=1,dim
+               dr(k)=rfac*dr(k)
+            enddo
+            rinc=0
+            do k=1,dim
+               rinc=rinc+dr(k)*rnormal(k,i)
+            enddo
+            rinc=rinc*rtmp
             do ii=1,nd
                pot(ii,itarg) = pot(ii,itarg) + rinc*dipstr(ii,i)
             enddo
@@ -500,7 +537,7 @@ c
 c
 c
 c**********************************************************************
-      subroutine g3d_directcdg_vec(nd,delta,dmax,sources,ns,
+      subroutine gnd_directcdg(nd,dim,delta,dmax,sources,ns,
      1             charge,rnormal,dipstr,targ,ntarg,pot,grad)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
@@ -531,44 +568,50 @@ c     pot(nd)     (complex *16)      : potential is incremented
 c     grad(nd)  (complex *16)      : gradient is incremented
 c---------------------------------------------------------------------
       integer i,ns,ii,nd
-      real *8 sources(3,ns),rnormal(3,ns),targ(3,ntarg),delta
-      real *8 xdiff,ydiff,zdiff,rr,r,rtmp,rinc,dx,dy,dz
-      real *8 rincx,rincy,rincz
-      real *8 pot(nd,ntarg),grad(nd,3,ntarg)
+      integer dim
+      real *8 sources(dim,ns),rnormal(dim,ns),targ(dim,ntarg),delta
+      real *8 dr(dim),dg(dim),rincg(dim)
+      real *8 pot(nd,ntarg),grad(nd,dim,ntarg)
       real *8 charge(nd,ns),dipstr(nd,ns)
 
 c
       rfac = -2.0d0/delta
       do itarg=1,ntarg
       do i = 1,ns
-         xdiff=targ(1,itarg)-sources(1,i)
-         ydiff=targ(2,itarg)-sources(2,i)
-         zdiff=targ(3,itarg)-sources(3,i)
-         rr=xdiff*xdiff+ydiff*ydiff+zdiff*zdiff
+         do k=1,dim
+            dr(k)=targ(k,itarg)-sources(k,i)
+         enddo
+         rr=0
+         do k=1,dim
+            rr=rr+dr(k)*dr(k)
+         enddo
          if (rr .lt. dmax) then         
             dtmp = dexp(-rr/delta)
-            dx = rfac*xdiff
-            dy = rfac*ydiff
-            dz = rfac*zdiff
+            do k=1,dim
+               dr(k)=rfac*dr(k)
+            enddo
             do ii = 1,nd
                rinc = dtmp*charge(ii,i)
                pot(ii,itarg) = pot(ii,itarg) + rinc
-               grad(ii,1,itarg) = grad(ii,1,itarg) + dx*rinc
-               grad(ii,2,itarg) = grad(ii,2,itarg) + dy*rinc
-               grad(ii,3,itarg) = grad(ii,3,itarg) + dz*rinc
+               do k=1,dim
+                  grad(ii,k,itarg) = grad(ii,k,itarg) + dr(k)*rinc
+               enddo
             enddo
 c
-            rinc = -dx*rnormal(1,i)-dy*rnormal(2,i)-dz*rnormal(3,i)
-            rincx = rinc*dx-rnormal(1,i)*rfac
-            rincy = rinc*dy-rnormal(2,i)*rfac
-            rincz = rinc*dz-rnormal(3,i)*rfac
+            rinc=0
+            do k=1,dim
+               rinc=rinc-dr(k)*rnormal(k,i)
+            enddo
+            do k=1,dim
+               rincg(k)=-rnormal(k,i)*rfac+rinc*dr(k)
+            enddo
 c
             do ii = 1,nd
                rtmp = dtmp*dipstr(ii,i)
                pot(ii,itarg) = pot(ii,itarg) + rinc*rtmp
-               grad(ii,1,itarg) = grad(ii,1,itarg) + rincx*rtmp
-               grad(ii,2,itarg) = grad(ii,2,itarg) + rincy*rtmp
-               grad(ii,3,itarg) = grad(ii,3,itarg) + rincz*rtmp
+               do k=1,dim
+                  grad(ii,k,itarg) = grad(ii,k,itarg) + rincg(k)*rtmp
+               enddo
             enddo
          endif
       enddo
@@ -585,7 +628,7 @@ c
 c
 c
 c**********************************************************************
-      subroutine g3d_directcdh_vec(nd,delta,dmax,sources,ns,
+      subroutine gnd_directcdh(nd,dim,delta,dmax,sources,ns,
      1           charge,rnormal,dipstr,targ,ntarg,pot,grad,hess)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
@@ -619,12 +662,13 @@ c     grad(nd)      : gradient is incremented
 c     hess(nd)      : Hessian is incremented
 c---------------------------------------------------------------------
       integer i,ns,ifexpon,ii,nd
-      real *8 sources(3,ns),targ(3,ntarg),rnormal(3,ns)
-      real *8 xdiff,ydiff,zdiff,rr,r,rtmp,rinc,dx,dy,dz
-      real *8 rincx,rincy,rincz,delta
-      real *8 rincxx,rincyy,rinczz,rincxy,rincxz,rincyz
-      real *8 dxx,dyy,dzz,dxy,dxz,dyz
-      real *8 pot(nd,ntarg),grad(nd,3,ntarg),hess(nd,6,ntarg)
+      integer dim
+      real *8 sources(dim,ns),targ(dim,ntarg),rnormal(dim,ns)
+      real *8 dr(dim),dg(dim),dh(dim*(dim+1)/2)
+      real *8 rincg(dim),rinch(dim*(dim+1)/2)
+      
+      real *8 pot(nd,ntarg),grad(nd,dim,ntarg)
+      real *8 hess(nd,dim*(dim+1)/2,ntarg)
       real *8 charge(nd,ns),dipstr(nd,ns)
 
 
@@ -632,71 +676,73 @@ c
       rfac = -2.0d0/delta
       do itarg=1,ntarg
       do i = 1,ns
-         xdiff=targ(1,itarg)-sources(1,i)
-         ydiff=targ(2,itarg)-sources(2,i)
-         zdiff=targ(3,itarg)-sources(3,i)
-         rr=xdiff*xdiff+ydiff*ydiff+zdiff*zdiff
+         do k=1,dim
+            dr(k)=targ(k,itarg)-sources(k,i)
+         enddo
+         rr=0
+         do k=1,dim
+            rr=rr+dr(k)*dr(k)
+         enddo
          if (rr .lt. dmax) then
             dtmp = dexp(-rr/delta)
-            dx = rfac*xdiff
-            dy = rfac*ydiff
-            dz = rfac*zdiff
+            do k=1,dim
+               dg(k)=rfac*dr(k)
+            enddo
             
-            dxx = rfac + dx*dx
-            dyy = rfac + dy*dy
-            dzz = rfac + dz*dz
+            do k=1,dim
+               dh(k)=rfac+dg(k)*dg(k)
+            enddo
 
-            dxy = dx*dy
-            dxz = dx*dz
-            dyz = dy*dz
+            m=dim
+            do k=1,dim-1
+            do j=k+1,dim
+               m=m+1
+               dh(m)=dg(k)*dg(j)
+            enddo
+            enddo
 c
             do ii = 1,nd
                rinc = dtmp*charge(ii,i)
                pot(ii,itarg) = pot(ii,itarg) + rinc
-            
-               grad(ii,1,itarg) = grad(ii,1,itarg) + dx*rinc
-               grad(ii,2,itarg) = grad(ii,2,itarg) + dy*rinc
-               grad(ii,3,itarg) = grad(ii,3,itarg) + dz*rinc
-
-               hess(ii,1,itarg) = hess(ii,1,itarg) + dxx*rinc
-               hess(ii,2,itarg) = hess(ii,2,itarg) + dyy*rinc
-               hess(ii,3,itarg) = hess(ii,3,itarg) + dzz*rinc
-               
-               hess(ii,4,itarg) = hess(ii,4,itarg) + dxy*rinc
-               hess(ii,5,itarg) = hess(ii,5,itarg) + dxz*rinc
-               hess(ii,6,itarg) = hess(ii,6,itarg) + dyz*rinc
+               do k=1,dim
+                  grad(ii,k,itarg) = grad(ii,k,itarg) + dg(k)*rinc
+               enddo
+               do k=1,dim*(dim+1)/2
+                  hess(ii,k,itarg) = hess(ii,k,itarg) + dh(k)*rinc
+               enddo
             enddo
 
-ccc         rr=xdiff*xdiff+ydiff*ydiff
-ccc         rtmp = dexp(-rr/delta)
-            rinc = -dx*rnormal(1,i)-dy*rnormal(2,i)-dz*rnormal(3,i)
-            rincx = rinc*dx-rnormal(1,i)*rfac
-            rincy = rinc*dy-rnormal(2,i)*rfac
-            rincz = rinc*dz-rnormal(3,i)*rfac
+            rinc=0
+            do k=1,dim
+               rinc=rinc-dg(k)*rnormal(k,i)
+            enddo
             
-            rincxx = rfac*(rinc-dx*rnormal(1,i)) + rincx*dx
-            rincyy = rfac*(rinc-dy*rnormal(2,i)) + rincy*dy
-            rinczz = rfac*(rinc-dz*rnormal(3,i)) + rincz*dz
+            do k=1,dim
+               rincg(k)=-rnormal(k,i)*rfac+rinc*dg(k)
+            enddo
 
-            rincxy = rincx*dy - rfac*dx*rnormal(2,i) 
-            rincxz = rincx*dz - rfac*dx*rnormal(3,i) 
-            rincyz = rincy*dz - rfac*dy*rnormal(3,i) 
-            
+            do k=1,dim
+               rinch(k)=rfac*(-dg(k)*rnormal(k,i)+rinc)
+     1             + rincg(k)*dg(k)
+            enddo
+
+            m=dim
+            do k=1,dim-1
+            do j=k+1,dim
+               m=m+1
+               rinch(m)=-rfac*dg(k)*rnormal(j,i) + rincg(k)*dg(j)
+            enddo
+            enddo
 c
             do ii = 1,nd
                rtmp = dtmp*dipstr(ii,i)
                pot(ii,itarg) = pot(ii,itarg) + rinc*rtmp
-               grad(ii,1,itarg) = grad(ii,1,itarg) + rincx*rtmp
-               grad(ii,2,itarg) = grad(ii,2,itarg) + rincy*rtmp
-               grad(ii,3,itarg) = grad(ii,3,itarg) + rincz*rtmp
-            
-               hess(ii,1,itarg) = hess(ii,1,itarg) + rincxx*rtmp
-               hess(ii,2,itarg) = hess(ii,2,itarg) + rincyy*rtmp
-               hess(ii,3,itarg) = hess(ii,3,itarg) + rinczz*rtmp
-               
-               hess(ii,4,itarg) = hess(ii,4,itarg) + rincxy*rtmp
-               hess(ii,5,itarg) = hess(ii,5,itarg) + rincxz*rtmp
-               hess(ii,6,itarg) = hess(ii,6,itarg) + rincyz*rtmp
+               do k=1,dim
+                  grad(ii,k,itarg) = grad(ii,k,itarg) + rincg(k)*rtmp
+               enddo
+               do k=1,dim*(dim+1)/2
+                  hess(ii,k,itarg) = hess(ii,k,itarg) + rinch(k)*rtmp
+               enddo
             enddo
          endif
       enddo

@@ -1,23 +1,16 @@
 c-----------------------------------------------------------------------------
-c     This file contains subroutines determining the proper number terms
-c     for the expansions used in the FGT.
 c
-c
-c
-c     fgthlterms - determine number of terms in Hermite/local expansions 
+c      gndhlterms - determine number of terms in Hermite/local expansions 
 c           for boxes of size "bsize" with Gaussian variance "delta".
 c
-c     fgtpwterms - determine number of terms in the plane wave expansions 
+c      gndpwterms - determine number of terms in the plane wave expansions 
 c           for boxes of size "bsize" with Gaussian variance "delta".
-c
-c     get_pwnodes : returns PW weights and nodes, midpoint rule is used
-c                   so the number is always an even number!
 c
 c-----------------------------------------------------------------------------
 c
 c
 c
-      subroutine fgthlterms(ndim,bsize,delta,eps,nterms)
+      subroutine gndhlterms(ndim,bsize,delta,eps,nterms)
 c      
 c     Determine the number of terms in the Taylor/Hermite expansions 
 c     for boxes with side length = bsize
@@ -69,7 +62,7 @@ c
 c
 c
 c
-      subroutine fgtpwterms(bsize,delta,eps,iperiod,pmax,npw)
+      subroutine gndpwterms(bsize,delta,eps,pmax,npw)
 c      
 c     Determine the number of terms in the plane wave expansions 
 c     for boxes with side length = bsize
@@ -116,26 +109,19 @@ c
       real*8 delta, bsize
 c
       pi = 4.0d0*atan(1.0d0)
+      rmax = bsize/sqrt(delta)
 
-      if (iperiod.eq.0) then
-         rmax = bsize/sqrt(delta)
+      d = sqrt(log(1.0d0/eps))
+cccc      print *, 'in gndpwterms, rmax/d=',rmax/d
+      pmax = 2.0d0*d
 
-         d = sqrt(log(1.0d0/eps))
-cccc      print *, 'in fgtpwterms, rmax/d=',rmax/d
-         pmax = 2.0d0*d
+      h = 2*pi/(rmax+d)
 
-         h = 2*pi/(rmax+d)
+cccc      npw = int(pmax/h)+1
+      npw = int(pmax/h)
 
-cccc         npw = int(pmax/h)+2
-         npw = int(pmax/h)
-
-         npw = 2*npw
-cccc         print *, h, pmax, pmax/h, npw
-      else
-cccc         npw = 2*(int(bsize*sqrt(log(1.0d0/eps)/delta)/pi)+1)+1
-         npw = 2*(int(bsize*sqrt(log(1.0d0/eps)/delta)/pi))+1
-
-      endif
+      npw = 2*npw
+cccc      print *, h, pmax, pmax/h, npw
       
       return
       end 
@@ -143,69 +129,5 @@ c
 c
 c
 c
-c*********************************************************************
-C
-C get plane wave approximation nodes and weights
-C
-C*********************************************************************
-      subroutine get_pwnodes(pmax,npw,ws,ts)
-C
-C     Get planewave exp weights,nodes
-C
-C     midpoint rule is used. Probably should switch back to the 
-C     trapezoidal rule for the NUFFT code so that we could get
-c     a factor of 2 from NUFFTs.
-c      
-      implicit real *8 (a-h,o-z)
-      real *8 ws(-npw/2:npw/2-1),ts(-npw/2:npw/2-1)
-
-      pi = 4.0d0*datan(1.0d0)
-      npw2=npw/2
-      h = pmax/npw2
-      w = h/(2.0d0*dsqrt(pi))
-
-      do j =-npw2,npw2-1
-         ts(j) = (j+0.5d0)*h
-         ws(j) = w*dexp(-ts(j)*ts(j)/4)
-      enddo
-c
-      return
-      end
-C
-C
-c
-C
-
-      
-c*********************************************************************
-C
-C get plane wave approximation nodes and weights for periodic Green's function
-C
-C*********************************************************************
-      subroutine get_periodic_pwnodes(bsize0,delta,eps,npw,ws,ts)
-C
-C     Get planewave exp weights,nodes for periodic Green's function
-C
-      implicit real *8 (a-h,o-z)
-      real *8 ws(-npw/2:npw/2),ts(-npw/2:npw/2)
-
-      pi = 4.0d0*datan(1.0d0)
-      npw2=npw/2
-      
-      h = 2*pi/bsize0
-      w = sqrt(pi*delta)/bsize0
-
-      hw=h*sqrt(delta)/2
-      do j =-npw2,npw2
-         ts(j) = j*h
-         ws(j) = w*dexp(-(hw*j)**2)
-      enddo
-c
-      return
-      end
-C
-C
-c
-C
 
       

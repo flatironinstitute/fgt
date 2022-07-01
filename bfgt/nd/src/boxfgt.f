@@ -4,8 +4,8 @@ c    $Revision$
 
       subroutine boxfgt(nd,ndim,delta,eps,ipoly,iperiod,norder,npbox,
      1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
-     2    ifpgh,pot,grad,hess,ntarg,targs,ifpghtarg,pote,grade,hesse,
-     3    timeinfo)
+     2    ifpgh,pot,grad,hess,ifnewtree,ntarg,targs,
+     3    ifpghtarg,pote,grade,hesse,timeinfo)
 c
 c
 c       This code compute the Gauss transform for a collection of functions
@@ -124,7 +124,7 @@ c
       real *8 omp_get_wtime
       real *8 time1,time2,pi,done,pmax,bs0,bsize,pweps
 
-      ifprint = 1
+      ifprint = 0
 
 c     cutoff length      
       dcutoff = sqrt(delta*log(1.0d0/eps))
@@ -200,7 +200,7 @@ C$    time1=omp_get_wtime()
          call bfgtmain(nd,ndim,delta,eps,ipoly,iperiod,norder,npbox,
      1       nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
      2       iaddr,rmlexp,npwlevel,pmax,npw,
-     3       ifpgh,pot,grad,hess,
+     3       ifpgh,pot,grad,hess,ifnewtree,
      4       ntarg,targs,ifpghtarg,pote,grade,hesse,timeinfo)
       elseif (ifpghtarg.eq.3 .and. ifpgh.eq.1) then
          allocate(grad2(nd,ndim,npbox,nboxes))
@@ -230,7 +230,7 @@ C$    time1=omp_get_wtime()
          call bfgtmain(nd,ndim,delta,eps,ipoly,iperiod,norder,npbox,
      1       nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
      2       iaddr,rmlexp,npwlevel,pmax,npw,
-     3       ifpgh2,pot,grad2,hess2,
+     3       ifpgh2,pot,grad2,hess2,ifnewtree,
      4       ntarg,targs,ifpghtarg,pote,grade,hesse,timeinfo)
       elseif (ifpghtarg.eq.3 .and. ifpgh.eq.2) then
          allocate(hess2(nd,nhess,npbox,nboxes))
@@ -247,7 +247,7 @@ C$    time1=omp_get_wtime()
          call bfgtmain(nd,ndim,delta,eps,ipoly,iperiod,norder,npbox,
      1       nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
      2       iaddr,rmlexp,npwlevel,pmax,npw,
-     3       ifpgh2,pot,grad,hess2,
+     3       ifpgh2,pot,grad,hess2,ifnewtree,
      4       ntarg,targs,ifpghtarg,pote,grade,hesse,timeinfo)
       elseif (ifpghtarg.eq.2 .and. ifpgh.eq.1) then
          allocate(grad2(nd,ndim,npbox,nboxes))
@@ -264,7 +264,7 @@ C$    time1=omp_get_wtime()
          call bfgtmain(nd,ndim,delta,eps,ipoly,iperiod,norder,npbox,
      1       nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
      2       iaddr,rmlexp,npwlevel,pmax,npw,
-     3       ifpgh2,pot,grad2,hess,
+     3       ifpgh2,pot,grad2,hess,ifnewtree,
      4       ntarg,targs,ifpghtarg,pote,grade,hesse,timeinfo)
       endif
       
@@ -282,7 +282,7 @@ c
       subroutine bfgtmain(nd,ndim,delta,eps,ipoly,iperiod,norder,npbox,
      1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,fvals,
      2    iaddr,rmlexp,npwlevel,pmax,npw,
-     3    ifpgh,pot,grad,hess,
+     3    ifpgh,pot,grad,hess,ifnewtree,
      4    ntarg,targs,ifpghtarg,pote,grade,hesse,timeinfo)
 c
 c
@@ -510,6 +510,7 @@ c
       else
          call get_pwnodes(pmax,npw,ws,ts)
       endif
+      if(ifprint.eq.1) call prinf('npw=*',npw,1)
       
       allocate(xq(norder),umat(norder,norder),
      1    vmat(norder,norder),wts(norder))
@@ -553,10 +554,10 @@ c           Check if the current box is a leaf box
       if(ifprint.eq.1) call 
      1    prinf('number of direct evaluation source boxes=*',ndirect,1)
 
-      nasym=3
-      sigma=(delta/boxsize(nlevels)**2)**nasym/8
-      if(ifprint.eq.1) call 
-     1    prin2('estimated asymptotic expansion error=*',sigma,1)
+c      nasym=3
+c      sigma=(delta/boxsize(nlevels)**2)**nasym/8
+c      if(ifprint.eq.1) call 
+c     1    prin2('estimated asymptotic expansion error=*',sigma,1)
       
 cccc      if (nleafbox.eq.ndirect .and. sigma.le.2*eps) goto 3000
 cccc      goto 3000
@@ -593,7 +594,12 @@ c     at or above npwlevel
 c     compute the tables converting Legendre polynomial expansion to potential
 c     values, used in direct evaluation
 
-      mrefinelev=2
+      if (ifnewtree.eq.1) then
+         mrefinelev=3
+      else
+         mrefinelev=0
+      endif
+      
       nloctab=2**(mrefinelev+1)*(mrefinelev+3)
 
       allocate(  tab_loc(norder,norder,-nloctab:nloctab,0:nlevels))
@@ -923,7 +929,11 @@ c
 C$    time2=omp_get_wtime()  
       timeinfo(7) = time2-time1
       allocate(coefsp(nd,npbox,nboxes))
-      goto 4000
+      if (ifnewtree .eq.0) then
+         goto 5000
+      else
+         goto 4000
+      endif
 ccc      goto 3000
 
 

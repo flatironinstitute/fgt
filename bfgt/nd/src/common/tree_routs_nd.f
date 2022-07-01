@@ -24,7 +24,8 @@ c
       integer isgn(ndim,2**ndim)
 
       call get_child_box_sign(ndim,isgn)
-      
+
+      mc=2**ndim
       bsh = bs/2
 
       allocate(isum(nbloc))

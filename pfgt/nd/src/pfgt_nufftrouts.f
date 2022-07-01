@@ -8,11 +8,8 @@ c     gnd_pweval : evaluates the PW expansion
 c                      potential + gradient + hessian
 c                      type 2 NUFFTs are called
 c      
-c     get_pwnodes : returns PW weights and nodes, midpoint rule is used
-c                   so the number is always an even number!
-c
-c     pw_translation_matrices : returns precomputed translation matrices
-c                   for PW mp to loc translations
+c     gnd_mk_full_translation_matrices : returns precomputed translation matrices
+c                   for PW mp to loc translations on the cutoff level
 c*********************************************************************
 C
 C form PW expansions (charge, dipole, charge & dipole) using NUFFT

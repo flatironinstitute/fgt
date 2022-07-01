@@ -1146,14 +1146,14 @@ cccc           ibox is the target box
                iendt = itargse(2,ibox)
                nptstarg = iendt-istartt + 1
                if (nptstarg.gt.0) then
-                  call fgtpart_direct(nd,dim,delta,dmax,
+                  call pfgt_direct(nd,dim,delta,dmax,
      1                jstart,jend,istartt,iendt,sourcesort,
      2                ifcharge,chargesort,
      3                ifdipole,rnormalsort,dipstrsort,targetsort,
      4                ifpghtarg,pottarg,gradtarg,hesstarg)
                endif
                if (nptssrc.gt.0) then
-                  call fgtpart_direct(nd,dim,delta,dmax,
+                  call pfgt_direct(nd,dim,delta,dmax,
      1                jstart,jend,istarts,iends,sourcesort,
      2                ifcharge,chargesort,
      3                ifdipole,rnormalsort,dipstrsort,sourcesort,
@@ -1184,7 +1184,7 @@ c
 c
 c
 c------------------------------------------------------------------     
-      subroutine fgtpart_direct(nd,dim,delta,dmax,istart,iend,
+      subroutine pfgt_direct(nd,dim,delta,dmax,istart,iend,
      $    jstart,jend,source,ifcharge,charge,
      2    ifdipole,rnormal,dipstr,
      $    targ,ifpgh,pot,grad,hess)

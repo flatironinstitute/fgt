@@ -186,7 +186,6 @@ C$OMP END PARALLEL DO
         ilastbox = laddr(2,ilev)
 
         nbloc = ilastbox-ifirstbox+1
-
         allocate(irefinebox(nbloc))
 c
 c          determine which boxes need to be refined
@@ -295,7 +294,6 @@ C$OMP END PARALLEL DO
         if(irefine.eq.1) then
           boxsize(ilev+1) = boxsize(ilev)/2
           laddr(1,ilev+1) = nbctr+1
-
           call tree_refine_boxes(ndim,irefinebox,nbmax,
      1       ifirstbox,nbloc,centers,boxsize(ilev+1),nbctr,ilev+1,
      2       ilevel,iparent,nchild,ichild)
@@ -664,7 +662,7 @@ c
 c
       subroutine sort_pts_to_children(ndim,ibox,nboxes,centers,
      1   ichild,src,ns,isrc,isrcse)
-      implicit double precision (a-h,o-z)
+      implicit real *8 (a-h,o-z)
       integer nboxes
       double precision centers(ndim,nboxes),src(ndim,ns)
       integer ns, isrc(ns),isrcse(2,nboxes)
@@ -672,11 +670,20 @@ c
       integer iss, nsrc(2**ndim),ip(2**ndim+1)
       integer, allocatable :: isrcbox(:),isrctmp(:)
 
+      mc=2**ndim
+      if (ns.eq.0) then
+         do i=1,mc
+            jbox = ichild(i,ibox)
+            isrcse(1,jbox) = 1
+            isrcse(2,jbox) = 0
+         enddo
+         return
+      endif
+      
       npts = isrcse(2,ibox)-isrcse(1,ibox)+1
       allocate(isrcbox(npts))
       allocate(isrctmp(npts))
 
-      mc=2**ndim
       do i=1,mc
          nsrc(i)=0
       enddo
@@ -690,7 +697,6 @@ c
 
       ip(1)=0
       call cumsum(mc,nsrc,ip(2))
-
 cccc      print *, ibox, isrcse(1,ibox),isrcse(2,ibox)
       do i=1,mc
          jbox = ichild(i,ibox)
@@ -1389,7 +1395,8 @@ C$OMP END PARALLEL DO
       enddo
 
       dc = sqrt(delta*log(1.0d0/eps))
-
+      print *, 'cutoff length=',dc
+      
       dl = log(bs0/dc)/log(2.0d0)
 
       levcut = int(dl)
@@ -1402,5 +1409,58 @@ C$OMP END PARALLEL DO
       
       return
       end
-      
-      
+c      
+c
+c      
+      subroutine get_child_box_sign(ndim,isgn)
+c     This subroutine computes the signs of all child boxes
+c     The convention is as follows.
+c      
+c     1d - 1:m 2:p
+c      
+c     2d - 1:mm 
+c          2:pm
+c          3:mp
+c          4:pp
+c      
+c     3d - 1:mmm
+c          2:pmm
+c          3:mpm
+c          4:ppm
+c          5:mmp
+c          6:pmp
+c          7:mpp
+c          8:ppp
+c
+c     input:
+c     ndim - dimension of the underlying space
+c
+c     output:
+c     isgn - integer(ndim,2**ndim)
+c            the signs of the center coordinates of each child box,
+c            when the center of the parent box is at the origin
+c
+      implicit real *8 (a-h,o-z)
+      integer isgn(ndim,2**ndim)
+
+      mc = 2**ndim
+      do j=1,ndim
+         isgn(j,1)=-1
+      enddo
+
+      do j=1,ndim
+         do i=1,mc,2**(j-1)
+            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
+            do k=1,2**(j-1)-1
+               isgn(j,i+k)=isgn(j,i)
+            enddo
+         enddo
+      enddo
+
+      return
+      end
+c     
+c      
+c      
+c      
+c

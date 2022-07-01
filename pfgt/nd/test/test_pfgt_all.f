@@ -236,13 +236,13 @@ cccc      call prin2('hesstarg=*',hesstarg,nd*6*ntt)
 
       dmax = log(1.0d2/eps)*delta
       call cpu_time(t1)
-      call fgtpart_direct(nd,dim,delta,dmax,1,nsrc,1,nts,sources,
+      call pfgt_direct(nd,dim,delta,dmax,1,nsrc,1,nts,sources,
      1    ifcharge,charges,ifdipole,rnormal,dipstr,
      2    sources,ifpgh,potex,gradex,hessex)
 cccc      call prin2('potex=*',potex,nts*nd)
       call cpu_time(t2)
       print *, 'direct eval time = ', t2-t1
-      call fgtpart_direct(nd,dim,delta,dmax,1,nsrc,1,ntt,sources,
+      call pfgt_direct(nd,dim,delta,dmax,1,nsrc,1,ntt,sources,
      1    ifcharge,charges,ifdipole,rnormal,dipstr,
      2    targ,ifpghtarg,pottargex,gradtargex,hesstargex)
 cccc      call prin2('pottargex=*',pottargex,ntt*nd)

@@ -2587,58 +2587,6 @@ c
 c
 c
 c
-      subroutine get_child_box_sign(ndim,isgn)
-c     This subroutine computes the signs of all child boxes
-c     The convention is as follows.
-c      
-c     1d - 1:m 2:p
-c      
-c     2d - 1:mm 
-c          2:pm
-c          3:mp
-c          4:pp
-c      
-c     3d - 1:mmm
-c          2:pmm
-c          3:mpm
-c          4:ppm
-c          5:mmp
-c          6:pmp
-c          7:mpp
-c          8:ppp
-c
-c     input:
-c     ndim - dimension of the underlying space
-c
-c     output:
-c     isgn - integer(ndim,2**ndim)
-c            the signs of the center coordinates of each child box,
-c            when the center of the parent box is at the origin
-c
-      implicit real *8 (a-h,o-z)
-      integer isgn(ndim,2**ndim)
-
-      mc = 2**ndim
-      do j=1,ndim
-         isgn(j,1)=-1
-      enddo
-
-      do j=1,ndim
-         do i=1,mc,2**(j-1)
-            if (i.gt.1) isgn(j,i)=-isgn(j,i-2**(j-1))
-            do k=1,2**(j-1)-1
-               isgn(j,i+k)=isgn(j,i)
-            enddo
-         enddo
-      enddo
-
-      return
-      end
-c     
-c      
-c      
-c      
-c
 c-------------------------------------------------------------      
       subroutine vol_tree_fix_lr_interp(ndim,nd,ipoly,iperiod,
      1    norder,npbox,ifpgh,fvals,coefs,grad,hess,

@@ -82,10 +82,9 @@ COMOBJS = $(COM)/prini_new.o \
 GAUSS = src
 BFGT = ../../bfgt/nd/src
 GOBJS = $(GAUSS)/pfgt.o \
-	$(GAUSS)/gndterms.o \
-	$(GAUSS)/gnddirect.o \
-	$(GAUSS)/gndrouts.o \
-	$(BFGT)/gndpwrouts.o \
+	$(GAUSS)/pfgt_direct.o \
+	$(GAUSS)/pfgt_nufftrouts.o \
+	$(BFGT)/bfgt_pwrouts.o \
 	$(BFGT)/fgtterms.o 
 
 # Test objects

@@ -73,9 +73,9 @@ SOURCES =  example4.f \
   $(SRC)/common/tree_routs_nd.f \
   $(SRC)/common/tree_vol_coeffs_nd.f \
   $(SRC)/fgtterms.f \
-  $(SRC)/fgtvolrouts.f \
-  $(SRC)/gndpwrouts.f \
-  $(SRC)/gndlocal.f \
+  $(SRC)/bfgt_volrouts.f \
+  $(SRC)/bfgt_pwrouts.f \
+  $(SRC)/bfgt_local.f \
   $(SRC)/boxfgt.f 
 
 ifeq ($(WITH_SECOND),1)

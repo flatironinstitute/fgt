@@ -147,7 +147,7 @@ c
 c
 c     compute the length of plane wave expansion
       npw=0
-      if (npwlevel.ge.0.and.npwlevel.le.nlevels) then
+      if (npwlevel.le.nlevels) then
 c         if (npwlevel.le.1.and.iperiod.eq.1) then
          if (npwlevel.le.1) then
             bsize=boxsize(0)
@@ -412,7 +412,7 @@ c     plane wave interaction list
 c     box flag array
       integer, allocatable :: ifpwexp(:)
 
-      integer ndirect
+      integer ndirect,itype
       integer ixyz(ndim)
 
       real *8, allocatable :: rmask(:)
@@ -508,7 +508,8 @@ c
      1       boxsize,centers,itree(iptr(3)),itree(iptr(4)),
      2       itree(iptr(5)),iperiod,itree(iptr(6)),itree(iptr(7)))
       else
-         call get_pwnodes(pmax,npw,ws,ts)
+         itype=0
+         call get_pwnodes(itype,pmax,npw,ws,ts)
       endif
       if(ifprint.eq.1) call prinf('npw=*',npw,1)
       

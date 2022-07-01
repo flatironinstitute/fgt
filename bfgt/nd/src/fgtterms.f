@@ -148,13 +148,12 @@ C
 C get plane wave approximation nodes and weights
 C
 C*********************************************************************
-      subroutine get_pwnodes(pmax,npw,ws,ts)
+      subroutine get_pwnodes(itype,pmax,npw,ws,ts)
 C
 C     Get planewave exp weights,nodes
 C
-C     midpoint rule is used. Probably should switch back to the 
-C     trapezoidal rule for the NUFFT code so that we could get
-c     a factor of 2 from NUFFTs.
+c     input parameters
+c     itype : integer (in) 1: trapezoidal rule; 0: midpoint rule
 c      
       implicit real *8 (a-h,o-z)
       real *8 ws(-npw/2:npw/2-1),ts(-npw/2:npw/2-1)
@@ -164,10 +163,17 @@ c
       h = pmax/npw2
       w = h/(2.0d0*dsqrt(pi))
 
-      do j =-npw2,npw2-1
-         ts(j) = (j+0.5d0)*h
-         ws(j) = w*dexp(-ts(j)*ts(j)/4)
-      enddo
+      if (itype.eq.1) then
+         do j =-npw2,npw2-1
+            ts(j) = j*h
+            ws(j) = w*dexp(-ts(j)*ts(j)/4)
+         enddo
+      elseif (itype.eq.0) then
+         do j =-npw2,npw2-1
+            ts(j) = (j+0.5d0)*h
+            ws(j) = w*dexp(-ts(j)*ts(j)/4)
+         enddo
+      endif
 c
       return
       end

@@ -1395,7 +1395,8 @@ C$OMP END PARALLEL DO
       enddo
 
       dc = sqrt(delta*log(1.0d0/eps))
-
+      print *, 'cutoff length=',dc
+      
       dl = log(bs0/dc)/log(2.0d0)
 
       levcut = int(dl)

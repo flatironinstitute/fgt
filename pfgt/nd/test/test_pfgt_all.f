@@ -33,15 +33,22 @@ c
 c     nd - number of different densities
       nd=1
 c     dim - dimension of the problem
-      dim=3
-c     ifpgh = 1: potential; 2: pot+grad; 3: pot+grad+hess
-      ifpgh=2
-c     ifpghtarg: flag for arbitrary targets
-      ifpghtarg=3
+      dim=2
+c     iperiod -> 0: free space; 1: periodic in all dimensions
+      iperiod=0
 c     ntarg: number of extra targets
       ntarg=0
 c     nsrc: number of source points
 
+c     whether to have monopole sources -> 1: yes; 0: no
+      ifcharge=1
+c     whether to have dipole sources -> 1: yes; 0: no
+      ifdipole=0
+c     evaluation flag for sources -> 1: pot; 2: pot+grad; 3: pot+grad+hess
+      ifpgh=1
+c     evaluation flag for targets -> 1: pot; 2: pot+grad; 3: pot+grad+hess
+      ifpghtarg=0
+c
 c     
 c
 c     test all parameters
@@ -68,8 +75,8 @@ c
  2000       format(2x, i8, 2x)
 c     write(iw,2000,advance="no") nint(1/ratio)
 
-            call testfgt3d(nd,dim,eps,delta,nsrc,ntarg,ifpgh,ifpghtarg,
-     1          ifuniform,pps(j,i),rerr)
+            call testpfgt(nd,dim,eps,delta,iperiod,nsrc,ntarg,ifcharge,
+     1          ifdipole,ifpgh,ifpghtarg,ifuniform,pps(j,i),rerr)
 
  4800       format(2x,'&',2x,D8.2,1x,'&',2x,D8.2,1x,'&',2x,D8.2,1x,'\\')
             write(iw,4800) eps, delta, rerr
@@ -94,8 +101,8 @@ c
 c
 c
 c
-      subroutine testfgt3d(nd,dim,eps,delta,nsrc,ntarg,ifpgh,ifpghtarg,
-     1    ifuniform,pps,errps)
+      subroutine testpfgt(nd,dim,eps,delta,iperiod,nsrc,ntarg,
+     1    ifcharge,ifdipole,ifpgh,ifpghtarg,ifuniform,pps,errps)
       implicit real *8 (a-h,o-z)
       real *8, allocatable :: sources(:,:),targ(:,:)
       real *8, allocatable :: rnormal(:,:)
@@ -208,19 +215,16 @@ c
       call dzero(gradtargex,dim*ntt*nd)
       call dzero(hesstargex,nhess*ntt*nd)
       
-      ifcharge = 0
-      ifdipole = 1
       call prinf(' ifcharge is *',ifcharge,1)
       call prinf(' ifdipole is *',ifdipole,1)
       call prinf(' ifpgh is *',ifpgh,1)
       call prinf(' ifpghtarg is *',ifpghtarg,1)
 
-      iper = 0
       call cpu_time(t1)
-      call fgt3d(nd,delta,eps,nsrc,sources,ifcharge,charges,
-     1    ifdipole,rnormal,dipstr,iper,ifpgh,pot,grad,hess,
-     2    ntarg,targ,ifpghtarg,pottarg,gradtarg,
-     3    hesstarg)
+      call pfgt(nd,dim,delta,eps,iperiod,nsrc,sources,
+     1    ifcharge,charges,ifdipole,rnormal,dipstr,
+     2    ifpgh,pot,grad,hess,ntarg,targ,
+     3    ifpghtarg,pottarg,gradtarg,hesstarg)
       call cpu_time(t2)
       pps=(nsrc*ifpgh+ntarg*ifpghtarg+0.0d0)/(t2-t1)
       call prin2('points per sec=*',pps,1)

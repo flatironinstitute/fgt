@@ -44,13 +44,13 @@ FFTWOMPSUFFIX = omp
 #LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)_$(FFTWOMPSUFFIX) -l$(FFTWNAME)f -l$(FFTWNAME)f_$(FFTWOMPSUFFIX) $(LIBS)
 LIBSFFT := -l$(FFTWNAME)  $(LIBS)
 
-LIBNAME=libfgtnd
+LIBNAME=libpfgt
 DYNAMICLIB = $(LIBNAME).so
 STATICLIB = $(LIBNAME).a
 LIMPLIB = $(DYNAMICLIB)
 
-LFGTLINKLIB = -lfgtnd
-LLINKLIB = -lfgtnd
+LFGTLINKLIB = -lpfgt
+LLINKLIB = -lpfgt
 
 
 # For your OS, override the above by placing make variables in make.inc
@@ -76,17 +76,17 @@ COMOBJS = $(COM)/prini_new.o \
 	$(COM)/cumsum.o \
 	$(COM)/fmmcommon2d.o \
 	$(COM)/pts_tree_nd.o \
-	$(COM)/tree_routs_nd.o \
-	$(COM)/tree_routs3d.o 
+	$(COM)/tree_routs_nd.o 
 
 # Gauss transform objects
 GAUSS = src
 BFGT = ../../bfgt/nd/src
-GOBJS = $(GAUSS)/fgtnd.o \
+GOBJS = $(GAUSS)/pfgt.o \
 	$(GAUSS)/gndterms.o \
 	$(GAUSS)/gnddirect.o \
 	$(GAUSS)/gndrouts.o \
-	$(BFGT)/gndpwrouts.o
+	$(BFGT)/gndpwrouts.o \
+	$(BFGT)/fgtterms.o 
 
 # Test objects
 TOBJS = $(COM)/hkrand.o $(COM)/dlaran.o
@@ -158,16 +158,16 @@ install: $(STATICLIB) $(DYNAMICLIB)
 #
 # testing routines
 #
-test: $(STATICLIB) $(TOBJS) test/fgtnd 
+test: $(STATICLIB) $(TOBJS) test/pfgt 
 	(cd test; ./run_fgttest.sh)
 
 
-test-dyn: $(DYNAMICLIB)  $(TOBJS) test/fgtnd-dyn 
+test-dyn: $(DYNAMICLIB)  $(TOBJS) test/pfgt-dyn 
 	(cd test; ./run_fgttest.sh)
 
-test/fgtnd:
+test/pfgt:
 #	$(FC) $(FFLAGS) test/nufft3d_demo.f test/dirft3d.f $(TOBJS) -o test/int2-test-fgt3d -Llib-static $(LLINKLIB)  $(ABSDYNLIB) $(LIBSFFT)
-	$(FC) $(FFLAGS) test/test_fgt3d_all.f $(TOBJS) -o test/int2-test-fgt3d -Llib-static $(LLINKLIB)  $(ABSDYNLIB) $(LIBSFFT)
+	$(FC) $(FFLAGS) test/test_pfgt_all.f $(TOBJS) -o test/int2-test-pfgt -Llib-static $(LLINKLIB)  $(ABSDYNLIB) $(LIBSFFT)
 #	$(FC) $(FFLAGS) test/example1.f $(TOBJS) -o test/int2-test-fgt3d -Llib-static $(LLINKLIB)  $(ABSDYNLIB) $(LIBSFFT)
 
 
@@ -176,8 +176,8 @@ test/fgtnd:
 # Linking test files to dynamic libraries
 #
 
-test/fgtnd-dyn:
-	$(FC) $(FFLAGS) test/test_fgtnd.f $(TOBJS) -o test/int2-test-fgtnd -L$(FGT_INSTALL_DIR)  $(LLINKLIB)  
+test/pfgt-dyn:
+	$(FC) $(FFLAGS) test/test_pfgt_all.f $(TOBJS) -o test/int2-test-pfgt -L$(FGT_INSTALL_DIR)  $(LLINKLIB)  
 
 
 #

@@ -150,7 +150,7 @@ c     compute the length of plane wave expansion
       if (npwlevel.le.nlevels) then
 c         if (npwlevel.le.1.and.iperiod.eq.1) then
          if (npwlevel.le.1) then
-            bsize=boxsize(0)
+            bsize=2*boxsize(max(npwlevel,0))
             call fgtpwterms(bsize,delta,eps,iperiod,pmax,npw)
          else
             bsize=2*boxsize(npwlevel)
@@ -658,7 +658,7 @@ c     compute the tables converting planewave expansions to potential values
 
       nmax = 1
       allocate(wpwshift(nexp,(2*nmax+1)**ndim))
-      xmin  = boxsize(nlevstart)/sqrt(delta)
+      xmin  = boxsize(nlevstart)/sqrt(delta0)
       call gnd_mk_pw_translation_matrices(ndim,xmin,npw,ts,nmax,
      1    wpwshift)
       

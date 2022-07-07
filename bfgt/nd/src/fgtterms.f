@@ -193,7 +193,7 @@ C
 C     Get planewave exp weights,nodes for periodic Green's function
 C
       implicit real *8 (a-h,o-z)
-      real *8 ws(-npw/2:npw/2),ts(-npw/2:npw/2)
+      real *8 ws(-npw/2:(npw-1)/2),ts(-npw/2:(npw-1)/2)
 
       pi = 4.0d0*datan(1.0d0)
       npw2=npw/2
@@ -202,7 +202,7 @@ C
       w = sqrt(pi*delta)/bsize0
 
       hw=h*sqrt(delta)/2
-      do j =-npw2,npw2
+      do j =-npw2,(npw-1)/2
          ts(j) = j*h
          ws(j) = w*dexp(-(hw*j)**2)
       enddo

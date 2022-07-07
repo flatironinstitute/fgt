@@ -55,7 +55,7 @@ UTILS_DIR = ../src/common
 
 .PHONY: all clean list
 
-SOURCES =  example4.f \
+SOURCES =  test_boxfgt_all.f \
   $(SRC)/common/prini_new.f \
   $(SRC)/common/besseljs3d.f \
   $(SRC)/common/legeexps.f \

@@ -34,7 +34,7 @@ c
 
       subroutine pts_tree_mem(ndim,src,ns,targ,nt,idivflag,
      1    ndiv,nlmin,nlmax,ifunif,iper,
-     2    ndiv0,levcut,bs0,cen0,
+     2    levcut,bs0,cen0,
      3    nlevels,nboxes,ltree)
 c
 c
@@ -68,9 +68,6 @@ c        under construction)
 c    - iper: integer
 c        flag for periodic implementations. Currently unused.
 c        Feature under constructionc
-c    - ndiv0: integer
-c        subdivide if relevant number of particles
-c        per box is greater than ndiv0 for levels < levcut
 c    - levcut: integer
 c        the cutoff level 
 c    - bs0 : real
@@ -92,7 +89,7 @@ c
       integer ndim,nlevels,levcut,nboxes,idivflag
       integer ltree
       integer nbmax,nbtot
-      integer ns,nt,ndiv,ndiv0
+      integer ns,nt,ndiv
       integer nlmin,iper,ifunif
       double precision src(ndim,ns),targ(ndim,nt),cen0(ndim),bs0
 
@@ -203,11 +200,7 @@ C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,nss,ntt,nn)
             if(idivflag.eq.1) nn = ntt
             if(idivflag.eq.2) nn = max(ntt,nss)
 
-            if (ilev .lt. levcut) then               
-               if(nn.gt.ndiv0) irefinebox(i) = 1
-            else
-               if(nn.gt.ndiv) irefinebox(i) = 1
-            endif
+            if(nn.gt.ndiv) irefinebox(i) = 1
           enddo
 C$OMP END PARALLEL DO        
 
@@ -401,7 +394,7 @@ c
 
       subroutine pts_tree_build(ndim,src,ns,targ,nt,idivflag,ndiv,
      1    nlmin,nlmax,ifunif,iper,nlevels,nboxes,
-     2    ndiv0,levcut,bs0,cen0,
+     2    levcut,bs0,cen0,
      3    ltree,itree,iptr,centers,
      4    boxsize)
 c
@@ -441,9 +434,6 @@ c        number of levels
 c    - nboxes: integer
 c        number of boxes
 c    - ltree: integer
-c    - ndiv0: integer
-c        subdivide if relevant number of particles
-c        per box is greater than ndiv0 for levels < levcut
 c     - levcut: integer
 c        the cutoff level 
 c     - bs0 : real
@@ -469,7 +459,7 @@ c        size of box at each of the levels
 c
 
       implicit none
-      integer ndim,nlevels,nboxes,ns,nt,idivflag,ndiv,levcut,ndiv0
+      integer ndim,nlevels,nboxes,ns,nt,idivflag,ndiv,levcut
       integer iptr(8),ltree
       integer itree(ltree),iper
       integer ifunif,nlmin,nlmax
@@ -569,11 +559,7 @@ C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,nss,ntt,nn)
             if(idivflag.eq.1) nn = ntt
             if(idivflag.eq.2) nn = max(ntt,nss)
 
-            if (ilev .lt. levcut) then               
-               if(nn.gt.ndiv0) irefinebox(i) = 1
-            else
-               if(nn.gt.ndiv) irefinebox(i) = 1
-            endif
+            if(nn.gt.ndiv) irefinebox(i) = 1
           enddo
 C$OMP END PARALLEL DO        
           irefine = maxval(irefinebox(1:nbloc))
@@ -1330,8 +1316,8 @@ c
 c
 c
 c
-      subroutine pts_tree_boxsize0(ndim,delta,eps,src,ns,targ,nt,
-     1    levcut,bs0,cen0)
+      subroutine pts_tree_boxsize0(ndim,delta,eps,iperiod,
+     1    src,ns,targ,nt,levcut,bs0,cen0)
 c      
 c     given a collection of sources and targs, this subroutine returns to the user 
 c     the cutoff lev, the side length and the center of the bounding box.
@@ -1362,6 +1348,7 @@ c
       real *8 src(ndim,ns),targ(ndim,nt),bs0,cen0(ndim)
       real *8 xyzmin(ndim),xyzmax(ndim)
 
+      if (iperiod.eq.1) goto 1200
       do i=1,ndim
          xyzmin(i) = src(i,1)
          xyzmax(i) = src(i,1)
@@ -1394,18 +1381,21 @@ C$OMP END PARALLEL DO
          cen0(i) = (xyzmin(i)+xyzmax(i))/2
       enddo
 
+ 1200 continue
+      
       dc = sqrt(delta*log(1.0d0/eps))
-      print *, 'cutoff length=',dc
+cccc      print *, 'cutoff length=',dc
       
       dl = log(bs0/dc)/log(2.0d0)
-
+cccc      print *, 'dl=', dl
+      
       levcut = int(dl)
+      if (iperiod.eq.1) return
 
       if (bs0 .lt. dc) return
-      
-      bs0 = 2**(levcut+1)*dc
-      levcut = levcut+1
-      call prin2('boxsize(0) is enlarged to*',bs0,1)
+      levcut=levcut+1
+      bs0 = 2**levcut*dc
+cccc      call prin2('boxsize(0) is enlarged to*',bs0,1)
       
       return
       end

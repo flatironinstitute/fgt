@@ -36,7 +36,8 @@ c
       do i = 1,ns
          rr=0
          do k=1,dim
-            rr=rr+ (targ(k,itarg)-sources(k,i))**2
+            dr(k)=targ(k,itarg)-sources(k,i)
+            rr=rr+dr(k)*dr(k)
          enddo
          if (rr .lt. dmax) then
             rtmp = dexp(-rr/delta)
@@ -113,6 +114,7 @@ c
          endif
       enddo
       enddo
+      
       return
       end
 c
@@ -752,3 +754,37 @@ c
 c
 c
 c
+C
+      subroutine pfgt_find_local_shift(ndim,tcenter,scenter,
+     1    bs0,shift)
+c     returns the center shift of the image cell for the periodic point FGT
+c
+c     input:
+c     ndim - dimension of the underlying space
+c     tcenter - target box center
+c     scenter - source box center
+c     bs0 - root box size
+c
+c     output
+c     ixyz - an index array determining which local table 
+c            should be used along each dimension
+c
+      implicit real *8 (a-h,o-z)
+      real *8 tcenter(ndim),scenter(ndim),shift(ndim)
+
+
+      do i=1,ndim
+         dx = tcenter(i)-scenter(i)
+         shift(i)=0
+         dxp1=dx-bs0
+         dxm1=dx+bs0
+         if (abs(dx).gt.abs(dxp1)) then
+            dx=dxp1
+            shift(i)=bs0
+         endif
+         if (abs(dx).gt.abs(dxm1)) shift(i)=-bs0
+      enddo
+      
+      
+      return
+      end subroutine

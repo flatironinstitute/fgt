@@ -129,8 +129,17 @@ C
       endif
       
       ns8=ns
-      call finufft_setpts(fftplan,ns8,xj,yj,zj,dummy,dummy,
-     1    dummy,dummy,ier)
+      if (dim.eq.1) then
+         call finufft_setpts(fftplan,ns8,xj,dummy,dummy,dummy,dummy,
+     1       dummy,dummy,ier)
+      elseif (dim.eq.2) then
+         call finufft_setpts(fftplan,ns8,xj,yj,dummy,dummy,dummy,
+     1       dummy,dummy,ier)
+      elseif (dim.eq.3) then
+         call finufft_setpts(fftplan,ns8,xj,yj,zj,dummy,dummy,
+     1       dummy,dummy,ier)
+      endif
+      
       call finufft_execute(fftplan,cj,fk,ier)
 
       do ind=1,nd
@@ -259,8 +268,17 @@ C
  1200 continue
       
       nt8=nt
-      call finufft_setpts(fftplan,nt8,xj,yj,zj,dummy,dummy,
-     1    dummy,dummy,ier)
+      if (dim.eq.1) then
+         call finufft_setpts(fftplan,nt8,xj,dummy,dummy,dummy,dummy,
+     1       dummy,dummy,ier)
+      elseif (dim.eq.2) then
+         call finufft_setpts(fftplan,nt8,xj,yj,dummy,dummy,dummy,
+     1       dummy,dummy,ier)
+      elseif (dim.eq.3) then
+         call finufft_setpts(fftplan,nt8,xj,yj,zj,dummy,dummy,
+     1       dummy,dummy,ier)
+      endif
+      
       if (ifpgh.eq.1) then
          call finufft_execute(fftplan,cj,pwexp,ier)
       else

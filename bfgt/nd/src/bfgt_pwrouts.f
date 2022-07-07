@@ -1613,7 +1613,7 @@ c
 
          jxyz(i)=jx+nmax
       enddo
-
+      
       n=2*nmax+1
       ind=1
       inc=1

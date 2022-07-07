@@ -1,22 +1,10 @@
-cc Copyright (C) 2020-2021: Leslie Greengard, Shidong Jiang, Manas Rachh
-cc Contact: lgreengard@flatironinstitute.org
-cc 
-cc This program is free software; you can redistribute it and/or modify 
-cc it under the terms of the GNU General Public License as published by 
-cc the Free Software Foundation; either version 2 of the License, or 
-cc (at your option) any later version.  This program is distributed in 
-cc the hope that it will be useful, but WITHOUT ANY WARRANTY; without 
-cc even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
-cc PARTICULAR PURPOSE.  See the GNU General Public License for more 
-cc details. You should have received a copy of the GNU General Public 
-cc License along with this program; 
-cc if not, see <http://www.gnu.org/licenses/>.
 ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c
 c    $Date$
 c    $Revision$
 
-      subroutine pfgt(nd,dim,delta,eps,iperiod,ns,sources,
+      subroutine pfgt(nd,dim,delta,eps,iperiod,bs0,cen0,
+     1    ns,sources,
      1    ifcharge,charge,ifdipole,rnormal,dipstr,
      2    ifpgh,pot,grad,hess,nt,targ,
      3    ifpghtarg,pottarg,gradtarg,hesstarg)
@@ -85,7 +73,7 @@ c
       integer, allocatable :: itree(:)
       integer iptr(8)
       integer nlmin,nlmax,ifunif
-      real *8, allocatable :: tcenters(:,:),boxsize(:)
+      real *8, allocatable :: centers(:,:),boxsize(:)
       integer idivflag,nlevels,nboxes,ndiv,ndiv0,npwlevel
       integer ltree
 
@@ -113,72 +101,71 @@ cc      temporary variables
 c
       integer i,ilev,lmptmp,id,k,nhess
       integer nlocal0,npw,nadd,ifprint,ier,nlevstart
-      integer ibox,istart,iend
+      integer ibox,istart,iend,ifplot
       real *8 omp_get_wtime,pps
       real *8 time1,time2,pmax,bs0,cen0(dim),bsize,pweps
+      character *9 fname1
+      character *8 fname2
+      character *9 fname3
       
       ifprint = 1
 
-      call pts_tree_boxsize0(dim,delta,eps,sources,ns,targ,nt,
+      call pts_tree_boxsize0(dim,delta,eps,iperiod,sources,ns,targ,nt,
      1    npwlevel,bs0,cen0)
 cccc      write(6,*) ' npwlevel',npwlevel
       if (ifprint.eq.1) call prinf('npwlevel=*',npwlevel,1)
 C
-c     need to fix the dependence of ndiv on eps
-c   
-c
+c     divide on sources
+c      
       idivflag =0
-c     ndiv0 is the maximum number of points per box above the cutoff level
-c     it determines the speed of the algorithm when delta goes to zero.
-c      if (eps.le.1d-8 .and. delta.le.1d-5) then
-c         ndiv0=1000
-c      else
-c         ndiv0 = 250
-c      endif
-      ndiv0=100
-c     ndiv is the maximum number of points per box at or below the cutoff level
+c     ndiv is the maximum number of points per box at or above the cutoff level
 c     it's determined by numerical experiments on finding the crossover point
 c     between direct evaluation and the fast scheme.
-      ndiv = ndiv0
+c      
+c     need to fix the dependence of ndiv on eps
+      if (dim.eq.1) then
+         ndiv = 20
+      elseif (dim.eq.2) then
+         ndiv = 80
+      elseif (dim.eq.3) then
+         ndiv = 250
+      endif
 c
       ifunif = 0
 
 c
-c     call the tree memory management
-c     code to determine number of boxes,
+c     call the tree memory management code to determine number of boxes,
 c     number of levels and length of tree
 c
-c     1. determine the maximum level - it seems that the best strategy for point FGT
-c     is to stop refinement as long as the Hermite expansion length is less
-c     than 20 for high precision calculation
-
-cccc      npwlevel=npwlevel-1
-      if (npwlevel .ge. 0) nlmax=npwlevel+1
-
-cccc      write(6,*) ' nlmax',nlmax
-
+      if (npwlevel .ge. 0) then
+         nlmax=npwlevel+1
+      else
+         nlmax=0
+      endif
+      
       call cpu_time(time1)
 C$      time1=omp_get_wtime()
       
       nlmin = 0
       call pts_tree_mem(dim,sources,ns,targ,nt,idivflag,
      1    ndiv,nlmin,nlmax,ifunif,iperiod,
-     2    ndiv0,npwlevel,bs0,cen0,
+     2    npwlevel,bs0,cen0,
      3    nlevels,nboxes,ltree) 
 c 
+      if (ifprint.eq.1) call prinf('nlevels=*',nlevels,1)
 cccc      write(6,*) ' nlevels',nlevels
 cccc      write(6,*) ' nboxes',nboxes
 
       allocate(itree(ltree))
       allocate(boxsize(0:nlevels))
-      allocate(tcenters(dim,nboxes))
+      allocate(centers(dim,nboxes))
 c
 c     call the tree code
 c
       call pts_tree_build(dim,sources,ns,targ,nt,idivflag,ndiv,
      1    nlmin,nlmax,ifunif,iperiod,nlevels,nboxes,
-     2    ndiv0,npwlevel,bs0,cen0,
-     3    ltree,itree,iptr,tcenters,boxsize)
+     2    npwlevel,bs0,cen0,
+     3    ltree,itree,iptr,centers,boxsize)
 cccc      write(6,*) ' boxsize',boxsize(0)
 cccc      write(6,*) ' cutoff length', boxsize(0)/2**npwlevel/sqrt(delta)
 cccc      write(6,*) ' nperbox',ns*4/(3*nboxes)
@@ -190,6 +177,18 @@ C$        time2=omp_get_wtime()
          call prin2('points per sec=*',pps,1)
       endif
 
+c     plot the tree
+      ifplot=0
+      if (ifplot.eq.1) then
+         fname1 = 'tree.data'
+         fname2 = 'src.data'
+         fname3 = 'targ.data'
+      
+         call print_tree2d_matlab(dim,itree,ltree,nboxes,centers,
+     1       boxsize,nlevels,iptr,ns,sources,nt,targ,
+     2       fname1,fname2,fname3)
+      endif
+      
       allocate(isrc(ns),isrcse(2,nboxes))
       allocate(itarg(nt),itargse(2,nboxes))
 
@@ -197,11 +196,11 @@ C$        time2=omp_get_wtime()
 C$      time1=omp_get_wtime()
 
       call pts_tree_sort(dim,ns,sources,itree,ltree,nboxes,nlevels,
-     1    iptr,tcenters,isrc,isrcse)
+     1    iptr,centers,isrc,isrcse)
 cccc      call prinf('isrcse=*',isrcse,20)
 
       call pts_tree_sort(dim,nt,targ,itree,ltree,nboxes,nlevels,iptr,
-     1   tcenters,itarg,itargse)
+     1   centers,itarg,itargse)
 cccc      call prinf('itargse=*',itargse,nboxes)
       call cpu_time(time2)
 C$        time2=omp_get_wtime()
@@ -213,7 +212,6 @@ C$        time2=omp_get_wtime()
 
       allocate(sourcesort(dim,ns))
       allocate(targsort(dim,nt))
-
 
       if(ifcharge.eq.1.and.ifdipole.eq.0) then
         allocate(chargesort(nd,ns),dipstrsort(nd,1))
@@ -331,23 +329,15 @@ c     compute the length of plane wave expansion
       if (npwlevel.le.nlevels) then
 c         if (npwlevel.le.1.and.iperiod.eq.1) then
          if (npwlevel.le.1) then
-            bsize=boxsize(0)
+            bsize=2*boxsize(max(npwlevel,0))
             call fgtpwterms(bsize,delta,eps,iperiod,pmax,npw)
+            if (iperiod.eq.1) npw=npw+1
          else
             bsize=2*boxsize(npwlevel)
             call fgtpwterms(bsize,delta,eps,0,pmax,npw)
          endif
       endif
-      if (ifprint.eq.1) call prinf(' npw =*',npw,1)
-      
-c      bsize = 2*bs0/(2.0d0**(max(npwlevel,0)))
-c      pweps = eps
-c      if (nadd .gt. 2) pweps=pweps/10
-c      call gndpwterms(bsize,delta,pweps,pmax,npw)
-      
-cccc      call prinf(' nlocal =*',nlocal,nlevels+1)
-cccc      call prinf(' ntermmax =*',ntermmax,1)
-cccc      call prin2(' pmax =*',pmax,1)
+      if (npw.lt.4) npw=4
       if (ifprint.eq.1) call prinf(' npw =*',npw,1)
 c
 c
@@ -373,12 +363,12 @@ c     Call main FGT routine
 c
       call cpu_time(time1)
 C$      time1=omp_get_wtime()
-      call pfgtmain(nd,dim,delta,eps,iperiod,ns,sourcesort,
+      call pfgtmain(nd,dim,delta,eps,iperiod,
      $   ifcharge,chargesort,ifdipole,rnormalsort,dipstrsort,
-     $   nt,targsort,
-     $   itree,ltree,iptr,nlevels,npwlevel,ndiv,
-     $   nboxes,boxsize,tcenters,itree(iptr(1)),
-     $   isrcse,itargse,pmax,npw,
+     $   ns,sourcesort,nt,targsort,
+     $   nboxes,nlevels,ltree,itree,iptr,centers,boxsize,
+     $   npwlevel,ndiv,pmax,npw,
+     $   isrcse,itargse,
      $   ifpgh,potsort,gradsort,hesssort,
      $   ifpghtarg,pottargsort,gradtargsort,hesstargsort)
       call cpu_time(time2)
@@ -430,12 +420,11 @@ c
 c
 c
       subroutine pfgtmain(nd,dim,delta,eps,iperiod,
-     $     nsource,sourcesort,
      $     ifcharge,chargesort,ifdipole,rnormalsort,dipstrsort,
-     $     ntarget,targetsort,
-     $     itree,ltree,iptr,nlevels,npwlevel,ndiv,
-     $     nboxes,boxsize,centers,laddr,
-     $     isrcse,itargse,pmax,npw,
+     $     nsource,sourcesort,ntarget,targetsort,
+     $     nboxes,nlevels,ltree,itree,iptr,centers,boxsize,
+     $     npwlevel,ndiv,pmax,npw,
+     $     isrcse,itargse,
      $     ifpgh,pot,grad,hess,
      $     ifpghtarg,pottarg,gradtarg,hesstarg)
 c
@@ -551,18 +540,13 @@ c   pottarg: potential at the target locations
 c   gradtarg: gradient at the target locations
 c   hesstarg: gradient at the target locations
 c------------------------------------------------------------------
-
-      implicit none
-
-      integer nd
+      implicit real *8 (a-h,o-z)
+      integer nd,dim,iperiod,nsource,ntarget
 
 c     our fortran-header, always needed
       include '/home/shidong/finufft/include/finufft.fh'
-      
-      integer dim
-      integer iperiod
-      integer nsource,ntarget
-      integer ndiv,nlevels,npwlevel
+
+      integer ndiv,nlevels,npwlevel,ncutoff
       integer ifcharge,ifdipole
       integer ifpgh,ifpghtarg
 
@@ -580,11 +564,9 @@ c     our fortran-header, always needed
       real *8 hesstarg(nd,dim*(dim+1)/2,*)
 c
       real *8 pmax
-      real *8 timeinfo(10)
-      real *8 timelev(0:200)
+      real *8 timeinfo(20)
       real *8 centers(dim,*)
 c
-      integer laddr(2,0:nlevels)
       integer npw
       integer iptr(8)
       integer ltree
@@ -594,38 +576,13 @@ c
       real *8 boxsize(0:nlevels)
 c
 c     temp variables
-      integer i,j,k,l,idim,ip,isx,ii,j1,j2
-      integer ibox,jbox,ilev,klev,npts,nptssrc,nptstarg,nptsj,nptstmp
-      integer nchild,ncoll,nb
-      integer isep, mnbors
-
-      integer mnlist1,mnlist2,mnlist3,mnlist4,mnlistpw
-      integer nlist1
-      integer, allocatable :: list1(:,:)
-      integer, allocatable :: nlist1s(:)
-
+      integer, allocatable :: nlist1(:), list1(:,:)
       integer, allocatable :: nlistpw(:), listpw(:,:)
-      
 c
-      integer istart,iend,istarts,iends
-      integer isstart,isend,jsstart,jsend
-      integer jstart,jend
-      integer istarte,iende,istartt,iendt
-      integer ier
       integer *8 lmptot
       
       integer ifprint,itype
 
-      integer nexp,nmax,ncutlevbox,nhess,mc,ind
-      integer ncdir,ncddir,nddir,npdir,ngdir,nhdir
-      
-      integer nn,jx,jy,jz,nlevstart,nlevend
-
-      real *8 d,time1,time2,omp_get_wtime
-      real *8 dx,dy,dz,bs0
-      real *8 tt1,tt2,xmin,xmin2,t1,t2,dt,dtt
-      real *8 dmax,hpw
-      
       integer, allocatable :: ifpwexp(:),iaddr(:,:)
       
       real *8, allocatable :: rmlexp(:)
@@ -634,6 +591,7 @@ c
 
       real *8, allocatable :: targtmp(:,:),pottmp(:,:)
       real *8, allocatable :: gradtmp(:,:,:),hesstmp(:,:,:)
+      real *8 shifts(dim)
       
       complex *16, allocatable :: wpwshift(:,:)
 
@@ -654,15 +612,32 @@ c     Prints timing breakdown, list information, and other things if ifprint=2.
 c
       ifprint=1
 
+      ncutoff=max(npwlevel,0)
+      
       bs0 = boxsize(0)
       mc = 2**dim
       mnbors=3**dim
       nhess=dim*(dim+1)/2
 
-      if (npwlevel.ge.0 .and. npwlevel.le.nlevels) then
-         ncutlevbox=laddr(2,npwlevel)-laddr(1,npwlevel)+1
-cccc         write(6,*) ' n per box on the cutoff level',nsource/ncutlevbox      
+c     get planewave nodes and weights
+      allocate(ws(-npw/2:npw/2-1))
+      allocate(ts(-npw/2:npw/2-1))
+      iperiod0=iperiod
+      npwlevel0=npwlevel
+      delta0=delta
+      if ((npwlevel.le.1).and.(iperiod.eq.1)) then
+         call get_periodic_pwnodes(bs0,delta,eps,npw,ws,ts)
+         iperiod0=0
+cccc         npwlevel=0
+         delta0=1.0d0
+         call computecoll(dim,nlevels,nboxes,itree(iptr(1)),
+     1       boxsize,centers,itree(iptr(3)),itree(iptr(4)),
+     2       itree(iptr(5)),iperiod0,itree(iptr(6)),itree(iptr(7)))
+      else
+         itype=1
+         call get_pwnodes(itype,pmax,npw,ws,ts)
       endif
+      hpw = ts(1)
 c
 c     compute list info
 c
@@ -670,49 +645,48 @@ c
      1    iptr,centers,boxsize,iperiod,mnlistpw)
       allocate(nlistpw(nboxes),listpw(mnlistpw,nboxes))
 c     listpw contains source boxes in the pw interaction
-      call gnd_compute_listpw(dim,npwlevel,nboxes,nlevels,
+      call pfgt_compute_listpw(dim,npwlevel,nboxes,nlevels,
      1    ltree,itree,iptr,centers,boxsize,itree(iptr(1)),
      3    mnlistpw,nlistpw,listpw)      
+cccc      if (ifprint.eq.1) call prinf('listpw=*',listpw,nboxes*mnlistpw)
 
       nlevend=nlevels
       if (npwlevel.le.nlevels) nlevend=npwlevel
-
 c
-c
-c     check whether we need to create and evaluate the PW expansion for boxes 
-c     at the cutoff level
+c     check whether we need to create and evaluate planewave expansions 
+c     for boxes
       allocate(ifpwexp(nboxes))
-      if (npwlevel .ge. 0 .and. npwlevel .le. nlevels) then
-         do i=1,nboxes
-            ifpwexp(i)=0
-         enddo
-
-         do ilev=npwlevel,npwlevel
-            do ibox=itree(2*ilev+1),itree(2*ilev+2)
-               istart = isrcse(1,ibox)
-               iend = isrcse(2,ibox)
-               npts = iend-istart+1
-               if (nlistpw(ibox).gt.0 .or. npts.gt.ndiv) then
-                  ifpwexp(ibox)=1
-               endif
-            enddo
-         enddo
-      endif
+      call pfgt_find_pwexp_boxes(dim,npwlevel,nboxes,
+     1    nlevels,ltree,itree,iptr,iperiod,ifpwexp)
+cccc      if (ifprint.eq.1) call prinf('ifpwexp=*',ifpwexp,nboxes)
+c
+c     compute list info
+c
+      isep = 1
+      call compute_mnlist1(dim,nboxes,nlevels,itree(iptr(1)),
+     1  centers,boxsize,itree(iptr(3)),itree(iptr(4)),
+     2  itree(iptr(5)),isep,itree(iptr(6)),
+     2  itree(iptr(7)),iperiod,mnlist1)
       
+      allocate(list1(mnlist1,nboxes),nlist1(nboxes))
+c     modified list1 for direct evaluation
+c     list1 of a childless source box ibox at ilev<=npwlevel
+c     contains all childless target boxes that are neighbors of ibox
+c     at or above npwlevel
+      call pfgt_compute_modified_list1(dim,npwlevel,ifpwexp,
+     1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,iperiod,
+     2    mnlist1,nlist1,list1)
+
 c
 c     allocate memory need by multipole, local expansions at all levels
 c       
 c     Multipole and local expansions will be held in workspace
 c     in locations pointed to by array iaddr(2,nboxes).
 c
-c     iiaddr is pointer to iaddr array, itself contained in workspace.
-c
 c       ... allocate iaddr and temporary arrays
 c
       allocate(iaddr(2,nboxes))
 c     
-c     irmlexp is pointer for workspace need by various expansions.
-c
       call pfgt_mpalloc(nd,dim,itree,iaddr,
      1    nlevels,npwlevel,ifpwexp,lmptot,npw)
       if(ifprint .eq. 1) call prinf_long(' lmptot is *',lmptot,1)
@@ -726,42 +700,17 @@ c
          timeinfo(i)=0
       enddo
 
-      do i=0,nlevels
-         timelev(i) = 0
-      enddo
-
-c     compute list info
-c
-      isep = 1
-      call compute_mnlist1(dim,nboxes,nlevels,itree(iptr(1)),
-     1  centers,boxsize,itree(iptr(3)),itree(iptr(4)),
-     2  itree(iptr(5)),isep,itree(iptr(6)),
-     2  itree(iptr(7)),iperiod,mnlist1)
-      
-      allocate(list1(mnlist1,nboxes),nlist1s(nboxes))
-c     modified list1 for direct evaluation
-c     list1 of a childless source box ibox at ilev<=npwlevel
-c     contains all childless target boxes that are neighbors of ibox
-c     at or above npwlevel
-      call gnd_compute_modified_list1(dim,npwlevel,ifpwexp,
-     1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,iperiod,
-     2    mnlist1,nlist1s,list1)
-
 c     direct evaluation if the cutoff level is >= the maximum level 
       if (npwlevel .ge. nlevels) goto 1800
 c      
 c     get planewave nodes and weights
-      allocate(ws(-npw/2:npw/2-1))
-      allocate(ts(-npw/2:npw/2-1))
-      itype=1
-      call get_pwnodes(itype,pmax,npw,ws,ts)
-      hpw = ts(1)
+
 
 c     compute translation matrices for PW expansions
-      xmin  = boxsize(npwlevel)/sqrt(delta)
-
+      xmin  = boxsize(ncutoff)/sqrt(delta0)
+c     translation only at the cutoff level
       nmax = 1
-
+c     number of plane-wave modes
       nexp = npw**dim
 
       allocate(wpwshift(nexp,(2*nmax+1)**dim))
@@ -774,11 +723,9 @@ c     compute translation matrices for PW expansions
 c     xmin is used in shiftpw subroutines to
 c     determine the right translation matrices
 c      
-      xmin  = boxsize(npwlevel)
+      xmin  = boxsize(ncutoff)
 c
 c
-      if (ifprint.eq.1) call prinf('laddr=*',laddr,2*(nlevels+1))
-      
       if(ifprint .ge. 1) 
      $   call prinf('=== STEP 1 (form mp) ====*',i,0)
       call cpu_time(time1)
@@ -814,31 +761,27 @@ cccc      opts%upsampfac = 1.1d0
       call finufft_makeplan(ttype,dim,n_modes,iflag,ntrans,
      $     eps,fftplan,opts,ier)
 
-      do 1100 ilev = npwlevel,npwlevel
+      do 1100 ilev = ncutoff,ncutoff
 ccc         nb=0
 ccc         dt=0
 C
 C$OMP PARALLEL DO DEFAULT (SHARED)
 C$OMP$PRIVATE(ibox,nchild,istart,iend,npts)
 C$OMP$SCHEDULE(DYNAMIC)
-         do ibox=laddr(1,ilev),laddr(2,ilev)
+         do ibox=itree(2*ilev+1),itree(2*ilev+2)
             nchild = itree(iptr(4)+ibox-1)
             istart = isrcse(1,ibox)
             iend = isrcse(2,ibox)
             npts = iend-istart+1 
 c           Check if current box needs to form pw exp         
-ccc            if(npts.gt.ndiv) then
-ccc
-            if (ifpwexp(ibox).eq.1) then
-               nb=nb+1
-ccc   call cpu_time(t1)
-c     form the pw expansion
-               call gnd_formpw(nd,dim,delta,eps,sourcesort(1,istart),
+            if(npts.gt.ndiv) then
+ccc               nb=nb+1
+c              form the pw expansion
+               call gnd_formpw(nd,dim,delta0,eps,sourcesort(1,istart),
      1             npts,ifcharge,chargesort(1,istart),ifdipole,
      2             rnormalsort(1,istart),dipstrsort(1,istart),
      3             centers(1,ibox),hpw,nexp,wnufftcd,
      4             rmlexp(iaddr(1,ibox)),fftplan)
-cccc  call cpu_time(t2)
 cccc  dt=dt+t2-t1
 c     copy the multipole PW exp into local PW exp
 c     for self interaction 
@@ -848,7 +791,7 @@ c     for self interaction
          enddo
 C$OMP END PARALLEL DO 
  111     format ('ilev=', i1,4x, 'nb=',i6, 4x,'formpw=', f6.2)
-cccc  write(6,111) ilev,nb,dt
+ccc         write(6,111) ilev,nb
 c     end of ilev do loop
  1100 continue
 
@@ -868,18 +811,20 @@ c       pw expansions
       call cpu_time(time1)
 C$    time1=omp_get_wtime()
       
-      do 1300 ilev = npwlevel,npwlevel
+      do 1300 ilev = ncutoff,ncutoff
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,jbox,istart,iend,npts,i)
 C$OMP$SCHEDULE(DYNAMIC)
-         do ibox = laddr(1,ilev),laddr(2,ilev)
+         do ibox = itree(2*ilev+1),itree(2*ilev+2)
+c           ibox is the source box
 c           shift PW expansions
             do j=1,nlistpw(ibox)
                jbox=listpw(j,ibox)
-               call gnd_find_pwshift_ind(dim,iperiod,centers(1,ibox),
-     1             centers(1,jbox),bs0,xmin,nmax,ind)
-               call gnd_shiftpw(nd,nexp,rmlexp(iaddr(1,jbox)),
-     1             rmlexp(iaddr(2,ibox)),wpwshift(1,ind))
+c              jbox is the target box
+               call gnd_find_pwshift_ind(dim,iperiod,centers(1,jbox),
+     1             centers(1,ibox),bs0,xmin,nmax,ind)
+               call gnd_shiftpw(nd,nexp,rmlexp(iaddr(1,ibox)),
+     1             rmlexp(iaddr(2,jbox)),wpwshift(1,ind))
             enddo
          enddo
 C$OMP END PARALLEL DO        
@@ -925,13 +870,13 @@ c     use default options
      $       eps,fftplantarg,opts,ier)
       endif
       
-      do 1500 ilev = npwlevel,npwlevel
+      do 1500 ilev = ncutoff,ncutoff
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,istart,iend,i,npts)
 C$OMP$SCHEDULE(DYNAMIC)
          call cpu_time(t1)
-         nb=0
-         do ibox = laddr(1,ilev),laddr(2,ilev)
+ccc         nb=0
+         do ibox = itree(2*ilev+1),itree(2*ilev+2)
             if (ifpwexp(ibox).eq.1) then
                istartt = itargse(1,ibox) 
                iendt = itargse(2,ibox)
@@ -941,11 +886,11 @@ C$OMP$SCHEDULE(DYNAMIC)
                iends = isrcse(2,ibox)
                nptssrc = iends-istarts+1
 
-               nb=nb+1
+ccc               nb=nb+1
                if (ifpghtarg.ne.ifpgh) then
 c                 evaluate local expansion at targets
                   if (nptstarg.gt.0 .and. ifpghtarg.gt.0) then
-                     call gnd_pweval(nd,dim,delta,eps,centers(1,ibox),
+                     call gnd_pweval(nd,dim,delta0,eps,centers(1,ibox),
      1                   hpw,nexp,wnufftgh,rmlexp(iaddr(2,ibox)),
      2                   targetsort(1,istartt),nptstarg,ifpghtarg,
      3                   pottarg(1,istartt),gradtarg(1,1,istartt),
@@ -954,7 +899,7 @@ c                 evaluate local expansion at targets
 c     
 c                 evaluate local expansion at sources
                   if (nptssrc.gt.0) then
-                     call gnd_pweval(nd,dim,delta,eps,centers(1,ibox),
+                     call gnd_pweval(nd,dim,delta0,eps,centers(1,ibox),
      1                   hpw,nexp,wnufftgh,rmlexp(iaddr(2,ibox)),
      2                   sourcesort(1,istarts),nptssrc,ifpgh,
      3                   pot(1,istarts),grad(1,1,istarts),
@@ -963,7 +908,7 @@ c                 evaluate local expansion at sources
                else
 c                 evaluate local expansion at targets
                   if (nptstarg.gt.0 .and. nptssrc.eq.0) then
-                     call gnd_pweval(nd,dim,delta,eps,centers(1,ibox),
+                     call gnd_pweval(nd,dim,delta0,eps,centers(1,ibox),
      1                   hpw,nexp,wnufftgh,rmlexp(iaddr(2,ibox)),
      2                   targetsort(1,istartt),nptstarg,ifpghtarg,
      3                   pottarg(1,istartt),gradtarg(1,1,istartt),
@@ -972,7 +917,7 @@ c                 evaluate local expansion at targets
 c     
 c                 evaluate local expansion at sources
                   if (nptssrc.gt.0 .and. nptstarg.eq.0) then
-                     call gnd_pweval(nd,dim,delta,eps,centers(1,ibox),
+                     call gnd_pweval(nd,dim,delta0,eps,centers(1,ibox),
      1                   hpw,nexp,wnufftgh,rmlexp(iaddr(2,ibox)),
      2                   sourcesort(1,istarts),nptssrc,ifpgh,
      3                   pot(1,istarts),grad(1,1,istarts),
@@ -1031,7 +976,7 @@ c     evaluate local expansion at sources and targets together using one NUFFT
                         allocate(hesstmp(nd,nhess,1))
                      endif
                      
-                     call gnd_pweval(nd,dim,delta,eps,centers(1,ibox),
+                     call gnd_pweval(nd,dim,delta0,eps,centers(1,ibox),
      1                   hpw,nexp,wnufftgh,rmlexp(iaddr(2,ibox)),
      2                   targtmp,nptstmp,ifpgh,
      3                   pottmp,gradtmp,hesstmp,fftplan)
@@ -1099,7 +1044,7 @@ c     evaluate local expansion at sources and targets together using one NUFFT
          enddo
          call cpu_time(t2)
  222     format ('ilev=', i1,4x, 'nb=',i6, 4x,'pweval=', f6.2)
-         write(6,222) ilev,nb,t2-t1
+ccc         write(6,222) ilev,nb,t2-t1
 C     $OMP END PARALLEL DO        
  1500 continue
 
@@ -1120,24 +1065,30 @@ C$    time2 = omp_get_wtime()
 c
 cc
       call cpu_time(time1)
+C$    time1=omp_get_wtime()
       dmax = log(1.0d0/eps)*delta
       
-C$    time1=omp_get_wtime()  
+ccc      nb=0
       do 2000 ilev = 0,nlevend
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,jbox,istartt,iendt,i,jstart,jend,istarte,iende)
 C$OMP$PRIVATE(istarts,iends,nptssrc,nptstarg)
 C$OMP$SCHEDULE(DYNAMIC)  
-         do jbox = laddr(1,ilev),laddr(2,ilev)
+         do jbox = itree(2*ilev+1),itree(2*ilev+2)
 c        jbox is the source box            
             jstart = isrcse(1,jbox)
             jend = isrcse(2,jbox)
+            ns = jend-jstart+1
             
-            nlist1 = nlist1s(jbox)
-            do i=1,nlist1
+            n1 = nlist1(jbox)
+ccc            if (n1.gt.0) nb=nb+1
+            if (ns.gt.0 .and. n1.gt.0) then
+            do i=1,n1
 cccc           ibox is the target box
                ibox = list1(i,jbox)
-
+               if (iperiod.eq.1) call pfgt_find_local_shift(dim,
+     1             centers(1,ibox),centers(1,jbox),bs0,shifts)
+               
                istarts = isrcse(1,ibox)
                iends = isrcse(2,ibox)
                nptssrc = iends-istarts + 1
@@ -1146,14 +1097,14 @@ cccc           ibox is the target box
                iendt = itargse(2,ibox)
                nptstarg = iendt-istartt + 1
                if (nptstarg.gt.0) then
-                  call pfgt_direct(nd,dim,delta,dmax,
+                  call pfgt_direct(nd,dim,delta,dmax,iperiod,shifts,
      1                jstart,jend,istartt,iendt,sourcesort,
      2                ifcharge,chargesort,
      3                ifdipole,rnormalsort,dipstrsort,targetsort,
      4                ifpghtarg,pottarg,gradtarg,hesstarg)
                endif
                if (nptssrc.gt.0) then
-                  call pfgt_direct(nd,dim,delta,dmax,
+                  call pfgt_direct(nd,dim,delta,dmax,iperiod,shifts,
      1                jstart,jend,istarts,iends,sourcesort,
      2                ifcharge,chargesort,
      3                ifdipole,rnormalsort,dipstrsort,sourcesort,
@@ -1161,10 +1112,11 @@ cccc           ibox is the target box
                endif
                   
             enddo
+            endif
          enddo
 C$OMP END PARALLEL DO         
  2000 continue
-
+ccc      print *, '# of direct source boxes=', nb
       call cpu_time(time2)
 C$    time2=omp_get_wtime()  
       timeinfo(4) = time2-time1
@@ -1175,7 +1127,6 @@ C$    time2=omp_get_wtime()
       enddo
 
       if(ifprint.ge.1) call prin2('sum(timeinfo)=*',d,1)
-cccc      if(ifprint.ge.1) call prin2('timlev=*',timelev,nlevels+1)
 
       return
       end
@@ -1184,8 +1135,8 @@ c
 c
 c
 c------------------------------------------------------------------     
-      subroutine pfgt_direct(nd,dim,delta,dmax,istart,iend,
-     $    jstart,jend,source,ifcharge,charge,
+      subroutine pfgt_direct(nd,dim,delta,dmax,iperiod,shifts,
+     $    istart,iend,jstart,jend,source,ifcharge,charge,
      2    ifdipole,rnormal,dipstr,
      $    targ,ifpgh,pot,grad,hess)
 c--------------------------------------------------------------------
@@ -1251,26 +1202,30 @@ c     pot          potential incremented at targets
 c     grad         gradients incremented at targets
 c     hess         Hessians  incremented at targets
 c-------------------------------------------------------               
-        implicit none
+      implicit none
 c
-        integer istart,iend,jstart,jend,ns,j,i,ntarg
-        integer ifcharge,ifdipole
-        integer nd
-        integer dim
-        integer ifpgh
+      integer nd
+      integer dim,iperiod
+      integer istart,iend,jstart,jend,ns,ntarg
+      integer ifcharge,ifdipole
+      integer ifpgh
+      integer i,j,k
 c
-        real *8 source(dim,*)
-        real *8 rnormal(dim,*)
-        real *8 charge(nd,*),dipstr(nd,*)
-        real *8 targ(dim,*),delta,eps,dmax
-        real *8 pot(nd,*)
-        real *8 grad(nd,dim,*)
-        real *8 hess(nd,dim*(dim+1)/2,*)
+      real *8 source(dim,*)
+      real *8 rnormal(dim,*)
+      real *8 charge(nd,*),dipstr(nd,*)
+      real *8 targ(dim,*),delta,eps,dmax
+      real *8 pot(nd,*)
+      real *8 grad(nd,dim,*)
+      real *8 hess(nd,dim*(dim+1)/2,*)
+      real *8 shifts(*)
+      real *8, allocatable:: sim(:,:)
 c
         
-        ns = iend - istart + 1
-        ntarg = jend-jstart+1
-        
+      ns = iend - istart + 1
+      ntarg = jend-jstart+1
+
+      if (iperiod.eq.0) then
         if(ifcharge.eq.1.and.ifdipole.eq.0) then
           if(ifpgh.eq.1) then
              call gnd_directcp(nd,dim,delta,dmax,source(1,istart),ns,
@@ -1328,10 +1283,75 @@ c
           endif
         endif
 
+      else
+        allocate(sim(dim,ns))
+        do i=1,ns
+           do k=1,dim
+              sim(k,i)=source(k,istart+i-1)+shifts(k)
+           enddo
+        enddo
+        
+        if(ifcharge.eq.1.and.ifdipole.eq.0) then
+          if(ifpgh.eq.1) then
+             call gnd_directcp(nd,dim,delta,dmax,sim,ns,
+     1           charge(1,istart),targ(1,jstart),ntarg,pot(1,jstart))
+          endif
 
+          if(ifpgh.eq.2) then
+             call gnd_directcg(nd,dim,delta,dmax,sim,ns,
+     1           charge(1,istart),targ(1,jstart),ntarg,pot(1,jstart),
+     2           grad(1,1,jstart))
+          endif
+          if(ifpgh.eq.3) then 
+             call gnd_directch(nd,dim,delta,dmax,sim,ns,
+     1           charge(1,istart),targ(1,jstart),ntarg,pot(1,jstart),
+     2           grad(1,1,jstart),hess(1,1,jstart))
+          endif
+        endif
+
+        if(ifcharge.eq.0.and.ifdipole.eq.1) then
+          if(ifpgh.eq.1) then
+             call gnd_directdp(nd,dim,delta,dmax,sim,ns,
+     1           rnormal(1,istart),dipstr(1,istart),targ(1,jstart),
+     2           ntarg,pot(1,jstart))
+          endif
+
+          if(ifpgh.eq.2) then
+             call gnd_directdg(nd,dim,delta,dmax,sim,ns,
+     1           rnormal(1,istart),dipstr(1,istart),targ(1,jstart),
+     2           ntarg,pot(1,jstart),grad(1,1,jstart))
+          endif
+          if(ifpgh.eq.3) then
+             call gnd_directdh(nd,dim,delta,dmax,sim,ns,
+     1           rnormal(1,istart),dipstr(1,istart),targ(1,jstart),
+     2           ntarg,pot(1,jstart),grad(1,1,jstart),hess(1,1,jstart))
+          endif
+        endif 
+
+        if(ifcharge.eq.1.and.ifdipole.eq.1) then
+          if(ifpgh.eq.1) then
+             call gnd_directcdp(nd,dim,delta,dmax,sim,ns,
+     1           charge(1,istart),rnormal(1,istart),dipstr(1,istart),
+     2           targ(1,jstart),ntarg,pot(1,jstart))
+          endif
+
+          if(ifpgh.eq.2) then
+             call gnd_directcdg(nd,dim,delta,dmax,sim,ns,
+     1           charge(1,istart),rnormal(1,istart),dipstr(1,istart),
+     2           targ(1,jstart),ntarg,pot(1,jstart),grad(1,1,jstart))
+          endif
+          if(ifpgh.eq.3) then
+             call gnd_directcdh(nd,dim,delta,dmax,sim,ns,
+     1           charge(1,istart),rnormal(1,istart),dipstr(1,istart),
+     2           targ(1,jstart),ntarg,pot(1,jstart),grad(1,1,jstart),
+     3           hess(1,1,jstart))
+          endif
+        endif
+        deallocate(sim)
+      endif
 c
-        return
-        end
+      return
+      end
 c
 c
 c

@@ -709,6 +709,7 @@ c     vpmat - matrix converting coefficients into values of the first derivative
 c     vppmat - matrix converting coefficients into values of the second derivative
 c
 c     output:
+c     grad - value of the gradient
 c     hess - value of the hessian
 c
       implicit real *8 (a-h,o-z)

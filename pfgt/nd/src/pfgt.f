@@ -12,10 +12,11 @@ c----------------------------------------------
 c   INPUT PARAMETERS:
 c   nd            : number of FGTs (same source and target locations, 
 c                   different charge, dipole strengths)
+c   dim           : dimension of the space
 c   delta         : Gaussian variance 
 c   eps           : precision requested
 c   ns            : number of sources
-c   sources(3,ns) : source locations
+c   sources(dim,ns) : source locations
 c   ifcharge      : flag for including charge interactions
 c                   charge interactions included if ifcharge =1
 c                   not included otherwise
@@ -23,7 +24,7 @@ c   charge(nd,ns) : charge strengths
 c   ifdipole      : flag for including dipole interactions
 c                   dipole interactions included if ifcharge =1
 c                   not included otherwise
-c   rnormal(3,ns) : dipole directions
+c   rnormal(dim,ns) : dipole directions
 c   dipstr(nd,ns) : dipole strengths
 c   iper          : flag for periodic implmentations. Currently unused
 c   ifpgh         : flag for computing pot/grad/hess
@@ -32,7 +33,7 @@ c                   ifpgh = 2, potential and gradient are computed
 c                   ifpgh = 3, potential, gradient, and hessian 
 c                   are computed
 c   nt            : number of targets
-c   targ(3,nt)    : target locations
+c   targ(dim,nt)    : target locations
 c   ifpghtarg     : flag for computing pottarg/gradtarg/hesstarg
 c                   ifpghtarg = 1, only potential is computed at targets
 c                   ifpghtarg = 2, potential and gradient are 
@@ -42,13 +43,14 @@ c                   computed at targets
 c
 c   OUTPUT PARAMETERS
 c   pot(nd,*)       : potential at the source locations
-c   grad(nd,3,*)    : gradients at the source locations
-c   hess(nd,6,*)    : hessian at the source locations
+c   grad(nd,dim,*)    : gradients at the source locations
+c   hess(nd,dim*(dim+1)/2,*)    : hessian at the source locations
 c   pottarg(nd,*)   : potential at the target locations
-c   gradtarg(nd,3,*): gradient at the target locations
-c   hesstarg(nd,6,*): hessian at the target locations
+c   gradtarg(nd,dim,*): gradient at the target locations
+c   hesstarg(nd,dim*(dim+1)/2,*): hessian at the target locations
 c
-c   Note: hessians are in the order xx, yy, zz, xy, xz, yz
+c   Note: hessians are in the order xx, yy, zz, xy, xz, yz for 3D
+c     and xx, xy, yy for 2D
 c      
       implicit none
 c
@@ -92,11 +94,6 @@ c
      1                              hesstargsort(:,:,:)
 
 c
-cc     additional fmm variables
-
-      integer *8 lmptot
-
-c
 cc      temporary variables
 c
       integer i,ilev,lmptmp,id,k,nhess
@@ -112,7 +109,6 @@ c
 
       call pts_tree_boxsize0(dim,delta,eps,iperiod,sources,ns,targ,nt,
      1    npwlevel,bs0,cen0)
-cccc      write(6,*) ' npwlevel',npwlevel
       if (ifprint.eq.1) call prinf('npwlevel=*',npwlevel,1)
 C
 c     divide on sources
@@ -145,7 +141,7 @@ c
       
       call cpu_time(time1)
 C$      time1=omp_get_wtime()
-      
+c     find the memory requirements for the tree
       nlmin = 0
       call pts_tree_mem(dim,sources,ns,targ,nt,idivflag,
      1    ndiv,nlmin,nlmax,ifunif,iperiod,
@@ -153,22 +149,17 @@ C$      time1=omp_get_wtime()
      3    nlevels,nboxes,ltree) 
 c 
       if (ifprint.eq.1) call prinf('nlevels=*',nlevels,1)
-cccc      write(6,*) ' nlevels',nlevels
-cccc      write(6,*) ' nboxes',nboxes
-
+c     memory allocation for the tree
       allocate(itree(ltree))
       allocate(boxsize(0:nlevels))
       allocate(centers(dim,nboxes))
 c
-c     call the tree code
+c     build the actual tree
 c
       call pts_tree_build(dim,sources,ns,targ,nt,idivflag,ndiv,
      1    nlmin,nlmax,ifunif,iperiod,nlevels,nboxes,
      2    npwlevel,bs0,cen0,
      3    ltree,itree,iptr,centers,boxsize)
-cccc      write(6,*) ' boxsize',boxsize(0)
-cccc      write(6,*) ' cutoff length', boxsize(0)/2**npwlevel/sqrt(delta)
-cccc      write(6,*) ' nperbox',ns*4/(3*nboxes)
       call cpu_time(time2)
 C$        time2=omp_get_wtime()
       if( ifprint .eq. 1 ) then
@@ -194,11 +185,12 @@ c     plot the tree
 
       call cpu_time(time1)
 C$      time1=omp_get_wtime()
-
+c     sort source points to the tree
       call pts_tree_sort(dim,ns,sources,itree,ltree,nboxes,nlevels,
      1    iptr,centers,isrc,isrcse)
 cccc      call prinf('isrcse=*',isrcse,20)
 
+c     sort target points to the tree
       call pts_tree_sort(dim,nt,targ,itree,ltree,nboxes,nlevels,iptr,
      1   centers,itarg,itargse)
 cccc      call prinf('itargse=*',itargse,nboxes)
@@ -210,6 +202,7 @@ C$        time2=omp_get_wtime()
          call prin2('points per sec=*',pps,1)
       endif
 
+c     allocate memory for sorted quantities
       allocate(sourcesort(dim,ns))
       allocate(targsort(dim,nt))
 
@@ -420,24 +413,25 @@ c
 c
 c
       subroutine pfgtmain(nd,dim,delta,eps,iperiod,
-     $     ifcharge,chargesort,ifdipole,rnormalsort,dipstrsort,
-     $     nsource,sourcesort,ntarget,targetsort,
-     $     nboxes,nlevels,ltree,itree,iptr,centers,boxsize,
-     $     npwlevel,ndiv,pmax,npw,
-     $     isrcse,itargse,
-     $     ifpgh,pot,grad,hess,
-     $     ifpghtarg,pottarg,gradtarg,hesstarg)
+     $    ifcharge,chargesort,ifdipole,rnormalsort,dipstrsort,
+     $    nsource,sourcesort,ntarget,targetsort,
+     $    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,
+     $    npwlevel,ndiv,pmax,npw,
+     $    isrcse,itargse,
+     $    ifpgh,pot,grad,hess,
+     $    ifpghtarg,pottarg,gradtarg,hesstarg)
 c
 c
-c   the FGT in R^3: evaluate all pairwise particle
+c   the FGT in R^dim: evaluate all pairwise particle
 c   interactions
 c   and interactions with targets using PW expansions.
 c
 c
 c   \phi(x_i) = \sum_{j\ne i} charge_j e^{-|x_i-x_j|^2/delta)
-c   + dipstr_j 2*(x_i - x_j)\cdot rnormal/delta * e^{-|x_i-x_j|^2/delta)
+c   + dipstr_j 2*((x_i - x_j)\cdot rnormal(:,j))/delta * e^{-|x_i-x_j|^2/delta)
 c
-c
+c     Note that the dipole term is the gradient w.r.t. the source point.
+c      
 c   All the source/target/expansion center related quantities
 c   are assumed to be tree-sorted
 c
@@ -446,12 +440,12 @@ c   INPUT PARAMETERS:
 c
 c   nd:   number of charge densities
 c
+c   dim:  dimension of the space
+c
 c   eps:  FGT precision requested
 c
 c   iperiod in: integer
 c             flag for periodic implementation
-c   nsource:     integer:  number of sources
-c   sourcesort: real *8 (3,ns):  source locations
 c
 c   ifcharge:  charge computation flag
 c              ifcharge = 1   =>  include charge contribution
@@ -462,24 +456,18 @@ c   ifdipole:  dipole computation flag
 c              ifdipole = 1   =>  include dipole contribution
 c                                     otherwise do not
 c   dipstrsort: complex *16 (nsource): dipole strengths
+c   nsource:     integer:  number of sources
+c   sourcesort: real *8 (dim,ns):  source locations
+c
 c   ntarget: integer:  number of targets
-c   targetsort: real *8 (3,ntarget):  target locations
-c   iaddr: (2,nboxes): pointer in rmlexp where multipole
-c                      and local expansions for each
-c                      box is stored
-c                      iaddr(1,ibox) is the
-c                      starting index in rmlexp for the 
-c                      multipole PW expansion of ibox
-c                      and iaddr(2,ibox) is the
-c                      starting index in rmlexp
-c                      for the local PW expansion of ibox
+c   targetsort: real *8 (dim,ntarget):  target locations
 c
 c   itree    in: integer (ltree)
 c             This array contains all the information
 c             about the tree
-c             Refer to pts_tree2d.f
+c             Refer to pts_tree_nd.f
 c
-c   ltree    in: integer *8
+c   ltree    in: integer 
 c            length of tree
 c
 c    iptr in: integer(8)
@@ -492,7 +480,7 @@ c             number of levels in the tree
 c
 c     
 c     npwlevel in: integer
-c             cutoff level at which the X expansion is valid
+c             cutoff level at which the plane-wave expansion is valid
 c
 c     
 c     nboxes  in: integer
@@ -502,7 +490,7 @@ c     boxsize in: real*8 (0:nlevels)
 c             boxsize(i) is the size of the box from end to end
 c             at level i
 c
-c     centers in: real *8(3,nboxes)
+c     centers in: real *8(dim,nboxes)
 c                 array containing the centers of all the boxes
 c
 c     isrcse in: integer(2,nboxes)
@@ -608,7 +596,6 @@ c
 c     ifprint is an internal information printing flag. 
 c     Suppressed if ifprint=0.
 c     Prints timing breakdown and other things if ifprint=1.
-c     Prints timing breakdown, list information, and other things if ifprint=2.
 c
       ifprint=1
 
@@ -623,26 +610,29 @@ c     get planewave nodes and weights
       allocate(ws(-npw/2:npw/2-1))
       allocate(ts(-npw/2:npw/2-1))
       iperiod0=iperiod
-      npwlevel0=npwlevel
       delta0=delta
       if ((npwlevel.le.1).and.(iperiod.eq.1)) then
          call get_periodic_pwnodes(bs0,delta,eps,npw,ws,ts)
          iperiod0=0
-cccc         npwlevel=0
          delta0=1.0d0
+c        in this case, periodic Gaussian kernel is used. Thus, the colleagues
+c        should be computed as the free-space case to avoid double counting
          call computecoll(dim,nlevels,nboxes,itree(iptr(1)),
      1       boxsize,centers,itree(iptr(3)),itree(iptr(4)),
      2       itree(iptr(5)),iperiod0,itree(iptr(6)),itree(iptr(7)))
       else
+c     itype = 1 is the trapezoidal rule, which is convenient for the use of
+c     NUFFTs
          itype=1
          call get_pwnodes(itype,pmax,npw,ws,ts)
       endif
+c     hpw is the step size in the Fourier space, needed in NUFFT calls
       hpw = ts(1)
 c
 c     compute list info
 c
       call gnd_compute_mnlistpw(dim,nboxes,nlevels,ltree,itree,
-     1    iptr,centers,boxsize,iperiod,mnlistpw)
+     1    iptr,centers,boxsize,mnlistpw)
       allocate(nlistpw(nboxes),listpw(mnlistpw,nboxes))
 c     listpw contains source boxes in the pw interaction
       call pfgt_compute_listpw(dim,npwlevel,nboxes,nlevels,
@@ -657,7 +647,7 @@ c     check whether we need to create and evaluate planewave expansions
 c     for boxes
       allocate(ifpwexp(nboxes))
       call pfgt_find_pwexp_boxes(dim,npwlevel,nboxes,
-     1    nlevels,ltree,itree,iptr,iperiod,ifpwexp)
+     1    nlevels,ltree,itree,iptr,ifpwexp)
 cccc      if (ifprint.eq.1) call prinf('ifpwexp=*',ifpwexp,nboxes)
 c
 c     compute list info
@@ -674,7 +664,7 @@ c     list1 of a childless source box ibox at ilev<=npwlevel
 c     contains all childless target boxes that are neighbors of ibox
 c     at or above npwlevel
       call pfgt_compute_modified_list1(dim,npwlevel,ifpwexp,
-     1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,iperiod,
+     1    nboxes,nlevels,ltree,itree,iptr,centers,boxsize,iperiod0,
      2    mnlist1,nlist1,list1)
 
 c
@@ -821,7 +811,7 @@ c           shift PW expansions
             do j=1,nlistpw(ibox)
                jbox=listpw(j,ibox)
 c              jbox is the target box
-               call gnd_find_pwshift_ind(dim,iperiod,centers(1,jbox),
+               call gnd_find_pwshift_ind(dim,iperiod0,centers(1,jbox),
      1             centers(1,ibox),bs0,xmin,nmax,ind)
                call gnd_shiftpw(nd,nexp,rmlexp(iaddr(1,ibox)),
      1             rmlexp(iaddr(2,jbox)),wpwshift(1,ind))
@@ -1086,7 +1076,7 @@ ccc            if (n1.gt.0) nb=nb+1
             do i=1,n1
 cccc           ibox is the target box
                ibox = list1(i,jbox)
-               if (iperiod.eq.1) call pfgt_find_local_shift(dim,
+               if (iperiod0.eq.1) call pfgt_find_local_shift(dim,
      1             centers(1,ibox),centers(1,jbox),bs0,shifts)
                
                istarts = isrcse(1,ibox)
@@ -1097,14 +1087,14 @@ cccc           ibox is the target box
                iendt = itargse(2,ibox)
                nptstarg = iendt-istartt + 1
                if (nptstarg.gt.0) then
-                  call pfgt_direct(nd,dim,delta,dmax,iperiod,shifts,
+                  call pfgt_direct(nd,dim,delta,dmax,iperiod0,shifts,
      1                jstart,jend,istartt,iendt,sourcesort,
      2                ifcharge,chargesort,
      3                ifdipole,rnormalsort,dipstrsort,targetsort,
      4                ifpghtarg,pottarg,gradtarg,hesstarg)
                endif
                if (nptssrc.gt.0) then
-                  call pfgt_direct(nd,dim,delta,dmax,iperiod,shifts,
+                  call pfgt_direct(nd,dim,delta,dmax,iperiod0,shifts,
      1                jstart,jend,istarts,iends,sourcesort,
      2                ifcharge,chargesort,
      3                ifdipole,rnormalsort,dipstrsort,sourcesort,
@@ -1148,8 +1138,16 @@ c     INPUT arguments
 c-------------------------------------------------------------------
 c     nd           in: integer
 c                  number of charge densities
+c     dim          in: integer
+c                  dimension of the space
 c
 c     delta        in: Gaussian variance
+c
+c     dmax         in: maximum distance squared at which the Gaussian kernel is regarded as 0
+c
+c     iperiod      in: 0: free space; 1: periodic
+c
+c     shifts       in: real *8 (dim) the source center shifts when iperiod=1
 c
 c     istart       in:Integer
 c                  Starting index in source array whose expansions
@@ -1167,7 +1165,7 @@ c     jend         in:Integer
 c                  Last index in target array at which we wish
 c                  to update the potential and gradients
 c
-c     source       in: real *8(3,ns)
+c     source       in: real *8(dim,ns)
 c                  Source locations
 c
 c     ifcharge     in: Integer
@@ -1183,10 +1181,12 @@ c                 flag for including expansions due to dipoles
 c                 The expansion due to dipoles will be included
 c                 if ifdipole == 1
 c
-c     dipstr        in: complex *16(ns)
+c     rnormal        in: real *8(dim,ns)
+c                 dipole directions at the source locations
+c     dipstr        in: real *8(nd,ns)
 c                 dipole strengths at the source locations
 c
-c     targ        in: real *8(3,nt)
+c     targ        in: real *8(dim,nt)
 c                 target locations
 c
 c     ifpgh        in: Integer
@@ -1366,6 +1366,9 @@ c     Input arguments
 c     nd          in: integer
 c                 number of expansions
 c
+c     dim         in: integer
+c                 dimension of the space
+c
 c     laddr       in: Integer(2,0:nlevels)
 c                 indexing array providing access to boxes at each
 c                 level
@@ -1374,8 +1377,7 @@ c     nlevels     in: Integer
 c                 Total numner of levels
 c     
 c     npwlevel    in: Integer
-c                 cutoff level where the plane wave expansion is
-c                 valid at or below ilev = npwlevel
+c                 cutoff level where the plane wave expansion is valid
 c
 c     npw         in: Integer
 c                 Number of terms in the plane wave expansion

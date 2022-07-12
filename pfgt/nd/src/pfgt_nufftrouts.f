@@ -10,9 +10,12 @@ c                      type 2 NUFFTs are called
 c      
 c     gnd_mk_full_translation_matrices : returns precomputed translation matrices
 c                   for PW mp to loc translations on the cutoff level
+c      
+c     nufft_weights : weights for type 1 and type 2 NUFFT calls
+c      
 c*********************************************************************
 C
-C form PW expansions (charge, dipole, charge & dipole) using NUFFT
+C     form PW expansions (charge, dipole, charge & dipole) using NUFFT
 C
 C*********************************************************************
       subroutine gnd_formpw(nd,dim,delta,eps,sources,ns,
@@ -26,17 +29,21 @@ C
 C     INPUT:
 C
 c     nd            = vector length (parallel)
+c     dim           = dimension of the underlying space
 C     delta         = Gaussian variance
 c     eps           = prescribed precision
 C     sources       = source locations
 C     ns            = number of sources
+c     ifcharge      = whether charge is present
 C     charge        = strengths of sources
+c     ifdipole      = whether dipole is present
 C     rnormal       = dipole directions
 C     dipstr        = dipole strengths 
 C     cent          = center of the expansion
-C     npw           = number of terms in 1D PW expansion
-C     ws,ts         = 1D pw expansion weights and nodes
+C     hpw           = step size in the Fourier space
+C     nexp          = total number of terms in the plane-wave expansion
 C     wnufft        = real *8 weights for nufft, tensor product of 1d weights
+C     fftplan       = integer *8 pointer to the fftw plan for finufft calls
 C
 C     OUTPUT:
 C
@@ -154,7 +161,9 @@ C
 
       return
       end
+C*********************************************************************
 c
+c     evaluate plane-wave expansions
 C
 C*********************************************************************
       subroutine gnd_pweval(nd,dim,delta,eps,center,hpw,
@@ -164,18 +173,21 @@ C     This subroutine evaluates the plane wave
 C     expansions about CENTER at location TARG
 C     potential + gradient + hess
 C
-C     INPUT
-C
+C     INPUT:
 c     nd            = vector length (for multiple charges at same locations)
+c     dim           = dimension of the underlying space
 C     delta         = Gaussian variance
 c     eps           = prescribed precision
 C     center        = center of the expansion
-C     npw           = number of Fourier plane waves
-C     ws,ts         = planewave weights and nodes
+C     hpw           = step size in the Fourier space
+C     nexp          = number of terms in the plane-wave expansion
+c     wnufftgh      = weights for computing gradient and hessian
 C     pwexp         = pw expansions 
 C     targ          = target locations
 C     nt            = number of targets
-C
+c     ifpgh         = output flag: 1-> pot; 2-> pot+grad; 3-> pot+grad+hess
+C     fftplan       = integer *8 pointer to the fftw plan for finufft calls
+c      
 C     OUTPUT:
 C     pot           = potential (or vectorized potentials) incremented
 C     grad          = gradient (or vectorized gradients) incremented
@@ -325,14 +337,15 @@ C************************************************************************
      1              wshift)
 C
 C     This subroutine precomputes all translation matrices for PW
-C     expansions for mp to loc at the cutoff level.
+C     expansions for mp to loc at the cutoff level for the point FGT
 c      
 C     INPUT
-C
+C     dim     = dimension of the underlying space
 c     xmin    = scaled (by 1/sqrt(delta) boxsize at the cutoff level
 C     npw     = number of terms in 1d plane wave expansion
 C     ts      = 1d pw expansion nodes
 C     nmax    = number of different translation lengths in the whole scheme 
+c               always equal to 1 in the current implementation
 c      
 C     OUTPUT:
 C
@@ -415,28 +428,27 @@ c
 c
 c*********************************************************************
 C
-C shift PW expansions (mp to loc at the cutoff level)
+C     weights for nufft calls
 C
 C*********************************************************************
       subroutine nufft_weights(dim,npw,ws,ts,
      1    nexp,wnufftcd,wnufftgh)
 C
-C     This subroutine precomputes all translation matrices for all SOE/X
-C     expansions from child to parent or vice versa.
+C     This subroutine precomputes nufft weights for "form mp" and 
+C     "eval loc" stages
 C
-c     used in mp to mp or loc to loc stage
-c      
 C     INPUT
 C
-c     nd      = vector length (for multiple charges at same locations)
+c     dim     = dimension of the underlying space
 C     npw     = number of terms in plane wave exp
-C     nmax    = number of different translation lengths in the whole scheme 
-C     ts      = pw nodes
+c     ws,ts   = weights and nodes of the 1d plane-wave expansion
+C     nexp    = number of terms in the full plane-wave expansion
 c      
 C     OUTPUT:
 C
-C     wshift  = table of translation matrices for PW shift 
-C
+C     wnufftcd - weights for the "form mp" stage
+C     wnufftgh - weights for computing grad and hessian
+c
       implicit real *8 (a-h,o-z)
       integer dim
       real *8 ws(npw),ts(npw)

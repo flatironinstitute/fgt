@@ -1,29 +1,53 @@
+c     This file contains nine direction evaluation subroutines
+c     for point Gauss transform in 1,2,3 dimensions.
+c
+c     Naming convention for subroutines:
+c     1. all subroutines start with gnd_direct, indicating that 
+c        they are for direct evaluation of Gauss transform in general dimensions;
+c     2. they are followed by c (charge input only), d (dipole input only),
+c        cd (charge+dipole input), p (potential output only), g (potential+gradient output),
+c        h (potential+gradient+hessian output).
+c
+c     pot(ii,i)  = \sum_j charge(ii,j)*exp(-(t_i-s_j)^2/delta)
+c                + \sum_j dipstr(ii,j)*(grad_s(exp(-(t_i-s_j)^2/delta) \cdot rnormal(s_j))
+c
+c     grad  = d(pot)
+c     hess  = dd(pot)
+c     Note: in 2d, hessian has the order dxx, dxy, dyy
+c           in 3d, hessian has the order dxx, dyy, dzz, dxy, dxz, dyz
+c     
+c     Note: all output variables are incremented. So proper initialization are needed, but
+c     the subroutines can be called many times to calculate the output variable due to all
+c     sources.
+c
+c     The union of input and output arguments are as follows.
+c
+c     Input parameters:
+c     nd: number of input vectors (charge, rnormal, dipstr) and output vectors (pot, grad, hess)
+c     dim: dimension of the underlying space
+c     delta: the Gaussian variance
+c     dmax: the squared distance outside which the Gaussian kernel is regarded as 0
+c     ns: number of sources
+c     sources: (dim,ns) source coordinates
+c     ntarg: number of targets
+c     targ: (dim,ntarg) target coordinates
+c     charge: (nd,ns) charge strengths
+c     rnormal: (dim,ns) dipole orientation vectors
+c     dipstr: (nd,ns) dipole strengths
+c
+c     Output parameters:
+c     pot: (nd,ntarg) incremented potential at targets
+c     grad: (nd,dim,ntarg) incremented gradient at targets
+c     hess: (nd,dim*(dim+1)/2,ntarg) incremented hessian at targets
+c***********************************************************************
+c
+c     charge to potential
 c
 c**********************************************************************
       subroutine gnd_directcp(nd,dim,delta,dmax,sources,ns,charge,
      $           targ,ntarg,pot)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
-c
-c     This subroutine INCREMENTS the potentials POT
-c     at the target point TARGET, due to a vector of 
-c     charges at SOURCE(3,ns). 
-c
-c     pot(ii)  = \sum_j exp(-r^2/delta)*charge(ii,j)
-c
-c---------------------------------------------------------------------
-c     INPUT:
-c
-c     delta         :   Gaussian variance
-c     sources(2,ns) :   location of the sources
-c     ns            :   number of sources
-c     charge(nd,ns) :   charge strengths
-c     targ          :   location of the target
-c---------------------------------------------------------------------
-c     OUTPUT:
-c
-c     pot(nd)       : potential is incremented
-c---------------------------------------------------------------------
       integer i,ns,ii,nd
       integer dim
       real *8 sources(dim,ns),targ(dim,*)
@@ -53,35 +77,15 @@ c
 c
 c
 c
+c***********************************************************************
 c
+c     charge to potential+gradient
 c
 c**********************************************************************
       subroutine gnd_directcg(nd,dim,delta,dmax,sources,ns,charge,
      1             targ,ntarg,pot,grad)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
-c
-c     This subroutine INCREMENTS the potentials POT and gradients GRAD
-c     at the target point TARGET, due to a vector of 
-c     charges at SOURCE(2,ns). 
-c
-c     pot(ii)  = \sum_j exp(-r^2/delta)*charge(ii,j)
-c
-c---------------------------------------------------------------------
-c     INPUT:
-c
-c     delta         :   Gaussian variance
-c     sources(2,ns) :   location of the sources
-c     ns            :   number of sources
-c     charge(nd,ns) :   charge strengths
-c     targ          :   location of the target
-
-c---------------------------------------------------------------------
-c     OUTPUT:
-c
-c     pot(nd)       : potential is incremented
-c     grad(nd,2)      : gradient is incremented
-c---------------------------------------------------------------------
       integer i,ns,ii,nd
       integer dim
       real *8 sources(dim,ns),targ(dim,ntarg)
@@ -120,43 +124,15 @@ c
 c
 c
 c
+c***********************************************************************
 c
-c
-c
-c
+c     charge to potential+gradient+hessian
 c
 c**********************************************************************
       subroutine gnd_directch(nd,dim,delta,dmax,sources,ns,charge,
      1           targ,ntarg,pot,grad,hess)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
-c
-c     This subroutine INCREMENTS the potentials POT, gradients GRAD
-c     and Hessians at the target point TARGET, due to a vector of 
-c     charges at SOURCE(2,ns). 
-c     
-c     pot(ii)  = \sum_j exp(-r^2/delta)*charge(ii,j)
-c
-c     grad = grad
-c     hess = (dxx,dxy,dyy)
-c
-c---------------------------------------------------------------------
-c     INPUT:
-c
-c     delta         :   Gaussian variance
-c     sources(2,ns) :   location of the sources
-c     ns            :   number of sources
-c     charge(nd,ns) :   charge strengths
-c     targ          :   location of the target
-c---------------------------------------------------------------------
-c     OUTPUT:
-c
-c     pot(nd)       : potential is incremented
-c     grad(nd,2)    : gradient is incremented
-c     hess(nd,3)    : Hessian is incremented
-c                     using ordering (dxx,dyy,dzz,dxy,dxz,dyz)
-      
-c---------------------------------------------------------------------
       integer i,ns,ifexpon,ii,nd
       integer dim
       real *8 sources(dim,ns),targ(dim,ntarg)
@@ -214,33 +190,15 @@ c
 c
 c
 c
+c***********************************************************************
 c
-c
+c     dipole to potential
+c      
 c**********************************************************************
       subroutine gnd_directdp(nd,dim,delta,dmax,sources,ns,
      $           rnormal,dipstr,targ,ntarg,pot)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
-c
-c     This subroutine INCREMENTS the potentials POT
-c     at the target point TARGET, due to a vector of 
-c     charges at SOURCE(2,ns). 
-c
-c     pot(ii)  = \sum_j \grad_s(exp(-r^2/delta)*charge(ii,j))*N(s)
-c     
-c---------------------------------------------------------------------
-c     INPUT:
-c
-c     delta         :   Gaussian variance
-c     sources(2,ns) :   location of the sources
-c     ns            :   number of sources
-c     dipstr(nd,ns) :   dipole strengths
-c     targ          :   location of the target
-c---------------------------------------------------------------------
-c     OUTPUT:
-c
-c     pot(nd)   (complex *16)      : potential is incremented
-c---------------------------------------------------------------------
       integer i,ns,ii,nd
       integer dim
       real *8 sources(dim,ns),rnormal(dim,ns),targ(dim,ntarg)
@@ -280,37 +238,15 @@ c
 c
 c
 c
+c***********************************************************************
 c
-c
+c     dipole to potential+gradient
+c      
 c**********************************************************************
       subroutine gnd_directdg(nd,dim,delta,dmax,sources,ns,
      1             rnormal,dipstr,targ,ntarg,pot,grad)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
-c
-c     This subroutine INCREMENTS the potentials POT and gradients GRAD
-c     at the target point TARGET, due to a vector of 
-c     charges at SOURCE(2,ns). 
-c     
-c     pot(ii)  = \sum_j \grad_s(exp(-r^2/delta)*charge(ii,j))*N(s)
-c
-c     grad  = d(pot)
-c
-c---------------------------------------------------------------------
-c     INPUT:
-c
-c     delta         :   Gaussian variance
-c     sources(2,ns) :   location of the sources
-c     ns            :   number of sources
-c     rnormal(2,ns) :   normals at sources
-c     dipstr(nd,ns) :   dipole strengths
-c     targ          :   location of the target
-c---------------------------------------------------------------------
-c     OUTPUT:
-c
-c     pot(nd)       : potential is incremented
-c     grad(nd,2)    : gradient is incremented
-c---------------------------------------------------------------------
       integer i,ns,ii,nd
       integer dim
       real *8 sources(dim,ns),rnormal(dim,ns),targ(dim,ntarg)
@@ -359,42 +295,15 @@ c
 c
 c
 c
+c***********************************************************************
 c
-c
-c
-c
-c
+c     dipole to potential+gradient+hessian
+c      
 c**********************************************************************
       subroutine gnd_directdh(nd,dim,delta,dmax,sources,ns,
      1           rnormal,dipstr,targ,ntarg,pot,grad,hess)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
-c
-c     This subroutine INCREMENTS the potentials POT, gradients GRAD
-c     and Hessians at the target point TARGET, due to a vector of 
-c     charges at SOURCE(2,ns). 
-c     
-c     pot(ii)  = \sum_j \grad_s(exp(-r^2/delta)*charge(ii,j))*N(s)
-c
-c     grad  = d(pot)
-c     hess = dxx,dxy,dyy
-c
-c---------------------------------------------------------------------
-c     INPUT:
-c
-c     delta         :   Gaussian variance
-c     sources(2,ns) :   location of the sources
-c     ns            :   number of sources
-c     rnormal(2,ns) :   normals at sources
-c     dipstr(nd,ns) :   dipole strengths
-c     targ          :   location of the target
-c---------------------------------------------------------------------
-c     OUTPUT:
-c
-c     pot(nd)     (complex *16)      : potential is incremented
-c     grad(nd)  (complex *16)      : gradient is incremented
-c     hess(nd)  (complex *16)      : Hessian is incremented
-c---------------------------------------------------------------------
       integer i,ns,ifexpon,ii,nd
       integer dim
       real *8 sources(dim,ns),rnormal(dim,ns),targ(dim,ntarg)
@@ -462,36 +371,15 @@ c
 c
 c
 c
+c***********************************************************************
 c
-c
+c     charge+dipole to potential
+c      
 c**********************************************************************
       subroutine gnd_directcdp(nd,dim,delta,dmax,sources,ns,
      $           charge,rnormal,dipstr,targ,ntarg,pot)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
-c
-c     This subroutine INCREMENTS the potentials POT
-c     at the target point TARGET, due to a vector of 
-c     charges and dipoles at SOURCE(2,ns). 
-c
-c     pot(ii)  = \sum_j exp(-r^2/delta)*charge(ii,j)
-c                + \sum_j \grad_s(exp(-r^2/delta)*charge(ii,j))*N(s)
-c
-c---------------------------------------------------------------------
-c     INPUT:
-c
-c     delta         :   Gaussian variance
-c     sources(2,ns) :   location of the sources
-c     ns            :   number of sources
-c     charge(nd,ns) :   charge strengths
-c     rnormal(2,ns) :   normals at sources
-c     dipstr(nd,ns) :   dipole strengths
-c     targ          :   location of the target
-c---------------------------------------------------------------------
-c     OUTPUT:
-c
-c     pot(nd)       : potential is incremented
-c---------------------------------------------------------------------
       integer i,ns,ii,nd
       integer dim
       real *8 sources(dim,ns),rnormal(dim,ns),targ(dim,ntarg)
@@ -536,39 +424,15 @@ c
 c
 c
 c
+c***********************************************************************
 c
-c
+c     charge+dipole to potential+gradient
+c      
 c**********************************************************************
       subroutine gnd_directcdg(nd,dim,delta,dmax,sources,ns,
      1             charge,rnormal,dipstr,targ,ntarg,pot,grad)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
-c
-c     This subroutine INCREMENTS the potentials POT and gradients GRAD
-c     at the target point TARGET, due to a vector of 
-c     charges at SOURCE(2,ns). 
-c     
-c     pot(ii)  = \sum_j exp(-r^2/delta)*charge(ii,j)
-c                + \sum_j \grad_s(exp(-r^2/delta)*charge(ii,j))*N(s)
-c
-c     grad  = d(pot)
-c
-c---------------------------------------------------------------------
-c     INPUT:
-c
-c     delta         :   Gaussian variance
-c     sources(2,ns) :   location of the sources
-c     ns            :   number of sources
-c     charge(nd,ns) :   charge strengths
-c     rnormal(2,ns) :   normals at sources
-c     dipstr(nd,ns) :   charge strengths
-c     targ          :   location of the target
-c---------------------------------------------------------------------
-c     OUTPUT:
-c
-c     pot(nd)     (complex *16)      : potential is incremented
-c     grad(nd)  (complex *16)      : gradient is incremented
-c---------------------------------------------------------------------
       integer i,ns,ii,nd
       integer dim
       real *8 sources(dim,ns),rnormal(dim,ns),targ(dim,ntarg),delta
@@ -624,45 +488,15 @@ c
 c
 c
 c
+c***********************************************************************
 c
-c
-c
-c
-c
+c     charge+dipole to potential+gradient+hessian
+c      
 c**********************************************************************
       subroutine gnd_directcdh(nd,dim,delta,dmax,sources,ns,
      1           charge,rnormal,dipstr,targ,ntarg,pot,grad,hess)
       implicit real *8 (a-h,o-z)
 c**********************************************************************
-c
-c     This subroutine INCREMENTS the potentials POT, gradients GRAD
-c     and Hessians at the target point TARGET, due to a vector of 
-c     charges at SOURCE(2,ns). 
-c     
-c
-c     pot(ii)  = \sum_j exp(-r^2/delta)*charge(ii,j)
-c                + \sum_j \grad_s(exp(-r^2/delta)*charge(ii,j))*N(s)
-c
-c     grad  = d(pot)
-c     hess = dxx,dxy,dyy
-c
-c---------------------------------------------------------------------
-c     INPUT:
-c
-c     delta         :   Gaussian variance
-c     sources(2,ns) :   location of the sources
-c     ns            :   number of sources
-c     charge(nd,ns) :   charge strengths
-c     rnormal(2,ns) :   normals at sources
-c     dipstr(nd,ns) :   dipole strengths
-c     targ          :   location of the target
-c---------------------------------------------------------------------
-c     OUTPUT:
-c
-c     pot(nd)       : potential is incremented
-c     grad(nd)      : gradient is incremented
-c     hess(nd)      : Hessian is incremented
-c---------------------------------------------------------------------
       integer i,ns,ifexpon,ii,nd
       integer dim
       real *8 sources(dim,ns),targ(dim,ntarg),rnormal(dim,ns)
@@ -766,8 +600,7 @@ c     scenter - source box center
 c     bs0 - root box size
 c
 c     output
-c     ixyz - an index array determining which local table 
-c            should be used along each dimension
+c     shift - source center shift
 c
       implicit real *8 (a-h,o-z)
       real *8 tcenter(ndim),scenter(ndim),shift(ndim)

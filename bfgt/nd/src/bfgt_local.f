@@ -8,7 +8,7 @@ c
 c
 C**************************************************************************
 c
-C     local direction interactions by precomputed 1D tables
+C     direction interactions by precomputed 1D tables
 C
 C*********************************************************************C
       subroutine gnd_tens_prod_to_pghloc(ndim,nd,n,fvals,
@@ -58,6 +58,14 @@ c                              dimension D, adjacent small boxes can be
 c                              offset by one of -3D/4,-D/4,D/4,3D/4
 c                              in either x, or y.
 c
+c     Case 3: level difference >=2
+c         This is used in the refinement step
+c
+c
+c
+c
+c
+c
 c     INPUT:
 c     ndim          dimension of the underlying space
 c     nd            vector length (for multiple RHS)
@@ -67,7 +75,7 @@ c     tab_loc       precomputed tables of 1D integrals
 c     tabx_loc      precomputed tables for first derivatives
 c     tabxx_loc     precomputed tables for second derivatives
 c     ind_loc       precomputed nonzero pattern of tables
-c     ixy           pointers to local table, specify which local table should
+c     ixyz          pointers to local table, specify which local table should
 c                   be used
 c     OUTPUT:
 c     pot           potential values on tensor product grid

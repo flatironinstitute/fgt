@@ -8,7 +8,8 @@ C*********************************************************************C
       subroutine mk_poly2pw_tables(n,ipoly,npw,nnodes,ws,ts,delta,
      1    boxdim,tab_poly2pw)
 C*********************************************************************C
-c     Construct the table.
+c     Construct the table converting polynomial values to plane-wave
+c     expansion coefficients.
 c
 c     tab_poly2pw(n,j) = ws(j)*(D/2) * 
 c            int_{-1}^1 p_n(x) exp(- i ts(j)Dx/(2 \sqrt{delta})) dx,
@@ -353,7 +354,9 @@ c     delta    Gaussian variance
 c     boxdim   box dimension at current level
 c
 c     OUTPUT:
-c     tab_pw2pot 
+c     tab_pw2pot   table for potentials
+c     tab_pw2potx  table for gradients
+c     tab_pw2potxx table for hessians
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       real *8 ts(npw),xs(norder)

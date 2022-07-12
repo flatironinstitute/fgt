@@ -21,11 +21,7 @@ c    parameters and ipars are integer parameters, and f is a
 c    real array of size nd
 c     
 c
-c    For the Helmholtz/Maxwell tree, the boxes are refined until 
-c     Re(zk)*boxsize<5, beyond which the function resolution criterion
-c    kicks in. 
-c
-c    A function is said to be resolved if it's interpolant at the 8
+c    A function is said to be resolved if it's interpolant at the 2**ndim
 c    children nodes, agrees with the function values at those nodes
 c    upto the user specified tolerance. 
 c    The error is scaled by h**(eta)
@@ -46,13 +42,31 @@ c
 c    i.e., this strategy guarantees that the interpolated function
 c      approximates the function with relative lp accuracy of \eps
 c      
-c    This code has 2 main user callable routines
-c      make_vol_tree_mem -> Returns the memory requirements, 
-c          tree length, number of boxes, number of levels
-c      make_vol_tree -> Makes the actual tree, returns centers of boxes,
+c    This code has the following user callable routines
+c
+c     vol_tree_mem -> Returns the memory requirements, 
+c           tree length, number of boxes, number of levels
+c
+c     vol_tree_build -> Makes the actual tree, returns centers of boxes,
 c          colleague info, function values on leaf boxes
 c       
-c          
+c     vol_tree_fix_lr -> converts an adaptive tree into a level restricted tree
+c          given a function handle
+c      
+c     vol_tree_coarsen -> coarsens an adaptive tree and evaluates the function, gradient
+c          and the hessian on the coarsened tree
+c      
+c     fgt_vol_tree_reorg -> reorganizes the tree array after refinement
+c      
+c     fgt_vol_tree_reorg_after_coarsen -> reorganizes the tree array after coarsening 
+c      
+c     vol_tree_fix_lr_interp -> similar to vol_tree_fix_lr, but uses interpolation 
+c          instead of a function handle
+c      
+c     vol_tree_reorg_pgh -> similar to vol_tree_reorg, but with additional arguments for 
+c          gradient and hessian
+c      
+c     
 c          iptr(1) - laddr
 c          iptr(2) - ilevel
 c          iptr(3) - iparent

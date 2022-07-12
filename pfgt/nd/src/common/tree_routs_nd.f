@@ -113,6 +113,9 @@ c     vertex or an edge and the two boxes are at the same
 c     level in the tree
 c
 c     INPUT arguments
+c     ndim        in: integer
+c                 dimension of the space
+c
 c     nlevels     in: integer
 c                 Number of levels
 c
@@ -143,7 +146,6 @@ c                 ichild(j,i) is the box id of the jth child of
 c                 box i
 c
 c     iperiod     in: integer
-c                 flag for periodic implementations. 
 c                 0: free space; 1: doubly periodic
 c
 c----------------------------------------------------------------
@@ -152,7 +154,7 @@ c     nnbors      out: integer(nboxes)
 c                 nnbors(i) is the number of colleague boxes of
 c                 box i
 c
-c     nbors       out: integer(9,nboxes)
+c     nbors       out: integer(3**ndim,nboxes)
 c                 nbors(j,i) is the box id of the jth colleague
 c                 box of box i
 c---------------------------------------------------------------
@@ -491,7 +493,7 @@ c
       subroutine compute_mnlist1(ndim,nboxes,nlevels,laddr,
      1    centers,boxsize,iparent,nchild,
      2    ichild,isep,nnbors,nbors,iper,mnlist1)
-c     Compute max nuber of boxes in list1
+c     Compute max number of boxes in list1
       implicit none
       integer ndim,nlevels,nboxes
       integer iper
@@ -617,7 +619,7 @@ c---------------------------------------------------------------
      2                   ichild,isep,nnbors,mnbors,nbors,iper,nlist1,
      3                   mnlist1,list1,nlist2,mnlist2,list2,
      4                   nlist3,mnlist3,list3,nlist4,mnlist4,list4)
-c     Compute max nuber of boxes in list1,list2,list3,list4
+c     Compute max number of boxes in list1,list2,list3,list4
       implicit none
       integer ndim,nlevels,nboxes
       integer iper
@@ -879,10 +881,10 @@ c     that require the evaluation of direct interactions with ibox
 c     in the box FGT.  
 c      
 c      
-c     haven't tested iper=1 case.
-c      
-c      
 c     INPUT arguments
+c     ndim        in: integer
+c                 dimension of the space
+c
 c     nlevels     in: integer
 c                 Number of levels
 c
@@ -903,15 +905,14 @@ c
 c     iptr        in: integer(8)
 c                   pointer for various arrays in itree
 c
-c     centers     in: real *8(2,nboxes)
+c     centers     in: real *8(ndim,nboxes)
 c                 xy coordinates of centers of boxes
 c   
 c     boxsize     in: real *8(0:nlevels)
 c                 Array of boxsizes
 c   
 c     iperiod     in: integer
-c                 flag for periodic implementations. Currently not used.
-c                 Feature under construction
+c                 0: free space; 1: periodic
 c 
 c     mnlist1     in: integer
 c                 max number of boxes in list 1 of a box
@@ -1075,8 +1076,6 @@ c     But if it has plane wave expansion, then the self interaction
 c     is handled by the plane wave expansion instead of 
 c     direct evaluation. 
 c      
-c     haven't implemented iper=1 case.
-c      
 c      
 c     INPUT arguments
 c     npwlevel    in: integer
@@ -1098,8 +1097,7 @@ c     iptr        in: integer(8)
 c                   pointer for various arrays in itree
 c
 c     iper        in: integer
-c                 flag for periodic implementations. Currently not used.
-c                 Feature under construction
+c                 0: free space; 1: periodic
 c 
 c--------------------------------------------------------------
 c     OUTPUT arguments:
@@ -1168,7 +1166,7 @@ c
 c----------------------------------------------------------------
 c      
       subroutine pfgt_find_pwexp_boxes(ndim,npwlevel,nboxes,
-     1    nlevels,ltree,itree,iptr,iper,ifpwexp)
+     1    nlevels,ltree,itree,iptr,ifpwexp)
 c
 c
 c     Determine whether a box needs plane wave expansions
@@ -1186,6 +1184,9 @@ c     direct evaluation.
 c      
 c      
 c     INPUT arguments
+c     ndim        in: integer
+c                 dimension of the space
+c
 c     npwlevel    in: integer
 c                 Cutoff level
 c
@@ -1204,10 +1205,6 @@ c
 c     iptr        in: integer(8)
 c                   pointer for various arrays in itree
 c
-c     iper        in: integer
-c                 flag for periodic implementations. Currently not used.
-c                 Feature under construction
-c 
 c--------------------------------------------------------------
 c     OUTPUT arguments:
 c     ifpwexp     out: integer(nboxes)
@@ -1218,7 +1215,6 @@ c---------------------------------------------------------------
       implicit real *8 (a-h,o-z)
       integer nlevels,npwlevel,nboxes,ndim
       integer iptr(8),ltree
-      integer iper
       integer itree(ltree)
       integer ifpwexp(nboxes)
 
@@ -1262,7 +1258,7 @@ c
 c
 c
       subroutine gnd_compute_mnlistpw(ndim,nboxes,nlevels,ltree,itree,
-     1   iptr,centers,boxsize,iper,mnlistpw)
+     1   iptr,centers,boxsize,mnlistpw)
 c
 c     determine maximum number of elements in listpw
 c
@@ -1290,12 +1286,12 @@ c     this subroutine returns lists of pw interaction boxes for point FGT
 c
 c     input parameters:
 c
-c     nlevels = number of levels, level 0 contains boxes of size 6\sqrt{delta}
-c     npwlevel   = recursive SOE picture stops at the level npwlevel
+c     nlevels = number of levels
+c     npwlevel   = the cutoff level
 c     nboxes = total number of boxes in the tree
 c     itree - laddr: tree stuff
 c
-c     mnlistpw = maximum number of a particular type of PW expansions
+c     mnlistpw = maximum number of PW interaction boxes at the cutoff level
 c      
 c     output parameters:
 c
@@ -1359,12 +1355,12 @@ c
       subroutine gnd_compute_listpw(ndim,npwlevel,nboxes,nlevels,
      1    ltree,itree,iptr,centers,boxsize,laddr,
      2    mnlistpw,nlistpw,listpw)
-c     this subroutine returns lists of pw interaction boxes
+c     this subroutine returns lists of pw interaction boxes for the box FGT
 c
 c     input parameters:
 c
-c     nlevels = number of levels, level 0 contains boxes of size 6\sqrt{delta}
-c     npwlevel   = recursive SOE picture stops at the level npwlevel
+c     nlevels = number of levels
+c     npwlevel   = the cutoff level
 c     nboxes = total number of boxes in the tree
 c     itree - laddr: tree stuff
 c

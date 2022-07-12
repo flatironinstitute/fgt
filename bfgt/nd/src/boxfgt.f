@@ -43,6 +43,9 @@ c                    ifpghtarg = 2, potential and gradient are
 c                    computed at targets
 c                    ifpghtarg = 3, potential, gradient, and hessian are 
 c                    computed at targets
+c         ifnewtree: whether a new tree should be constructed so that potentials
+c                    at arbitrary targets are evaluated with the requested precision
+c                    0: no; 1: yes
 c
 c       input and output
 c         nboxes - integer
@@ -303,7 +306,7 @@ c            0: Legendre polynomials
 c            1: Chebyshev polynomials
 c         iperiod - integer
 c            0: free space
-c            1: doubly periodic
+c            1: periodic
 c         norder - integer
 c           order of expansions for input function value array
 c         npbox - integer
@@ -337,6 +340,9 @@ c                    ifpghtarg = 2, potential and gradient are
 c                    computed at targets
 c                    ifpghtarg = 3, potential, gradient, and hessian are 
 c                    computed at targets
+c         ifnewtree: whether a new tree should be constructed so that potentials
+c                    at arbitrary targets are evaluated with the requested precision
+c
 c
 c       input and output
 c         nboxes - integer

@@ -227,7 +227,7 @@ c
 c
 c*******************************************************************************
 c
-c     Plane-wave expansion to potential subroutines
+c     Plane-wave expansion to potential+gradient+hessian
 c     
 C*********************************************************************C
       subroutine gnd_pw2pgh(ndim,nd,n,npw,pwexp,tab_pw2pot,
@@ -243,10 +243,19 @@ c     n        number of Legendre nodes
 c     npw      number of plane wave expansion along each dimension
 c     pwexp    plane wave expansion
 c                 NOTE 3D convention is pwexp(npw,npw,((npw+1)/2))
-c     tab_pw2pot  precomputed table of 1D conversion 
+c     tab_pw2pot  precomputed table of 1D conversion for potential evaluation
+c     tab_pw2der  precomputed table of 1D conversion for gradient evaluation
+c     tab_pw2dxx  precomputed table of 1D conversion for hessian evaluation
+c
+c     ifpgh: 1 -> pot only
+c            2 -> pot+grad
+c            3 -> pot+grad+hessian
+c
 c
 c     OUTPUT:
 c     pot      potential values on the tensor grid
+c     grad     gradient values on the tensor grid
+c     hess     hessian values on the tensor grid
 c----------------------------------------------------------------------c
       implicit real *8 (a-h,o-z)
       complex *16 pwexp(((npw+1)/2)*npw**(ndim-1),nd)
@@ -1540,6 +1549,7 @@ c
 c************************************************************************
 C
 C     translate plane-wave expansion at the cutoff level (mp to loc)
+C     or from children to parent (merge mp)
 C
 C************************************************************************
       subroutine gnd_shiftpw(nd,nexp,pwexp1,
@@ -1632,8 +1642,8 @@ C
 C
 c************************************************************************
 C
-C     translate plane-wave expansion from children to parent
-c     (merge mp to mp) or from parent to children (split loc to loc)
+C     translate plane-wave expansion 
+c     from parent to children (split loc to loc)
 C
 C************************************************************************
       subroutine gnd_shiftpw_loc(nd,nexp,pwexp1,
@@ -1679,7 +1689,7 @@ C
 C     This subroutine returns the correct index so that 
 C     the correct precomputed plane-wave merge-split
 C     matrix is used. To be used either in merge multipole
-c     or split local, i.e., parent-children translations.
+c     or split local, i.e., translations between parent and children.
 C
 C     INPUT
 C     ndim - dimension of the underlysing space

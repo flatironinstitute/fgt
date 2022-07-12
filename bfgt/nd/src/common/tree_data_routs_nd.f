@@ -605,14 +605,14 @@ c           iptr(5) - ichild
 c           iptr(6) - ncoll
 c           iptr(7) - coll
 c           iptr(8) - ltree
-c     tcenters - double (2,nboxes) coordinates of box centers
+c     tcenters - double (ndim,nboxes) coordinates of box centers
 c     boxsize - double(nboxes) box size of each box
 c      
 c      
 c     fcoefs - double (nd,norder*norder,nboxes)
 c                  expansion coefficients on each leaf box
 c     nt - number of target points
-c     targ - (2,nt) coordinates of targets
+c     targ - (ndim,nt) coordinates of targets
 c      
 c      
 c     output:
@@ -717,19 +717,19 @@ c           iptr(5) - ichild
 c           iptr(6) - ncoll
 c           iptr(7) - coll
 c           iptr(8) - ltree
-c     tcenters - double (2,nboxes) coordinates of box centers
+c     tcenters - double (ndim,nboxes) coordinates of box centers
 c     boxsize - double(nboxes) box size of each box
 c      
 c      
 c     coefs - double (nd,norder*norder,nboxes)
 c                  expansion coefficients of the potential on each leaf box
 c     nt - number of target points
-c     targ - (2,nt) coordinates of targets
+c     targ - (ndim,nt) coordinates of targets
 c      
 c      
 c     output:
 c     pot - double precision (nd,nt) potential values
-c     grad - double precision (nd,2,nt) gradient values
+c     grad - double precision (nd,ndim,nt) gradient values
 c            
       implicit real *8 (a-h,o-z)
       integer nd
@@ -834,7 +834,7 @@ c           iptr(5) - ichild
 c           iptr(6) - ncoll
 c           iptr(7) - coll
 c           iptr(8) - ltree
-c     tcenters - double (2,nboxes) coordinates of box centers
+c     tcenters - double (ndim,nboxes) coordinates of box centers
 c     boxsize - double(nboxes) box size of each box
 c      
 c      
@@ -846,8 +846,8 @@ c
 c      
 c     output:
 c     pot - double precision (nd,nt) potential values
-c     grad - double precision (nd,2,nt) gradient values
-c     hess - double precision (nd,3,nt) gradient values
+c     grad - double precision (nd,ndim,nt) gradient values
+c     hess - double precision (nd,ndim*(ndim+1)/2,nt) gradient values
 c            
       implicit real *8 (a-h,o-z)
       integer nd
@@ -1098,6 +1098,8 @@ c     ndim - dimension of the underlying space
 c     nd - number of vectors
 c     norder - number of point along each dimension for the data on the 
 c              parent box
+c              norder must be even in the current implementation!
+c      
 c     k - child box index
 c     fvals2 - function values on a subset of the tensor grid of the parent box
 c              that are in the kth child box
@@ -1315,6 +1317,7 @@ c            0: Legendre polynomials
 c            1: Chebyshev polynomials
 c     norder - integer
 c           order of expansions for input function value array
+c           norder must be even in the current implementation
 c     iptr - integer(8)
 c            pointer to various parts of the tree structure
 c           iptr(1) - laddr

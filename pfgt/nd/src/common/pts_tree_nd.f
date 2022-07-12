@@ -17,7 +17,7 @@ c      pts_tree_mem -> returns memory requirements for creating
 c         a tree based on max number of sources/targets
 c         in a box (tree length
 c         number of boxes, number of levels)
-c      pts_tree -> Make the actual tree, returns centers of boxes,
+c      pts_tree_build -> Make the actual tree, returns centers of boxes,
 c        colleague info, pts sorted on leaf boxes
 c
 c      iptr(1) - laddr
@@ -44,9 +44,10 @@ c  get memory requirements for the tree
 c
 c
 c  input parameters:
-c    - src: real *8 (3,ns)
+c    - ndim: dimension of the underlying space
+c    - src: real *8 (ndim,ns)
 c        source locations
-c    - targ: real *8 (3,nt) 
+c    - targ: real *8 (ndim,nt) 
 c        target locations
 c    - idivflag: integer
 c        subdivision criterion
@@ -66,13 +67,12 @@ c        flag for creating uniform pruned tree
 c        Tree is uniform if ifunif=1 (Currently pruned part
 c        under construction)
 c    - iper: integer
-c        flag for periodic implementations. Currently unused.
-c        Feature under constructionc
+c        flag for periodic implementations. 
 c    - levcut: integer
 c        the cutoff level 
-c    - bs0 : real
+c    - bs0 : real *8
 c        side length of the bounding box
-c    - cen0(3) : center of the bounding box
+c    - cen0(ndim) : center of the bounding box
 c        
 c  output parameters
 c    - nlevels: integer
@@ -83,8 +83,6 @@ c    - ltree: integer
 c        length of tree
 c----------------------------------
 c
-     
-
       implicit none
       integer ndim,nlevels,levcut,nboxes,idivflag
       integer ltree
@@ -92,7 +90,6 @@ c
       integer ns,nt,ndiv
       integer nlmin,iper,ifunif
       double precision src(ndim,ns),targ(ndim,nt),cen0(ndim),bs0
-
 
       integer, allocatable :: laddr(:,:),ilevel(:),iparent(:),nchild(:)
       integer, allocatable :: ichild(:,:),ncoll(:),icoll(:,:)
@@ -404,10 +401,11 @@ c----------------------------------------
 c  build tree
 c
 c
-c  input parameters:
-c    - src: real *8 (3,ns)
+c input parameters:
+c    - ndim: dimension of the underlying space
+c    - src: real *8 (ndim,ns)
 c        source locations
-c    - targ: real *8 (3,nt) 
+c    - targ: real *8 (ndim,nt) 
 c        target locations
 c    - idivflag: integer
 c        subdivision criterion
@@ -452,8 +450,8 @@ c        * iptr(5) - ichild
 c        * iptr(6) - ncoll
 c        * iptr(7) - coll
 c        * iptr(8) - ltree
-c    - centers: double precision (3,nboxes)
-c        xy coordinates of box centers in the oct tree
+c    - centers: double precision (dim,nboxes)
+c        coordinates of box centers in the oct tree
 c    - boxsize: double precision (0:nlevels)
 c        size of box at each of the levels
 c
@@ -644,8 +642,9 @@ C$OMP END PARALLEL DO
       end
 c
 c
-c       
-c
+c     sort points to child boxes. works for arbitrary dimensions
+c     algorithm: bin sort
+c     
       subroutine sort_pts_to_children(ndim,ibox,nboxes,centers,
      1   ichild,src,ns,isrc,isrcse)
       implicit real *8 (a-h,o-z)
@@ -712,10 +711,11 @@ c
       subroutine find_childbox_ind(ndim,src,cen,k)
 C
 C     This subroutine returns the child box index of a given point
-c      
+c     works for arbitrary dimension
+c
 C     INPUT
 C     ndim - dimension of the underlysing space
-c     src - xyz coordinates of the point
+c     src - coordinates of the point
 C     cen - box center
 C
 C     OUTPUT:
@@ -745,8 +745,8 @@ c-------------------------------------------------------------
      1       boxsize,nbmax,nlmax,iper,laddr,ilevel,iparent,nchild,
      2       ichild,nnbors,nbors)
 c
-c
-c       convert an adaptive tree into a level restricted tree
+c     convert an adaptive tree into a level restricted tree
+c     works for arbitrary dimension
 c
       implicit none
       integer ndim,nlevels,nboxes,nlmax
@@ -1071,6 +1071,9 @@ c    At the end of the sorting, the boxes on level i
 c    are arranged from laddr(1,i) to laddr(2,i)  
 c
 c    INPUT/OUTPUT arguments
+c    ndim           in: integer
+c                   dimension of the space
+c
 c    nboxes         in: integer
 c                   number of boxes
 c
@@ -1218,7 +1221,8 @@ c
 c
 c
       subroutine pts_tree_sort(ndim,n,xys,itree,ltree,nboxes,nlevels,
-     1   iptr,centers,ixy,ixyse)
+     1    iptr,centers,ixy,ixyse)
+c     sort points to the tree, works for arbitrary dimension
       implicit double precision (a-h,o-z)
       integer iptr(8),ltree
       integer n,nboxes,nlevels,itree(ltree)
@@ -1330,15 +1334,13 @@ c     ns            : number of sources
 c     src(3,ns)     : source locations
 c     nt            : number of targets
 c     targ(3,nt)    : target locationsc     
-c      
+c     iperiod       : 1: periodic; 0: free-space 
 c      
 c     output parameters:
 c     cutlev : the cutoff level
 c              < 0 means that the bounding box size is less than the cutoff distance
-c              <= -3 means that the bounding box is so small as compared with the
-c                    Gaussian variance that there is no need to build the tree. In 
-c                    this case, the interactions will be computed by form local, then
-c                    evaluate local
+c
+c     parameters: input when iperiod=1, output when iperiod=0
 c     bs0 : the side length of the bounding box
 c     cen0(3) : the center of the bounding box
 c     

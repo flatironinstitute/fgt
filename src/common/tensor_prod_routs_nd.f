@@ -1773,11 +1773,11 @@ c     pot - value of the potential
 c
       implicit real *8 (a-h,o-z)
       real *8 coefs(nd,norder)
-      real *8 targ,pot(nd)
+      real *8 targ(1),pot(nd)
 
       real *8 px(norder)
       
-      x=targ
+      x=targ(1)
       
       if (ipoly .eq. 0) then
          call legepols(x,norder-1,px)
@@ -1974,12 +1974,12 @@ c     grad - value of the potential
 c
       implicit real *8 (a-h,o-z)
       real *8 coefs(nd,norder)
-      real *8 targ,pot(nd),grad(nd)
+      real *8 targ(1),pot(nd),grad(nd)
 
       real *8 px(norder)
       real *8 pxp(norder)
       
-      x=targ
+      x=targ(1)
       
       if (ipoly .eq. 0) then
          call legepolders(x,px,pxp,norder-1)
@@ -2254,7 +2254,7 @@ c     hess - value of the hessian
 c
       implicit real *8 (a-h,o-z)
       real *8 coefs(nd,norder)
-      real *8 targ,pot(nd),grad(nd),hess(nd)
+      real *8 targ(1),pot(nd),grad(nd),hess(nd)
 
       real *8 px(norder)
       real *8 pxp(norder)
@@ -2262,7 +2262,7 @@ c
       
       sc2=sc*sc
       
-      x=targ
+      x=targ(1)
       
       if (ipoly .eq. 0) then
          call legepolders2(x,px,pxp,pxpp,norder-1)

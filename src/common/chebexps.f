@@ -597,7 +597,7 @@ c
         subroutine chebpols(x,n,pols)
         implicit real *8 (a-h,o-z)
         save
-        dimension pols(1)
+        dimension pols(*)
 c 
         pkm1=1
         pk=x
@@ -637,7 +637,7 @@ c
 c 
       SUBROUTINE chebpolders(X,VALs,ders,N)
       IMPLICIT REAL *8 (A-H,O-Z)
-      REAL *8 vals(1),ders(1)
+      REAL *8 vals(*),ders(*)
 C 
 C     This subroutine computes the values and the derivatives
 c     of n+1 first Chebyshev polynomials at the point x
@@ -693,7 +693,7 @@ c
 c 
       SUBROUTINE chebpolders2(X,VALs,ders,ders2,N)
       IMPLICIT REAL *8 (A-H,O-Z)
-      REAL *8 vals(1),ders(1),ders2(1)
+      REAL *8 vals(*),ders(*),ders2(*)
 C 
 C     This subroutine computes the values and the derivatives
 c     of n+1 first Chebyshev polynomials at the point x
@@ -761,8 +761,7 @@ c
 c 
         subroutine chebinte(polin,n,polout)
         implicit real *8 (a-h,o-z)
-        save
-        dimension polin(1),polout(1)
+        dimension polin(*),polout(*)
 c 
 c       this subroutine computes the indefinite integral of the
 c       Chebychev expansion polin getting the expansion polout
@@ -818,8 +817,7 @@ c
 c 
         subroutine chebdiff(polin,n,polout)
         implicit real *8 (a-h,o-z)
-        save
-        dimension polin(1),polout(1)
+        dimension polin(*),polout(*)
 c 
 c       this subroutine differentiates the Chebychev
 c       expansion polin getting the expansion polout
@@ -858,8 +856,7 @@ c
 c 
       SUBROUTINE chebexev(X,VAL,TEXP,N)
       IMPLICIT REAL *8 (A-H,O-Z)
-      save
-      REAL *8 TEXP(1)
+      REAL *8 TEXP(*)
 C 
 C     This subroutine computes the value o a Chebychev
 c     expansion with coefficients TEXP at point X in interval [-1,1]
@@ -919,7 +916,7 @@ C     der = computed value of the derivative
 C 
       IMPLICIT REAL *8 (A-H,O-Z)
         save
-      REAL *8 TEXP(1)
+      REAL *8 TEXP(*)
 C 
         done=1
         tjm2=1
@@ -972,7 +969,7 @@ C     der = computed value of the derivative
 C 
       IMPLICIT REAL *8 (A-H,O-Z)
         save
-      complex *16 TEXP(1),val
+      complex *16 TEXP(*),val
 C 
         done=1
         tjm2=1
@@ -1017,7 +1014,7 @@ C     der = computed value of the derivative
 C 
       IMPLICIT REAL *8 (A-H,O-Z)
         save
-      real *8 TEXP(1),val
+      real *8 TEXP(*),val
 C 
         done=1
         tjm2=1
@@ -1062,7 +1059,7 @@ C     der = computed value of the derivative
 C 
       IMPLICIT REAL *8 (A-H,O-Z)
         save
-      complex *16 TEXP(1),val,der
+      complex *16 TEXP(*),val,der
 C 
         done=1
         tjm2=1

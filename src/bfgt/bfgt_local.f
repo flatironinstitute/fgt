@@ -150,7 +150,7 @@ c     1d tens_prod_to_potloc,pgloc,pghloc
 c
 C*********************************************************************C
       subroutine g1d_tens_prod_to_potloc(nd,n,fvals,pot,
-     1    ntab,tab_loc,ind_loc,ix)
+     1    ntab,tab_loc,ind_loc,ixyz)
 C*********************************************************************C
 c     This routine computes the 1D volume Gauss transform over a 
 c     single box source distribution given as function values on
@@ -171,9 +171,9 @@ c----------------------------------------------------------------------c
       real *8 fvals(nd,n),pot(nd,n)
       real *8 tab_loc(n,n,-ntab:ntab)
       integer ind_loc(2,n+1,-ntab:ntab)
-      integer ix
+      integer ixyz(1)
 c
-      
+      ix = ixyz(1)
       nx = ind_loc(2,n+1,ix)-ind_loc(1,n+1,ix)+1
 
       if (nx.eq.0) return
@@ -197,7 +197,7 @@ C
 c
 C*********************************************************************C
       subroutine g1d_tens_prod_to_pgloc(nd,n,fvals,pot,grad,
-     1    ntab,tab_loc,tabx_loc,ind_loc,ix)
+     1    ntab,tab_loc,tabx_loc,ind_loc,ixyz)
 C*********************************************************************C
 c     This routine computes the 1D volume Gauss transform over a 
 c     single box source distribution given as function values on
@@ -221,9 +221,9 @@ c----------------------------------------------------------------------c
       real *8 tab_loc(n,n,-ntab:ntab)
       real *8 tabx_loc(n,n,-ntab:ntab)
       integer ind_loc(2,n+1,-ntab:ntab)
-      integer ix
+      integer ixyz(1)
 c
-      
+      ix = ixyz(1)
       nx = ind_loc(2,n+1,ix)-ind_loc(1,n+1,ix)+1
 
       if (nx.eq.0) return
@@ -250,7 +250,7 @@ C
 c
 C*********************************************************************C
       subroutine g1d_tens_prod_to_pghloc(nd,n,fvals,pot,grad,hess,
-     1    ntab,tab_loc,tabx_loc,tabxx_loc,ind_loc,ix)
+     1    ntab,tab_loc,tabx_loc,tabxx_loc,ind_loc,ixyz)
 C*********************************************************************C
 c     This routine computes the 1D volume Gauss transform over a 
 c     single box source distribution given as function values on
@@ -277,9 +277,9 @@ c----------------------------------------------------------------------c
       real *8 tabx_loc(n,n,-ntab:ntab)
       real *8 tabxx_loc(n,n,-ntab:ntab)
       integer ind_loc(2,n+1,-ntab:ntab)
-      integer ix
+      integer ixyz(1)
 c
-      
+      ix = ixyz(1)
       nx = ind_loc(2,n+1,ix)-ind_loc(1,n+1,ix)+1
 
       if (nx.eq.0) return
@@ -1179,7 +1179,7 @@ C
 C
 C*********************************************************************C
       subroutine g1d_tens_prod_to_potloc_fast(nd,n,fvals,pot,
-     1    ntab,tab_loc,ind_loc,ix)
+     1    ntab,tab_loc,ind_loc,ixyz)
 C*********************************************************************C
 c     This routine computes the 1D volume Gauss transform over a 
 c     single box source distribution given as function values on
@@ -1201,9 +1201,9 @@ c----------------------------------------------------------------------c
       real *8 fvals(nd,n),pot(nd,n)
       real *8 tab_loc(n,n,-ntab:ntab)
       integer ind_loc(2,n+1,-ntab:ntab)
-      integer ix
+      integer ixyz(1)
 c
-      
+      ix = ixyz(1)
       nx = ind_loc(2,n+1,ix)-ind_loc(1,n+1,ix)+1
 
       if (nx.eq.0) return

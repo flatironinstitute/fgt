@@ -83,10 +83,10 @@ c            call testboxfgt(nd,ndim,norder,ipoly,delta,
  4800       format(2x,'&',2x,D8.2,1x,'&',2x,D8.2,1x,'&',2x,D8.2,1x,'\\')
             write(iw,4800) eps, delta, rerr
 c     
-            if (isnan(rerr) .or. rerr.gt.eps) then               
-               call prin2('eps=*',eps,1)
-               call prin2('delta=*',delta,1)
-            endif
+c            if (isnan(rerr) .or. rerr.gt.eps) then               
+c               call prin2('eps=*',eps,1)
+c               call prin2('delta=*',delta,1)
+c            endif
 c     
          enddo  
       enddo
@@ -120,7 +120,7 @@ c      subroutine testboxfgt(nd,ndim,norder,ipoly,delta,iperiod,eps,
       real *8 rintl(0:200),wts
 c
       real *8 timeinfo(100)
-      complex *16 zpars
+      complex *16 zpars(10)
 
       real *8, allocatable :: pot(:,:,:), potex(:,:,:)
       real *8, allocatable :: grad(:,:,:,:), gradex(:,:,:,:)
@@ -148,7 +148,7 @@ c
       real *8 polin(100),polout(100)
 
       real *8, allocatable :: umat(:,:),umat_nd(:,:,:)
-      real *8 alpha,beta
+      real *8 alpha,beta,src(ndim,1)
       character *12 fname1
       character *8 fname2
       character *9 fname3
@@ -334,7 +334,7 @@ c     plot the tree
          ns=0
          nt=0
          call print_tree_matlab(ndim,itree,ltree,nboxes,centers,
-     1       boxsize,nlevels,iptr,ns,src,nt,targ,fname1,fname2,fname3)
+     1       boxsize,nlevels,iptr,ns,src,nt,targs,fname1,fname2,fname3)
       endif
       
 c     allocate memory and initialization
@@ -976,7 +976,7 @@ c            file can be plotted using the matlab script
 c            tree_plot.m
 
       implicit real *8 (a-h,o-z)
-      integer itree(ltree),ltree,nboxes,nlevels,iptr(12),ns,nt
+      integer itree(ltree),ltree,nboxes,nlevels,iptr(*),ns,nt
       real *8 centers(ndim,nboxes),boxsize(0:nlevels)
       real *8 x(5),y(5),src(ndim,ns),targ(ndim,nt)
       character (len=*) fname1,fname2,fname3

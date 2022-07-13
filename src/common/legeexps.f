@@ -596,7 +596,7 @@ c
 c 
         subroutine legepols(x,n,pols)
         implicit real *8 (a-h,o-z)
-        dimension pols(1)
+        dimension pols(*)
 c 
         pkm1=1
         pk=x
@@ -637,7 +637,7 @@ c
 c 
       SUBROUTINE legepolders(X,VALs,ders,N)
       IMPLICIT REAL *8 (A-H,O-Z)
-      REAL *8 vals(1),ders(1)
+      REAL *8 vals(*),ders(*)
 C 
 C     This subroutine computes the values and the derivatives
 c     of n+1 first Legendre polynomials at the point x
@@ -695,7 +695,7 @@ c
 c 
       SUBROUTINE legepolders2(X,VALs,ders,ders2,N)
       IMPLICIT REAL *8 (A-H,O-Z)
-      REAL *8 vals(1),ders(1),ders2(1)
+      REAL *8 vals(*),ders(*),ders2(*)
 C 
 C     This subroutine computes the values and the derivatives
 c     of n+1 first Legendre polynomials at the point x
@@ -756,7 +756,7 @@ c
 c 
         subroutine legepls2(x,n,pols)
         implicit real *8 (a-h,o-z)
-        dimension pols(1),pjcoefs1(2000),pjcoefs2(300)
+        dimension pols(*),pjcoefs1(2000),pjcoefs2(300)
         data ifcalled/0/
 c 
 c        if need be - initialize the arrays pjcoefs1, pjcoefs2
@@ -1017,7 +1017,7 @@ c
 c 
         subroutine legeinte(polin,n,polout)
         implicit real *8 (a-h,o-z)
-        dimension polin(1),polout(1)
+        dimension polin(*),polout(*)
 c 
 c       this subroutine computes the indefinite integral of the
 c       legendre expansion polin getting the expansion polout
@@ -1119,7 +1119,7 @@ c
 c 
       SUBROUTINE legeFDER(X,VAL,der,PEXP,N)
       IMPLICIT REAL *8 (A-H,O-Z)
-      REAL *8 PEXP(1)
+      REAL *8 PEXP(*)
 C 
 C     This subroutine computes the value and the derivative
 c     of a gaussian expansion with coefficients PEXP
@@ -1178,7 +1178,7 @@ c
       SUBROUTINE legeFDE2(X,VAL,der,PEXP,N,
      1    pjcoefs1,pjcoefs2,ninit)
       IMPLICIT REAL *8 (A-H,O-Z)
-      REAL *8 PEXP(1),pjcoefs1(1),pjcoefs2(1)
+      REAL *8 PEXP(*),pjcoefs1(*),pjcoefs2(*)
 c 
 C     This subroutine computes the value and the derivative
 c     of a gaussian expansion with coefficients PEXP
@@ -1269,7 +1269,7 @@ c
 c 
       SUBROUTINE legeexev(X,VAL,PEXP,N)
       IMPLICIT REAL *8 (A-H,O-Z)
-      REAL *8 PEXP(1)
+      REAL *8 PEXP(*)
 C 
 C     This subroutine computes the value o a Legendre
 c     expansion with coefficients PEXP at point X in interval [-1,1]
@@ -1312,7 +1312,7 @@ c
       SUBROUTINE legeexe2(X,VAL,PEXP,N,
      1      pjcoefs1,pjcoefs2,ninit)
       IMPLICIT REAL *8 (A-H,O-Z)
-      REAL *8 PEXP(1),pjcoefs1(1),pjcoefs2(1)
+      REAL *8 PEXP(*),pjcoefs1(*),pjcoefs2(*)
 c 
 C     This subroutine computes the value o a Legendre
 c     expansion with coefficients PEXP at point X in interval [-1,1]
@@ -1369,7 +1369,7 @@ c
 c 
         subroutine lematrin(n,m,xs,amatrint,ts,w)
         implicit real *8 (a-h,o-z)
-        dimension amatrint(m,n),xs(1),w(1),ts(1)
+        dimension amatrint(m,n),xs(*),w(*),ts(*)
 c 
 c 
 c        This subroutine constructs the matrix interpolating
@@ -1425,7 +1425,7 @@ c
 c 
         subroutine levecin(n,x,ts,u,v,coefs,ifinit)
         implicit real *8 (a-h,o-z)
-        dimension u(n,n),v(n,n),ts(1),coefs(1)
+        dimension u(n,n),v(n,n),ts(*),coefs(*)
 c 
 c        This subroutine constructs the coefficients of the
 c        standard interpolation formula connecting the values of a
@@ -1540,8 +1540,8 @@ c
         subroutine legeodev(x,nn,coefs,val,ninit,
      1      coepnm1,coepnp1,coexpnp1)
         implicit real *8 (a-h,o-z)
-        dimension coepnm1(1),coepnp1(1),
-     1            coexpnp1(1),coefs(1)
+        dimension coepnm1(*),coepnp1(*),
+     1            coexpnp1(*),coefs(*)
 c 
 c 
 c       This subroutine evaluates at the point x a Legendre expansion
@@ -1635,8 +1635,8 @@ c
         subroutine legeevev(x,nn,coefs,val,ninit,
      1      coepnm1,coepnp1,coexpnp1)
         implicit real *8 (a-h,o-z)
-        dimension coepnm1(1),coepnp1(1),
-     1            coexpnp1(1),coefs(1)
+        dimension coepnm1(*),coepnp1(*),
+     1            coexpnp1(*),coefs(*)
 c 
 c 
 c       This subroutine evaluates at the point x a Legendre expansion
@@ -1729,8 +1729,8 @@ c
         subroutine legepeven(x,nn,pols,ninit,
      1      coepnm1,coepnp1,coexpnp1)
         implicit real *8 (a-h,o-z)
-        dimension pols(1),coepnm1(1),coepnp1(1),
-     1            coexpnp1(1)
+        dimension pols(*),coepnm1(*),coepnp1(*),
+     1            coexpnp1(*)
 c 
 c       This subroutine evaluates even-numbered Legendre polynomials
 c       of the argument x, up to order nn+1
@@ -1821,8 +1821,8 @@ c
         subroutine legepodd(x,nn,pols,ninit,
      1      coepnm1,coepnp1,coexpnp1)
         implicit real *8 (a-h,o-z)
-        dimension pols(1),coepnm1(1),coepnp1(1),
-     1            coexpnp1(1)
+        dimension pols(*),coepnm1(*),coepnp1(*),
+     1            coexpnp1(*)
 c 
 c       This subroutine evaluates odd-numbered Legendre polynomials
 c       of the argument x, up to order nn+1
@@ -1904,7 +1904,7 @@ c
 c 
         subroutine legefdeq(x,val,der,coefs,n)
         implicit real *8 (a-h,o-z)
-        dimension coefs(1)
+        dimension coefs(*)
 C 
 C     This subroutine computes the value and the derivative
 c     of a Legendre Q-expansion with coefficients coefs
@@ -1979,7 +1979,7 @@ c
 c 
         subroutine legeqs(x,n,pols,ders)
         implicit real *8 (a-h,o-z)
-        dimension pols(1),ders(1)
+        dimension pols(*),ders(*)
 c 
 c       This subroutine calculates the values and derivatives of
 c       a bunch of Legendre Q-functions at the user-specified point
@@ -2180,7 +2180,7 @@ c
 c 
       SUBROUTINE legecFDE(X,VAL,der,PEXP,N)
       IMPLICIT REAL *8 (A-H,O-Z)
-      complex *16 PEXP(1),val,der
+      complex *16 PEXP(*),val,der
 C 
 C     This subroutine computes the value and the derivative
 c     of a gaussian expansion with complex coefficients PEXP
@@ -2235,8 +2235,8 @@ c
       SUBROUTINE legecFD2(X,VAL,der,PEXP,N,
      1    pjcoefs1,pjcoefs2,ninit)
       IMPLICIT REAL *8 (A-H,O-Z)
-      REAL *8 pjcoefs1(1),pjcoefs2(1)
-      complex *16 PEXP(1),val,der
+      REAL *8 pjcoefs1(*),pjcoefs2(*)
+      complex *16 PEXP(*),val,der
 c 
 C     This subroutine computes the value and the derivative
 c     of a Legendre expansion with complex coefficients PEXP
@@ -2327,8 +2327,8 @@ c
       SUBROUTINE legecva2(X,VAL,PEXP,N,
      1    pjcoefs1,pjcoefs2,ninit)
       IMPLICIT REAL *8 (A-H,O-Z)
-      REAL *8 pjcoefs1(1),pjcoefs2(1)
-      complex *16 PEXP(1),val
+      REAL *8 pjcoefs1(*),pjcoefs2(*)
+      complex *16 PEXP(*),val
 c 
 C     This subroutine computes the value of a Legendre expansion
 c     with complex coefficients PEXP at point X in interval [-1,1].
@@ -2398,7 +2398,7 @@ c
 c
         subroutine legerts(itype,n,ts,whts)
         implicit real *8 (a-h,o-z)
-        dimension ts(1),whts(1)
+        dimension ts(*),whts(*)
 c
 c        This subroutine constructs the Gaussian quadrature
 c        or order n. Its claim to fame is the fact that the

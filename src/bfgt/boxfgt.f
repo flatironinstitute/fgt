@@ -127,7 +127,7 @@ c
       real *8 omp_get_wtime
       real *8 time1,time2,pi,done,pmax,bs0,bsize,pweps
 
-      ifprint = 0
+      ifprint = 1
 
 c     cutoff length      
       dcutoff = sqrt(delta*log(1.0d0/eps))
@@ -613,7 +613,6 @@ c     values, used in direct evaluation
       allocate( tabx_loc(norder,norder,-nloctab:nloctab,0:nlevels))
       allocate(tabxx_loc(norder,norder,-nloctab:nloctab,0:nlevels))
       allocate(ind_loc(2,norder+1,-nloctab:nloctab,0:nlevels))
-
       nnodes=50
       do ilev = 0,nlevels
          call mk_loctab_all(eps,ipoly,norder,nnodes,delta,boxsize(ilev),
@@ -622,7 +621,6 @@ c     values, used in direct evaluation
      3       ind_loc(1,1,-nloctab,ilev))
       enddo
 
-      
 c     direct evaluation if the cutoff level is >= the maximum level 
       if (npwlevel .ge. nlevels) goto 1800
 
@@ -667,23 +665,23 @@ c     compute the tables converting planewave expansions to potential values
       xmin  = boxsize(nlevstart)/sqrt(delta0)
       call gnd_mk_pw_translation_matrices(ndim,xmin,npw,ts,nmax,
      1    wpwshift)
-      
+
 c     xmin is used in shiftpw subroutines to
 c     determine the right translation matrices
 c
       xmin  = boxsize(nlevstart)
       xmin2 = boxsize(nlevels)/2
-      
 c
 c     compute list info
 c
       call gnd_compute_mnlistpw(ndim,nboxes,nlevels,ltree,itree,
-     1    iptr,centers,boxsize,iper,mnlistpw)
+     1    iptr,centers,boxsize,mnlistpw)
       allocate(nlistpw(nboxes),listpw(mnlistpw,nboxes))
 c     listpw contains source boxes in the pw interaction
       call gnd_compute_listpw(ndim,npwlevel,nboxes,nlevels,
      1    ltree,itree,iptr,centers,boxsize,itree(iptr(1)),
-     3    mnlistpw,nlistpw,listpw)      
+     3    mnlistpw,nlistpw,listpw)
+      
 c
       call cpu_time(time2)
 C$    time2=omp_get_wtime()

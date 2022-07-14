@@ -16,7 +16,7 @@ c
       enddo
 
 c     ipoly=0: Legendre; 1: Chebyshev
-      ipoly=0
+      ipoly=1
 c     iperiod=0: free-space; 1: doubly periodic
       iperiod=1
 c     polynomial expansion order in each dimension
@@ -92,7 +92,7 @@ c
       enddo
 c     figure 6.1
       do j=4,4
-         write(iw2,*) ntot(j), pps(j,1), pps(j,2), pps(j,3)
+c         write(iw2,*) ntot(j), pps(j,1), pps(j,2), pps(j,3)
 c     figures 6.2 and 6.3
 c     do j=1,11
 c         write(iw2,*) deltas(j), pps(j,1), pps(j,2), pps(j,3)
@@ -101,6 +101,7 @@ c         write(iw2,*) deltas(j), pps(j,1), pps(j,2), pps(j,3)
       close(iw)
       close(iw2)
 
+      return
       end
 c
 c
@@ -116,8 +117,8 @@ c      subroutine testboxfgt(nd,ndim,norder,ipoly,delta,iperiod,eps,
       integer ifpgh,ifpghtarg
       integer, allocatable :: itree(:)
       real *8, allocatable :: fvals(:,:,:),centers(:,:),boxsize(:)
-      real *8, allocatable :: xref(:,:)
-      real *8 rintl(0:200),wts
+      real *8, allocatable :: xref(:,:),wts(:)
+      real *8 rintl(0:200)
 c
       real *8 timeinfo(100)
       complex *16 zpars(10)
@@ -185,7 +186,7 @@ c        number of gaussians in the rhs function
 c     figure 6.3 3d
          ng = 5
 c     figure 6.1 3d
-         ng = kdelta
+cccc         ng = kdelta
          ipars(2) = ng
       elseif (iperiod.eq.1) then
          do i=1,ndim
@@ -289,12 +290,11 @@ c     fifth gaussian
       call prin2('delta=*',delta,1)
 
       epstree=1.0d-10
-cccc      epstree=eps
       call cpu_time(t1)
 C$      t1 = omp_get_wtime()
 
       call vol_tree_mem(ndim,ipoly,iperiod,epstree,zk,boxlen,
-     1    norder,iptype,eta,rhsfun,nd,dpars,zpars,ipars,
+     1    norder,iptype,eta,rhsfun,nd,dpars,zpars,ipars,ifnewtree,
      2    nboxes,nlevels,ltree,rintl)
       call prinf('nboxes=*',nboxes,1)
       call prinf('nlevels=*',nlevels,1)
@@ -382,13 +382,13 @@ C$     t2 = omp_get_wtime()
       allocate(hessex(nd,nhess,npbox,nboxes))
 
 c     compute exact solutions on tensor grid
-      allocate(xref(ndim,npbox))
+      allocate(xref(ndim,npbox),wts(npbox))
       itype = 0
       call polytens_exps_nd(ndim,ipoly,itype,norder,type,xref,
      1    utmp,1,vtmp,1,wts)
       
       allocate(targ(ndim))
-      do ilevel=1,nlevels
+      do ilevel=0,nlevels
         bs = boxsize(ilevel)/2.0d0
         do ibox=itree(2*ilevel+1),itree(2*ilevel+2)
           if(itree(iptr(4)+ibox-1).eq.0) then
@@ -413,7 +413,7 @@ cccc               write(34,*) targ(1), potex(1,j,ibox), pot(1,j,ibox)
          call treedata_derror(nd,nlevels,itree,iptr,
      1       npbox,potex,pot,abserrp,rnormp,nleaf)
          call treedata_lpnorm(ndim,iptype,ipoly,nd,nlevels,itree,
-     1    iptr,boxsize,norder,npbox,fvals,rnormf,nleaf)
+     1       iptr,boxsize,norder,npbox,fvals,rnormf,nleaf)
 c     example 1a
          if (rnormp.lt.1d-6) then
             errp = abserrp
@@ -480,7 +480,7 @@ c     for periodic conditions: simple sin/cos functions
 c     
       implicit real *8 (a-h,o-z)
       integer nd,ndim,ipars(*)
-      complex *16 zpars
+      complex *16 zpars(*)
       real *8 dpars(*),f(nd),xyz(*)
 c
       iperiod=ipars(5)
@@ -531,7 +531,7 @@ c       variances in dpars(4), and their strength in dpars(5)
 c
       implicit real *8 (a-h,o-z)
       integer nd,ndim,ipars(*)
-      complex *16 zpars
+      complex *16 zpars(*)
       real *8 dpars(*),f(nd),xyz(*)
 c     number of Gaussians
       ng=ipars(2)
@@ -685,7 +685,7 @@ c     periodic right-hand-side function
 c     
       implicit real *8 (a-h,o-z)
       integer nd,ndim,ipars(*)
-      complex *16 zpars
+      complex *16 zpars(*)
       real *8 dpars(*),f(nd),xyz(*)
       integer nxyz(10)
       real *8 pi
@@ -850,6 +850,7 @@ c
       real*8 targ(*),pot(nd)
       real*8 gf(10),dpars(*)
       integer ipars(*)
+      complex *16 zpars(*)
 c
       one=1.0d0
       pi=4*atan(one)

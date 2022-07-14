@@ -81,7 +81,7 @@ c
 
 
       subroutine vol_tree_mem(ndim,ipoly,iperiod,eps,zk,boxlen,norder,
-     1    iptype,eta,fun,nd,dpars,zpars,ipars,nboxes,nlevels,
+     1    iptype,eta,fun,nd,dpars,zpars,ipars,ifnewtree,nboxes,nlevels,
      2    ltree,rintl)
 c
 c      get memory requirements for the tree
@@ -108,7 +108,9 @@ c        zpars - double complex
 c           complex parameters for function evaluation
 c        ipars - integer
 c           integer parameters for function evaluation
-c 
+c        ifnewtree - interger
+c           0: tree is unchanged; 
+c           1: tree will be changed and thus needs extra memory
 c        output:
 c           nlevels - integer
 c             number of levels
@@ -130,7 +132,7 @@ c
       real *8, allocatable :: fvals(:,:,:)
       complex *16 zpars(*),zk
       integer nd,ipars(*),iptype
-      integer ltree
+      integer ltree,ifnewtree
       integer ndim,ipoly,iperiod,nlevels,nboxes,norder
 
       external fun
@@ -427,8 +429,8 @@ c
 
 c     triple the number of boxes for possible refinement
 c     added by Shidong Jiang 04/13/2022
-      nboxes = nboxes*3
-      
+      if (ifnewtree.eq.1) nboxes = nboxes*3
+
       ltree = (4+mc+mnbors)*nboxes + 2*(nlevels+1)
 
       return
@@ -812,7 +814,6 @@ c
 
       allocate(isum(nbloc))
       call cumsum(nbloc,irefinebox,isum)
-
       bsh = bs/2
 
       
@@ -2112,7 +2113,7 @@ c     Rearrange old arrays now
 
             curbox = curbox + 1
          enddo
-c        now add new boxes to level ilev
+c     now add new boxes to level ilev
          do i=1,nblock(ilev)
             ibox=nboxid(ilevstart(ilev)+i)
             ilevel(curbox) = tilevel(ibox)

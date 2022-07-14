@@ -958,7 +958,7 @@ c
       implicit real *8 (a-h,o-z)
       integer nd
       integer nlevels
-      integer itree(*),iptr(8)
+      integer itree(*),iptr(*)
       real *8 fex(nd,npbox,*)
       real *8 fcomp(nd,npbox,*)
 
@@ -1005,6 +1005,8 @@ c
 c     input:
 c
 c     nd - integer,   number of functions
+c     ndim - integer,   dimension of the space
+c     iptype - integer, norm type 0: maximum norm, 1: 1 norm, 2: 2 norm
 c     nlevels - integer
 c            number of levels
 c     itree - integer(ltree)
@@ -1035,8 +1037,10 @@ c
       real *8 boxsize(0:nlevels)
       real *8 fvals(nd,npbox,*)
 
-      real *8 wts(npbox),xs(ndim,npbox)
+      real *8, allocatable :: wts(:),xs(:,:)
 
+      allocate(xs(ndim,npbox),wts(npbox))
+      
       itype = 1
       call polytens_exps_nd(ndim,ipoly,itype,norder,'f',xs,
      1    utmp,1,vtmp,1,wts)

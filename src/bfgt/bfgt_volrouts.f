@@ -92,12 +92,13 @@ c----------------------------------------------------------------------c
       complex *16 tab_leg2pw(n,npw),eye,eyem,z,cd
       real *8 ws(npw),ts(npw)
       real *8, allocatable :: xq(:),wq(:),u(:,:),v(:,:)
-      complex *16, allocatable :: tabtemp(:,:)
-      complex *16 fjs(0:n),fjder
+      complex *16, allocatable :: tabtemp(:,:),fjs(:)
+      complex *16 fjder
 
       ifder=0
       allocate(tabtemp(n,npw))
       allocate(xq(n),wq(n),u(n,n),v(n,n))
+      allocate(fjs(0:n))
 c
       pi = 4*atan(1.0d0)
       
@@ -182,10 +183,10 @@ c----------------------------------------------------------------------c
       real *8, allocatable :: whts(:), xnodes(:)
       complex *16, allocatable :: legv(:)
       real *8, allocatable :: xq(:),wq(:),u(:,:),v(:,:)
-      complex *16, allocatable :: tabtemp(:,:)
-      complex *16 fjs(0:n),fjder
+      complex *16, allocatable :: tabtemp(:,:),fjs(:)
+      complex *16 fjder
 
-      allocate(tabtemp(n,npw))
+      allocate(tabtemp(n,npw),fjs(0:n))
       allocate(xq(n),wq(n),u(n,n),v(n,n))
       
 c
@@ -381,15 +382,15 @@ cccc         qqx = qqx*qqx
 
          do j1=npw2+1,npw
 cccc        tab_pw2pot(j1,i) = qq1
-            tab_pw2pot(j1,i) = cdexp(eye*ts(j1)*x)
+            tab_pw2pot(j1,i) = exp(eye*ts(j1)*x)
             tab_pw2potx(j1,i)= ts(j1)*tab_pw2pot(j1,i)*dfac
             tab_pw2potxx(j1,i)= ts(j1)*tab_pw2potx(j1,i)*dfac
 
 cccc            qq1 = qq1*qqx
             
-              tab_pw2pot(npw-j1+1,i) = dconjg(tab_pw2pot(j1,i))
-             tab_pw2potx(npw-j1+1,i) = dconjg(tab_pw2potx(j1,i))
-            tab_pw2potxx(npw-j1+1,i) = dconjg(tab_pw2potxx(j1,i))
+              tab_pw2pot(npw-j1+1,i) = conjg(tab_pw2pot(j1,i))
+             tab_pw2potx(npw-j1+1,i) = conjg(tab_pw2potx(j1,i))
+            tab_pw2potxx(npw-j1+1,i) = conjg(tab_pw2potxx(j1,i))
          enddo
       enddo
 ccc      call prin2(' in mk tab_pwpot *',tab_pw2pot,2*npw*norder)

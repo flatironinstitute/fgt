@@ -18,9 +18,9 @@ c
 c     ipoly=0: Legendre; 1: Chebyshev
       ipoly=1
 c     iperiod=0: free-space; 1: doubly periodic
-      iperiod=1
+      iperiod=0
 c     polynomial expansion order in each dimension
-      norder=16
+      norder=8
 c     nd - number of different densities
       nd=1
 c     ndim - dimension of the underlying space
@@ -30,7 +30,7 @@ c     ifpgh = 1: potential; 2: pot+grad; 3: pot+grad+hess
 c     ifpghtarg: flag for arbitrary targets
       ifpghtarg=0
 c     ntarg: number of extra targets
-      ntarg=0
+      ntarg=1 000 000
 c     
 c
 c     test all parameters
@@ -54,7 +54,7 @@ c
 c      write(iw,*) 'ipoly=',ipoly,' iperiod=',iperiod,' norder =',norder
 c      write(iw,*) 'ndim=',ndim,' ifpgh=',ifpgh
       
-      do i=3,3
+      do i=4,4
          eps = epsvals(i)
 c     figure 6.1
          do j=4,4
@@ -420,8 +420,8 @@ c     example 1a
          else
             errp = abserrp/rnormp
          endif
-         call prin2('absolute pot l2 error=*',abserrp,1)
-         call prin2('pot l2 norm=*',rnormp,1)
+c         call prin2('absolute pot l2 error=*',abserrp,1)
+c         call prin2('pot l2 norm=*',rnormp,1)
          call prin2('relative pot l2 error=*',errp,1)
       endif
 

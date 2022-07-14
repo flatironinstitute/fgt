@@ -20,7 +20,7 @@ FFLAGS = -fPIC -O3 -march=native -funroll-loops -std=legacy
 # extra flags for multithreaded: C/Fortran, MATLAB
 OMPFLAGS =-fopenmp
 OMPLIBS =-lgomp 
-OMP = OFF
+#OMP = OFF
 
 LBLAS = -lblas -llapack
 
@@ -34,6 +34,12 @@ ifeq ($(PREFIX_FINUFFT),)
 	FINUFFT_INSTALL_DIR = ${HOME}/lib
 endif
 
+# absolute path of this makefile, ie FGT's top-level directory...
+FGT = $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
+
+# For your OS, override the above by placing make variables in make.inc
+-include make.inc
+
 INCL = -I$(FINUFFT_INSTALL_DIR)
 # here /usr/include needed for fftw3.f "fortran header"... (JiriK: no longer)
 FFLAGS := $(FFLAGS) $(INCL) -I/usr/include
@@ -42,8 +48,6 @@ LIBS = -lm
 DYLIBS = -lm
 F2PYDYLIBS = -lm -lblas -llapack
 
-FINUFFT = $(FINUFFT_INSTALL_DIR)
-ABSDYNLIB = $(FINUFFT)/libfinufft.so
 # FFTW base name, and math linking...
 FFTWNAME = fftw3
 # linux default is fftw3_omp, since 10% faster than fftw3_threads...
@@ -57,17 +61,21 @@ LIBNAME=$(PREFIX_LIBNAME)
 ifeq ($(LIBNAME),)
 	LIBNAME=libfgt
 endif
+ifeq ($(MINGW),ON)
+  DYNLIB = lib/$(LIBNAME).dll
+else
+  DYNLIB = lib/$(LIBNAME).so
+endif
 
 DYNAMICLIB = $(LIBNAME).so
 STATICLIB = $(LIBNAME).a
 LIMPLIB = $(DYNAMICLIB)
+# absolute path to the .so, useful for linking so executables portable...
+ABSDYNLIB = $(FGT)$(DYNLIB)
 
 LFINUFFTLINKLIB = -lfinufft
 LLINKLIB = $(subst lib, -l, $(LIBNAME))
 
-
-# For your OS, override the above by placing make variables in make.inc
--include make.inc
 
 # update libs and dynamic libs to include appropriate versions of
 # fmm3d
@@ -218,11 +226,11 @@ test/bfgt-static:
 #
 
 test/pfgt-dyn:
-	$(FC) $(FFLAGS) test/pfgt/test_pfgt_all.f -o test/pfgt/int2-pfgt -L$(FGT_INSTALL_DIR) $(LLINKLIB) -L$(FINUFFT_INSTALL_DIR) $(LFINUFFTLINKLIB) 
+	$(FC) $(FFLAGS) test/pfgt/test_pfgt_all.f -o test/pfgt/int2-pfgt $(ABSDYNLIB) -L$(FINUFFT_INSTALL_DIR) $(LFINUFFTLINKLIB) 
 
 
 test/bfgt-dyn:
-	$(FC) $(FFLAGS) test/bfgt/test_boxfgt_all.f -o test/bfgt/int2-bfgt -L$(FGT_INSTALL_DIR) $(LLINKLIB) -L$(FINUFFT_INSTALL_DIR) $(LFINUFFTLINKLIB) 
+	$(FC) $(FFLAGS) test/bfgt/test_boxfgt_all.f -o test/bfgt/int2-bfgt $(ABSDYNLIB) -L$(FINUFFT_INSTALL_DIR) $(LFINUFFTLINKLIB) 
 
 #
 # build the python bindings/interface

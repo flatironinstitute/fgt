@@ -550,6 +550,9 @@ c
       do ilev = 0,nlevels
         sc = 2.0d0/boxsize(ilev)
         sc2 = sc*sc 
+C$OMP PARALLEL DO DEFAULT (SHARED)
+C$OMP$PRIVATE(ibox,nchild,j,ind)
+C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
           if(nchild.eq.0) then
@@ -567,6 +570,7 @@ c
              enddo
           endif
         enddo
+C$OMP END PARALLEL DO
       enddo
 
       return
@@ -661,7 +665,6 @@ cccc               print *, ibox, istart,iend,npts
                   do j=1,ndim
                      cen(j)=tcenters(j,ibox)
                   enddo
-cccc                  print *, cen(1),cen(2)
                   do i=istart,iend
                      do j=1,ndim
                         xyz(j) = (targsort(j,i)-cen(j))*sc
@@ -882,7 +885,7 @@ c
       do ilev = 0,nlevels
          sc = 2.0d0/boxsize(ilev)
 C$OMP PARALLEL DO DEFAULT (SHARED)
-C$OMP$PRIVATE(ibox,nchild,istart,iend,cen,xyz,j,i)
+C$OMP$PRIVATE(ibox,nchild,istart,iend,npts,cen,xyz,j,i)
 C$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
             nchild = itree(iptr(4)+ibox-1)
@@ -967,8 +970,8 @@ c
       nleaf=0
 
       do ilev = 0,nlevels
-C$OMP PARALLEL DO DEFAULT (SHARED)
-C$OMP$PRIVATE(ibox,nchild,j,ind)
+C$OMP PARALLEL DO DEFAULT (SHARED) 
+C$OMP$PRIVATE(ibox,nchild,j,ind) reduction( + : rnorm,abserr,nleaf)
 C$OMP$SCHEDULE(DYNAMIC)
         do ibox = itree(2*ilev+1),itree(2*ilev+2)
           nchild = itree(iptr(4) + ibox-1)
@@ -1051,7 +1054,8 @@ c
       if (iptype.eq.0) then
          do ilev = 0,nlevels
 C$OMP PARALLEL DO DEFAULT (SHARED)
-C$OMP$PRIVATE(ibox,nchild,j,ind)
+C$OMP$PRIVATE(ibox,nchild) reduction(+:nleaf)
+C$OMP$reduction(max:rnorm)
 C$OMP$SCHEDULE(DYNAMIC)
             do ibox = itree(2*ilev+1),itree(2*ilev+2)
                nchild = itree(iptr(4) + ibox-1)
@@ -1068,7 +1072,7 @@ C$OMP END PARALLEL DO
          do ilev = 0,nlevels
             sc = (boxsize(ilev)/2)**ndim
 C$OMP PARALLEL DO DEFAULT (SHARED)
-C$OMP$PRIVATE(ibox,nchild,j,ind)
+C$OMP$PRIVATE(ibox,nchild,j,ind) reduction(+:rnorm,nleaf)
 C$OMP$SCHEDULE(DYNAMIC)
             do ibox = itree(2*ilev+1),itree(2*ilev+2)
                nchild = itree(iptr(4) + ibox-1)

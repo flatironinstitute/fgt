@@ -448,7 +448,7 @@ c     for asymptotic calculations
       real *8, allocatable :: hvals(:,:,:,:)
 
 c     for refinement and coarsening
-      integer, allocatable :: ifrefine(:),irefinelev(:),imaxrefinelev(:)
+      integer, allocatable :: ifrefine(:),imaxrefinelev(:),irefinelev(:)
       integer nblock(0:nlevels),ilevstart(0:nlevels+1)
       integer isgn(ndim,2**ndim)
       integer, allocatable :: nboxid(:)
@@ -547,9 +547,6 @@ c     compute the number of leaf boxes
 c     estimate number of direct evaluation boxes
       ndirect=0
       do ilev = 0,nlevend
-C$OMP PARALLEL DO DEFAULT (SHARED)
-C$OMP$PRIVATE(ibox,nchild)
-C$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
             nchild = itree(iptr(4)+ibox-1)
 c           Check if the current box is a leaf box            
@@ -905,10 +902,10 @@ cc
       call cpu_time(time1)
 C$    time1=omp_get_wtime()  
       do 2000 ilev = 0,nlevend
-C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,jbox,nl1,bs,ixyz,jlev)
-C$OMP$SCHEDULE(DYNAMIC)  
          bs = boxsize(ilev)
+C$OMP PARALLEL DO DEFAULT(SHARED)
+C$OMP$PRIVATE(ibox,jbox,j,nl1,ixyz,jlev)
+C$OMP$SCHEDULE(DYNAMIC)  
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
 c        ibox is the source box            
            nl1 = nlist1(ibox)
@@ -939,7 +936,6 @@ C$    time2=omp_get_wtime()
       else
          goto 4000
       endif
-ccc      goto 3000
 
 
 
@@ -1069,42 +1065,55 @@ c     scaled desired precision for error
          irefinelev(ibox)=0
          imaxrefinelev(ibox)=0
       enddo
-      maxrefinelev=0
 
 c     convert potential to its polynomial expansion coefficients
       itype=0
       call treedata_trans_nd(ndim,nd,itype,nlevels,itree,
      1    iptr,boxsize,norder,pot,coefsp,umat_nd)
 
-      nrefine=0
-      nmaxrefine=0
 c     no need to check leaf boxes at the finest level, hence nlevels-1
       do ilev = 0,nlevels-1
          sc = boxsize(ilev)/2
          rscale=sc**eta
+C$OMP PARALLEL DO DEFAULT(SHARED)
+C$OMP$PRIVATE(ibox,erra)
+C$OMP$SCHEDULE(DYNAMIC)  
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
             if (itree(iptr(4)+ibox-1).eq.0) then
 c              call fun_err on each leaf box
                call fun_err(nd,npbox,coefsp(1,1,ibox),
      1            rmask,iptype,rscale,erra)
-     
                erra = erra/rsum
                if(erra.gt.reps) then
                   ifrefine(ibox)=1
-                  nrefine=nrefine+1
 c                 empirical formula determining the maximum level of refinement
-                  ii = ceiling(log(erra/(reps))/log(2.0d0)/norder)
-                  imaxrefinelev(ibox)=ii
-                  if (ii.gt.maxrefinelev) then
-                     maxrefinelev=ii
-                     nmaxrefine=1
-                  elseif (ii.eq.maxrefinelev) then
-                     nmaxrefine=nmaxrefine+1
-                  endif
+                  imaxrefinelev(ibox)=
+     1                ceiling(log(erra/(reps))/log(2.0d0)/norder)
                endif
             endif
          enddo
+C$OMP END PARALLEL DO          
       enddo
+
+      nrefine=0
+      maxrefinelev=0
+      do ilev = 0,nlevels-1
+         do ibox = itree(2*ilev+1),itree(2*ilev+2)
+            if (ifrefine(ibox).eq.1) nrefine=nrefine+1
+            if (imaxrefinelev(ibox).gt. maxrefinelev)
+     1          maxrefinelev=imaxrefinelev(ibox)
+c     add irefaddr(2,ibox) for openmp refinement!
+         enddo
+      enddo
+
+      nmaxrefine=0
+      do ilev = 0,nlevels-1
+         do ibox = itree(2*ilev+1),itree(2*ilev+2)
+            if (imaxrefinelev(ibox).eq.maxrefinelev)
+     1          nmaxrefine=nmaxrefine+1
+         enddo
+      enddo
+      
       call prinf('nrefine=*',nrefine,1)
       call prinf('nmaxrefine=*',nmaxrefine,1)
       call prinf('maxrefinelev=*',maxrefinelev,1)

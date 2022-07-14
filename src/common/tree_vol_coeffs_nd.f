@@ -1301,7 +1301,7 @@ c        This is the distance to test if two boxes separated
 c        by two levels are touching
          distest = 1.05d0*(boxsize(ilev-1) + boxsize(ilev-2))/2.0d0
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,idad,igranddad,i,jbox)         
-C$OMP$ PRIVATE(ict,dis,k)
+C$OMP$ PRIVATE(ict,dis,k,dp1,dm1)
          do ibox = laddr(1,ilev),laddr(2,ilev) 
             idad = iparent(ibox)
             igranddad = iparent(idad)
@@ -1356,7 +1356,7 @@ c        This is the distance to test if two boxes separated
 c        by one level are touching
          distest = 1.05d0*(boxsize(ilev) + boxsize(ilev-1))/2.0d0
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,idad,i,jbox,dis)
-C$OMP$PRIVATE(ict,k)
+C$OMP$PRIVATE(ict,k,dp1,dm1)
          do ibox = laddr(1,ilev),laddr(2,ilev)
             if(iflag(ibox).eq.1.or.iflag(ibox).eq.2) then
                idad = iparent(ibox)
@@ -1501,7 +1501,7 @@ c      Step 3: Update the colleague information for the newly
 c      created boxes
 
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,i,idad,jbox,j,kbox)
-C$OMP$PRIVATE(k,ifnbor)
+C$OMP$PRIVATE(k,ifnbor,dis,dp1,dm1)
           do ibox = laddrtail(1,ilev+1),laddrtail(2,ilev+1)
             nnbors(ibox) = 0
 c           Find the parent of the current box         
@@ -1801,7 +1801,7 @@ c     Temporary variables
 c     Loop over all boxes at the current level     
 
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,i,jbox,j,kbox,dis,k)
-C$OMP$PRIVATE(ict)
+C$OMP$PRIVATE(ict,dp1,dm1)
       do ibox = laddr(1,curlev),laddr(2,curlev)
          if(iflag(ibox).eq.3) then
             iflag(ibox) = 0
@@ -2653,7 +2653,7 @@ c        This is the distance to test if two boxes separated
 c        by two levels are touching
          distest = 1.05d0*(boxsize(ilev-1) + boxsize(ilev-2))/2.0d0
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,idad,igranddad,i,jbox)         
-C$OMP$ PRIVATE(ict,dis,k)
+C$OMP$ PRIVATE(ict,dis,k,dp1,dm1)
          do ibox = laddr(1,ilev),laddr(2,ilev) 
             idad = iparent(ibox)
             igranddad = iparent(idad)
@@ -2708,7 +2708,7 @@ c        This is the distance to test if two boxes separated
 c        by one level are touching
          distest = 1.05d0*(boxsize(ilev) + boxsize(ilev-1))/2.0d0
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,idad,i,jbox,dis)
-C$OMP$PRIVATE(ict,k)
+C$OMP$PRIVATE(ict,k,dp1,dm1)
          do ibox = laddr(1,ilev),laddr(2,ilev)
             if(iflag(ibox).eq.1.or.iflag(ibox).eq.2) then
                idad = iparent(ibox)
@@ -2856,7 +2856,7 @@ c      Step 3: Update the colleague information for the newly
 c      created boxes
 
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,i,idad,jbox,j,kbox)
-C$OMP$PRIVATE(k,ifnbor)
+C$OMP$PRIVATE(k,ifnbor,dis,dp1,dm1)
           do ibox = laddrtail(1,ilev+1),laddrtail(2,ilev+1)
             nnbors(ibox) = 0
 c           Find the parent of the current box         

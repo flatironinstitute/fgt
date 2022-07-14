@@ -140,7 +140,7 @@ c
       endif
       
       call cpu_time(time1)
-C$      time1=omp_get_wtime()
+C$    time1=omp_get_wtime()
 c     find the memory requirements for the tree
       nlmin = 0
       call pts_tree_mem(dim,sources,ns,targ,nt,idivflag,
@@ -161,7 +161,7 @@ c
      2    npwlevel,bs0,cen0,
      3    ltree,itree,iptr,centers,boxsize)
       call cpu_time(time2)
-C$        time2=omp_get_wtime()
+C$    time2=omp_get_wtime()
       if( ifprint .eq. 1 ) then
          call prin2('time in tree building=*',time2-time1,1)
          pps=(ns*ifpgh+nt*ifpghtarg+0.0d0)/(time2-time1)
@@ -184,7 +184,7 @@ c     plot the tree
       allocate(itarg(nt),itargse(2,nboxes))
 
       call cpu_time(time1)
-C$      time1=omp_get_wtime()
+C$    time1=omp_get_wtime()
 c     sort source points to the tree
       call pts_tree_sort(dim,ns,sources,itree,ltree,nboxes,nlevels,
      1    iptr,centers,isrc,isrcse)
@@ -195,7 +195,7 @@ c     sort target points to the tree
      1   centers,itarg,itargse)
 cccc      call prinf('itargse=*',itargse,nboxes)
       call cpu_time(time2)
-C$        time2=omp_get_wtime()
+C$    time2=omp_get_wtime()
       if( ifprint .eq. 1 ) then
          call prin2('time in pts_tree_sort=*',time2-time1,1)
          pps=(ns*ifpgh+nt*ifpghtarg+0.0d0)/(time2-time1)
@@ -355,7 +355,7 @@ c     Memory allocation is complete.
 c     Call main FGT routine
 c
       call cpu_time(time1)
-C$      time1=omp_get_wtime()
+C$    time1=omp_get_wtime()
       call pfgtmain(nd,dim,delta,eps,iperiod,
      $   ifcharge,chargesort,ifdipole,rnormalsort,dipstrsort,
      $   ns,sourcesort,nt,targsort,
@@ -365,7 +365,7 @@ C$      time1=omp_get_wtime()
      $   ifpgh,potsort,gradsort,hesssort,
      $   ifpghtarg,pottargsort,gradtargsort,hesstargsort)
       call cpu_time(time2)
-C$        time2=omp_get_wtime()
+C$    time2=omp_get_wtime()
       if( ifprint .eq. 1 ) then
          call prin2('time in fgt main=*',time2-time1,1)
          pps=(ns*ifpgh+nt*ifpghtarg+0.0d0)/(time2-time1)
@@ -719,8 +719,9 @@ c
       if(ifprint .ge. 1) 
      $   call prinf('=== STEP 1 (form mp) ====*',i,0)
       call cpu_time(time1)
-C$        time1=omp_get_wtime()
-c
+C$    time1=omp_get_wtime()
+
+c     
 c       ... step 1, form multipole pw expansions at the cutoff level
 c       
 c     mandatory parameters to FINUFFT guru interface... (ttype = trans type)
@@ -753,13 +754,11 @@ cccc      opts%upsampfac = 1.1d0
 
       do 1100 ilev = ncutoff,ncutoff
 ccc         nb=0
-ccc         dt=0
 C
 C$OMP PARALLEL DO DEFAULT (SHARED)
-C$OMP$PRIVATE(ibox,nchild,istart,iend,npts)
-C$OMP$SCHEDULE(DYNAMIC)
+C$OMP$PRIVATE(ibox,istart,iend,npts)
+ccc C$OMP$SCHEDULE(DYNAMIC)
          do ibox=itree(2*ilev+1),itree(2*ilev+2)
-            nchild = itree(iptr(4)+ibox-1)
             istart = isrcse(1,ibox)
             iend = isrcse(2,ibox)
             npts = iend-istart+1 
@@ -772,9 +771,9 @@ c              form the pw expansion
      2             rnormalsort(1,istart),dipstrsort(1,istart),
      3             centers(1,ibox),hpw,nexp,wnufftcd,
      4             rmlexp(iaddr(1,ibox)),fftplan)
-cccc  dt=dt+t2-t1
-c     copy the multipole PW exp into local PW exp
-c     for self interaction 
+
+c              copy the multipole PW exp into local PW exp
+c              for self interaction 
                call gnd_copy_pwexp(nd,nexp,rmlexp(iaddr(1,ibox)),
      1             rmlexp(iaddr(2,ibox)))
             endif
@@ -803,7 +802,7 @@ C$    time1=omp_get_wtime()
       
       do 1300 ilev = ncutoff,ncutoff
 C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,jbox,istart,iend,npts,i)
+C$OMP$PRIVATE(ibox,jbox,j,ind)
 C$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
 c           ibox is the source box
@@ -861,11 +860,11 @@ c     use default options
       endif
       
       do 1500 ilev = ncutoff,ncutoff
-C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,istart,iend,i,npts)
-C$OMP$SCHEDULE(DYNAMIC)
-         call cpu_time(t1)
 ccc         nb=0
+C$OMP PARALLEL DO DEFAULT(SHARED)
+C$OMP$PRIVATE(ibox,istartt,iendt,istarts,iends,nptssrc,nptstarg)
+C$OMP$PRIVATE(nptstmp,i,j,k,ind,targtmp,pottmp,gradtmp,hesstmp)
+C$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
             if (ifpwexp(ibox).eq.1) then
                istartt = itargse(1,ibox) 
@@ -914,7 +913,8 @@ c                 evaluate local expansion at sources
      4                   hess(1,1,istarts),fftplan)
                   endif
                   
-c     evaluate local expansion at sources and targets together using one NUFFT
+c                 evaluate local expansion at sources and targets 
+c                 together using one NUFFT
                   if (nptssrc.gt.0 .and. nptstarg.gt.0) then
                      nptstmp=nptssrc+nptstarg
 
@@ -1032,10 +1032,9 @@ c     evaluate local expansion at sources and targets together using one NUFFT
                endif
             endif
          enddo
-         call cpu_time(t2)
+C$OMP END PARALLEL DO        
  222     format ('ilev=', i1,4x, 'nb=',i6, 4x,'pweval=', f6.2)
 ccc         write(6,222) ilev,nb,t2-t1
-C     $OMP END PARALLEL DO        
  1500 continue
 
       call finufft_destroy(fftplan,ier)
@@ -1061,8 +1060,8 @@ C$    time1=omp_get_wtime()
 ccc      nb=0
       do 2000 ilev = 0,nlevend
 C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,jbox,istartt,iendt,i,jstart,jend,istarte,iende)
-C$OMP$PRIVATE(istarts,iends,nptssrc,nptstarg)
+C$OMP$PRIVATE(ibox,jbox,istartt,iendt,jstart,jend,istarts,iends)
+C$OMP$PRIVATE(ns,n1,nptssrc,nptstarg,shifts)
 C$OMP$SCHEDULE(DYNAMIC)  
          do jbox = itree(2*ilev+1),itree(2*ilev+2)
 c        jbox is the source box            
@@ -1420,9 +1419,8 @@ c     the factor 2 is the (complex *16)/(real *8) ratio
 
       itmp=0
       do i = nlevstart,nlevstart
-cccc         print *, 'nboxes at npwlevel=',laddr(2,i)-laddr(1,i)+1
-C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,itmp)
+cccc C$OMP PARALLEL DO DEFAULT(SHARED)
+cccc C$OMP$PRIVATE(ibox) REDUCTION(+:itmp)        
          do ibox = laddr(1,i),laddr(2,i)
 c     Allocate memory for the multipole PW expansion         
 c
@@ -1431,15 +1429,14 @@ c
               itmp = itmp+1
            endif
          enddo
-C$OMP END PARALLEL DO         
+cccc C$OMP END PARALLEL DO         
          istart = istart + itmp*nn
       enddo
 c
       itmp2=0
       do i = nlevstart,nlevstart
-
-C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,itmp)
+cccc C$OMP PARALLEL DO DEFAULT(SHARED)
+cccc C$OMP$PRIVATE(ibox) REDUCTION(+:itmp2)        
          do ibox = laddr(1,i),laddr(2,i)
 c     Allocate memory for the local PW expansion         
 c
@@ -1448,7 +1445,7 @@ c
               itmp2 = itmp2+1
            endif
          enddo
-C$OMP END PARALLEL DO         
+cccc C$OMP END PARALLEL DO         
          istart = istart + itmp2*nn
       enddo
             

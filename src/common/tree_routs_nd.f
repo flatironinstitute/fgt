@@ -602,7 +602,7 @@ C$OMP END PARALLEL DO
 
       mnlist1 = 0
 C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i) 
-C$OMP$REDUCTION(max:mnlist1,mnlist2,mnlist3,mnlist4)      
+C$OMP$REDUCTION(max:mnlist1)      
       do i=1,nboxes
          if(nlist1(i).gt.mnlist1) mnlist1 = nlist1(i)
       enddo

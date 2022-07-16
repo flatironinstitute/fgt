@@ -146,7 +146,7 @@ C
          call finufft_setpts(fftplan,ns8,xj,yj,zj,dummy,dummy,
      1       dummy,dummy,ier)
       endif
-      
+
       call finufft_execute(fftplan,cj,fk,ier)
 
       do ind=1,nd
@@ -501,8 +501,8 @@ c
             wnufftgh(j,2) = ts(j2)
             
             wnufftgh(j,3) = ts(j1)*ts(j1)
-            wnufftgh(j,4) = ts(j2)*ts(j2)
-            wnufftgh(j,5) = ts(j1)*ts(j2)
+            wnufftgh(j,4) = ts(j1)*ts(j2)
+            wnufftgh(j,5) = ts(j2)*ts(j2)
          enddo
          enddo
       elseif (dim.eq.3) then

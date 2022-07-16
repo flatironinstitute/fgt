@@ -1,4 +1,4 @@
-# Makefile for fgt3d
+# Makefile for fgt
 # # This is the only makefile; there are no makefiles in subdirectories.
 # Users should not need to edit this makefile (doing so would make it
 # hard to stay up to date with repo version). Rather in order to
@@ -7,18 +7,27 @@
 # for ubunutu linux/gcc system). 
 
 # compiler, and linking from C, fortran
-CC = gcc
-CXX = g++
-FC = gfortran
+CC = gcc-10
+CXX = g++-10
+FC = gfortran-10
 CLINK = -lstdc++
 FLINK = $(CLINK)
 
-FFLAGS = -fPIC -O3 -march=native -funroll-loops -std=legacy
+FFLAGS = -fPIC -O3 -march=native -funroll-loops -std=legacy -w
 # -pg -no-pie is for profiling
 #FFLAGS = -fPIC -O3 -march=native -funroll-loops -std=legacy -fcx-limited-range -pg -no-pie
 
+# put this in your make.inc if you have FFTW>=3.3.5 and want thread-safe use...
+#CXXFLAGS += -DFFTW_PLAN_SAFE
+# FFTW base name, and math linking...
+FFTWNAME = fftw3
+# linux default is fftw3_omp, since 10% faster than fftw3_threads...
+#FFTWOMPSUFFIX = omp
+FFTWOMPSUFFIX = threads
+LIBS := -lm
+
 # extra flags for multithreaded: C/Fortran, MATLAB
-OMPFLAGS =-fopenmp
+OMPFLAGS =-fopenmp -DFFTW_PLAN_SAFE
 OMPLIBS =-lgomp 
 #OMP = OFF
 
@@ -42,20 +51,30 @@ FGT = $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 
 INCL = -I$(FINUFFT_INSTALL_DIR)
 # here /usr/include needed for fftw3.f "fortran header"... (JiriK: no longer)
-FFLAGS := $(FFLAGS) $(INCL) -I/usr/include
+FFLAGS := $(FFLAGS) -I/usr/include $(INCL) 
 
-LIBS = -lm
 DYLIBS = -lm
 F2PYDYLIBS = -lm -lblas -llapack
 
-# FFTW base name, and math linking...
-FFTWNAME = fftw3
-# linux default is fftw3_omp, since 10% faster than fftw3_threads...
-FFTWOMPSUFFIX = omp
+# single-thread total list of math and FFTW libs (now both precisions)...
+# (Note: finufft tests use LIBSFFT; spread & util tests only need LIBS)
+LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)f $(LIBS)
 
+# multi-threaded libs & flags, and req'd flags (OO for new interface)...
+ifneq ($(OMP),OFF)
+  CXXFLAGS += $(OMPFLAGS)
+  CFLAGS += $(OMPFLAGS)
+  FFLAGS += $(OMPFLAGS)
+  MFLAGS += $(MOMPFLAGS) -DR2008OO
+  OFLAGS += $(OOMPFLAGS) -DR2008OO
+  LIBS += $(OMPLIBS)
+  ifneq ($(MINGW),ON)
+    ifneq ($(MSYS),ON)
 # omp override for total list of math and FFTW libs (now both precisions)...
-#LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)_$(FFTWOMPSUFFIX) -l$(FFTWNAME)f -l$(FFTWNAME)f_$(FFTWOMPSUFFIX) $(LIBS)
-LIBS += -l$(FFTWNAME)
+      LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)_$(FFTWOMPSUFFIX) -l$(FFTWNAME)f -l$(FFTWNAME)f_$(FFTWOMPSUFFIX) $(LIBS)
+    endif
+  endif
+endif
 
 LIBNAME=$(PREFIX_LIBNAME)
 ifeq ($(LIBNAME),)
@@ -73,27 +92,20 @@ LIMPLIB = $(DYNAMICLIB)
 # absolute path to the .so, useful for linking so executables portable...
 ABSDYNLIB = $(FGT)$(DYNLIB)
 
+FINUFFTLIBNAME = libfinufft
 LFINUFFTLINKLIB = -lfinufft
+
 LLINKLIB = $(subst lib, -l, $(LIBNAME))
 
+FINUFFTSTATICLIB = $(FINUFFT_INSTALL_DIR)/$(FINUFFTLIBNAME).a
 
-# update libs and dynamic libs to include appropriate versions of
-# fmm3d
 #
 # Note: the static library is used for DYLIBS, so that fmm3d 
 # does not get bundled in with the fmm3dbie dynamic library
 #
-LIBS += -L$(FINUFFT_INSTALL_DIR) $(LFINUFFTLINKLIB) 
-DYLIBS += -L$(FINUFFT_INSTALL_DIR) $(LFINUFFTLINKLIB)
-F2PYDYLIBS += -L$(FINUFFT_INSTALL_DIR) $(LFINUFFTLINKLIB)
-
-# multi-threaded libs & flags needed
-ifneq ($(OMP),OFF)
-  FFLAGS += $(OMPFLAGS)
-  LIBS += $(OMPLIBS)
-  DYLIBS += $(OMPLIBS)
-  F2PYDYLIBS += $(OMPLIBS)
-endif
+LIBS := $(LIBSFFT)
+DYLIBS := -L$(FINUFFT_INSTALL_DIR) $(LFINUFFTLINKLIB) $(LIBSFFT)
+F2PYDYLIBS += -L$(FINUFFT_INSTALL_DIR) $(LFINUFFTLINKLIB) $(LIBSFFT)
 
 LIBS += $(LBLAS) $(LDBLASINC)
 DYLIBS += $(LBLAS) $(LDBLASINC)
@@ -124,9 +136,14 @@ COMOBJS = $(COM)/prini_new.o \
 
 # point Gauss transform objects
 PFGT = src/pfgt
-PFGTOBJS = $(PFGT)/pfgt.o \
-	$(PFGT)/pfgt_direct.o \
-	$(PFGT)/pfgt_nufftrouts.o \
+PFGTOBJS = $(PFGT)/pfgt_direct.o \
+	$(PFGT)/pfgt_nufftrouts.o
+
+ifneq ($(OMP),OFF)
+  PFGTOBJS += $(PFGT)/pfgt_omp.o
+else
+  PFGTOBJS += $(PFGT)/pfgt.o
+endif
 
 # box Gauss transform objects
 BFGT = src/bfgt
@@ -141,7 +158,7 @@ OBJS = $(COMOBJS) $(PFGTOBJS) $(BFGTOBJS)
 
 
 
-.PHONY: usage lib install test test-dyn python 
+.PHONY: usage lib install test-static test-dyn python 
 
 default: usage
 
@@ -151,7 +168,7 @@ usage:
 	@echo "  make install - compile and install the main library"
 	@echo "  make install PREFIX=(INSTALL_DIR) - compile and install the main library at custom location given by PREFIX"
 	@echo "  make lib - compile the main library (in lib/ and lib-static/)"
-	@echo "  make test - compile and run validation tests"
+	@echo "  make test-static - compile and run validation tests"
 	@echo "  make test-dyn - test successful installation by validation tests linked to dynamic library"
 	@echo "  make python - compile and test python interfaces using python"
 	@echo "  make objclean - removal all object files, preserving lib & MEX"
@@ -184,7 +201,7 @@ $(STATICLIB): $(OBJS)
 	mv $(STATICLIB) lib-static/
 
 $(DYNAMICLIB): $(OBJS) 
-	$(FC) -shared -fPIC $(FFLAGS) $(OBJS) -o $(DYNAMICLIB) $(DYLIBS)
+	$(FC) -shared $(FFLAGS) $(OBJS) -o $(DYNAMICLIB)
 	mv $(DYNAMICLIB) lib/
 	[ ! -f $(LIMPLIB) ] || mv $(LIMPLIB) lib/
 
@@ -214,11 +231,11 @@ test-dyn: $(DYNAMICLIB)  test/pfgt-dyn test/bfgt-dyn
 	cd test/bfgt; ./int2-bfgt
 
 test/pfgt-static:
-	$(FC) $(FFLAGS) test/pfgt/test_pfgt_all.f -o test/pfgt/int2-pfgt lib-static/$(STATICLIB) $(LIBS)
+	$(FC) $(FFLAGS) test/pfgt/test_pfgt_all.f -o test/pfgt/int2-pfgt lib-static/$(STATICLIB) $(FINUFFTSTATICLIB) $(LIBS)
 
 
 test/bfgt-static:
-	$(FC) $(FFLAGS) test/bfgt/test_boxfgt_all.f -o test/bfgt/int2-bfgt lib-static/$(STATICLIB) $(LIBS)
+	$(FC) $(FFLAGS) test/bfgt/test_boxfgt_all.f -o test/bfgt/int2-bfgt lib-static/$(STATICLIB) $(FINUFFTSTATICLIB) $(LIBS)
 
 
 #

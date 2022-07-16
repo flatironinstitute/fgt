@@ -288,7 +288,7 @@ C$OMP END PARALLEL DO
      1       ifirstbox,nbloc,centers,boxsize(ilev+1),nbctr,ilev+1,
      2       ilevel,iparent,nchild,ichild)
 
-cccc C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox) 
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox) 
           do i=1,nbloc
             ibox = ifirstbox+i-1
             if(irefinebox(i).eq.1) then
@@ -298,7 +298,7 @@ cccc C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox)
      1            targ,nt,itarg,itargse)
             endif
           enddo
-cccc C$OMP END PARALLEL DO          
+C$OMP END PARALLEL DO          
 
           laddr(2,ilev+1) = nbctr
         else
@@ -591,8 +591,8 @@ C$OMP END PARALLEL DO
 c
 c     re sort points in refined boxes
 c
-cccc C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox)
-cccc C$OMP$SCHEDULE(DYNAMIC)
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox)
+C$OMP$SCHEDULE(DYNAMIC)
           do i=1,nbloc
             ibox = ifirstbox+i-1
             if(irefinebox(i).eq.1) then
@@ -602,7 +602,7 @@ cccc C$OMP$SCHEDULE(DYNAMIC)
      1          itree(iptr(5)),targ,nt,itarg,itargse)
             endif
           enddo
-cccc C$OMP END PARALLEL DO          
+C$OMP END PARALLEL DO          
 
           
           itree(2*ilev+4) = nbctr

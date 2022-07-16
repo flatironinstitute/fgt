@@ -743,21 +743,12 @@ c     number of Fourier modes in each dimension
          n_modes(k) = npw8
       enddo
       
-      call finufft_default_opts(opts)
-c     change the FFTW plan to MEASURE, which slows down makeplan, but speeds up
-c     subsequent FFTW calls.
-      opts%fftw = 0
-cccc      opts%nthreads=1
 cccc      opts%upsampfac = 1.1d0
 
-      call finufft_makeplan(ttype,dim,n_modes,iflag,ntrans,
-     $    eps,fftplan,opts,ier)
-
       do 1100 ilev = ncutoff,ncutoff
-ccc         nb=0
 C
 C$OMP PARALLEL DO DEFAULT (SHARED)
-C$OMP$PRIVATE(ibox,istart,iend,npts)
+C$OMP$PRIVATE(ibox,istart,iend,npts,opts,fftplan,ier)
 C$OMP$SCHEDULE(DYNAMIC)
          do ibox=itree(2*ilev+1),itree(2*ilev+2)
             istart = isrcse(1,ibox)
@@ -765,13 +756,20 @@ C$OMP$SCHEDULE(DYNAMIC)
             npts = iend-istart+1 
 c           Check if current box needs to form pw exp         
             if(npts.gt.ndiv) then
-ccc               nb=nb+1
 c              form the pw expansion
+               call finufft_default_opts(opts)
+c     change the FFTW plan to MEASURE, which slows down makeplan, but speeds up
+c     subsequent FFTW calls.
+cccc  opts%fftw = 0
+               opts%nthreads=1
+               call finufft_makeplan(ttype,dim,n_modes,iflag,ntrans,
+     $             eps,fftplan,opts,ier)
                call gnd_formpw(nd,dim,delta0,eps,sourcesort(1,istart),
      1             npts,ifcharge,chargesort(1,istart),ifdipole,
      2             rnormalsort(1,istart),dipstrsort(1,istart),
      3             centers(1,ibox),hpw,nexp,wnufftcd,
      4             rmlexp(iaddr(1,ibox)),fftplan)
+               call finufft_destroy(fftplan,ier)
 
 c              copy the multipole PW exp into local PW exp
 c              for self interaction 
@@ -780,11 +778,7 @@ c              for self interaction
             endif
          enddo
 C$OMP END PARALLEL DO 
- 111     format ('ilev=', i1,4x, 'nb=',i6, 4x,'formpw=', f6.2)
-ccc         write(6,111) ilev,nb
-c     end of ilev do loop
  1100 continue
-      call finufft_destroy(fftplan,ier)
 
       call cpu_time(time2)
 C$    time2=omp_get_wtime()
@@ -849,21 +843,13 @@ c     mandatory parameters to FINUFFT guru interface... (ttype = trans type)
          ntranstarg = nd*npghtarg
       endif
       iflag = 1
-      
-c     use default options
-      call finufft_makeplan(ttype,dim,n_modes,iflag,ntrans,
-     $     eps,fftplan,opts,ier)
 
-      if (ifpghtarg.ne.ifpgh .and. ifpghtarg.gt.0) then
-         call finufft_makeplan(ttype,dim,n_modes,iflag,ntranstarg,
-     $       eps,fftplantarg,opts,ier)
-      endif
-      
+
       do 1500 ilev = ncutoff,ncutoff
-ccc         nb=0
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,istartt,iendt,istarts,iends,nptssrc,nptstarg)
 C$OMP$PRIVATE(nptstmp,i,j,k,ind,targtmp,pottmp,gradtmp,hesstmp)
+C$OMP$PRIVATE(opts,fftplantarg,fftplan,ier)
 C$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
             if (ifpwexp(ibox).eq.1) then
@@ -875,26 +861,35 @@ C$OMP$SCHEDULE(DYNAMIC)
                iends = isrcse(2,ibox)
                nptssrc = iends-istarts+1
 
-ccc               nb=nb+1
+               call finufft_default_opts(opts)
+               opts%nthreads=1      
                if (ifpghtarg.ne.ifpgh) then
 c                 evaluate local expansion at targets
                   if (nptstarg.gt.0 .and. ifpghtarg.gt.0) then
+                     call finufft_makeplan(ttype,dim,n_modes,iflag,
+     $                   ntranstarg,eps,fftplantarg,opts,ier)
                      call gnd_pweval(nd,dim,delta0,eps,centers(1,ibox),
      1                   hpw,nexp,wnufftgh,rmlexp(iaddr(2,ibox)),
      2                   targetsort(1,istartt),nptstarg,ifpghtarg,
      3                   pottarg(1,istartt),gradtarg(1,1,istartt),
      4                   hesstarg(1,1,istartt),fftplantarg)
+                     call finufft_destroy(fftplantarg,ier)
                   endif
 c     
 c                 evaluate local expansion at sources
                   if (nptssrc.gt.0) then
+                     call finufft_makeplan(ttype,dim,n_modes,iflag,
+     $                   ntrans,eps,fftplan,opts,ier)
                      call gnd_pweval(nd,dim,delta0,eps,centers(1,ibox),
      1                   hpw,nexp,wnufftgh,rmlexp(iaddr(2,ibox)),
      2                   sourcesort(1,istarts),nptssrc,ifpgh,
      3                   pot(1,istarts),grad(1,1,istarts),
      4                   hess(1,1,istarts),fftplan)
+                     call finufft_destroy(fftplan,ier)
                   endif
                else
+                  call finufft_makeplan(ttype,dim,n_modes,iflag,
+     $                ntrans,eps,fftplan,opts,ier)
 c                 evaluate local expansion at targets
                   if (nptstarg.gt.0 .and. nptssrc.eq.0) then
                      call gnd_pweval(nd,dim,delta0,eps,centers(1,ibox),
@@ -1028,19 +1023,13 @@ c                 together using one NUFFT
                         enddo
                      endif
                      deallocate(targtmp,pottmp,gradtmp,hesstmp)
+                     call finufft_destroy(fftplan,ier)
                   endif
                endif
             endif
          enddo
 C$OMP END PARALLEL DO        
- 222     format ('ilev=', i1,4x, 'nb=',i6, 4x,'pweval=', f6.2)
-ccc         write(6,222) ilev,nb,t2-t1
  1500 continue
-
-      call finufft_destroy(fftplan,ier)
-      if (ifpghtarg.ne.ifpgh .and. ifpghtarg.gt.0) then
-         call finufft_destroy(fftplantarg,ier)
-      endif
       
       call cpu_time(time2)
 C$    time2 = omp_get_wtime()      

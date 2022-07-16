@@ -45,9 +45,9 @@ c     whether to have monopole sources -> 1: yes; 0: no
 c     whether to have dipole sources -> 1: yes; 0: no
       ifdipole=0
 c     evaluation flag for sources -> 1: pot; 2: pot+grad; 3: pot+grad+hess
-      ifpgh=1
+      ifpgh=3
 c     evaluation flag for targets -> 1: pot; 2: pot+grad; 3: pot+grad+hess
-      ifpghtarg=2
+      ifpghtarg=3
 c
 c     
 c
@@ -56,7 +56,7 @@ c
       iw = 70
       iw2 = 80
 
-      ifuniform=1
+      ifuniform=0
       if (iperiod.eq.1 .and. dim.eq.2) then
          open(iw, file='errorp2d.txt', position='append')
          open(iw2, file='timingp2d.txt', position='append')

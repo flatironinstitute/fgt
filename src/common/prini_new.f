@@ -61,13 +61,13 @@ c
         SUBROUTINE PRINI(IP1,IQ1)
         save
         CHARACTER MES*(*), AA(1)
-        REAL *4 A(1)
-        REAL *8 A2(1)
-        REAL *8 A4(1)
+        REAL *4 A(*)
+        REAL *8 A2(*)
+        REAL *8 A4(*)
 ccc        REAL *16 A4(1)
-        INTEGER *4 IA(1)
-        INTEGER *2 IA2(1)
-        logical *1 la(1)
+        INTEGER *4 IA(*)
+        INTEGER *2 IA2(*)
+        logical *1 la(*)
         integer ison
         data ison/1/
 

@@ -159,17 +159,23 @@ c
                dg(k)=rfac*dr(k)
             enddo
 
-            do k=1,dim
-               dh(k)=rfac+dg(k)*dg(k)
-            enddo
+            if (dim.ne.2) then
+               do k=1,dim
+                  dh(k)=rfac+dg(k)*dg(k)
+               enddo
 
-            m=dim
-            do k=1,dim-1
-            do j=k+1,dim
-               m=m+1
-               dh(m)=dg(k)*dg(j)
-            enddo
-            enddo
+               m=dim
+               do k=1,dim-1
+                  do j=k+1,dim
+                     m=m+1
+                     dh(m)=dg(k)*dg(j)
+                  enddo
+               enddo
+            else
+               dh(1)=rfac+dg(1)*dg(1)
+               dh(2)=dg(1)*dg(2)
+               dh(3)=rfac+dg(2)*dg(2)
+            endif
 c
             do ii = 1,nd
                rinc = rtmp*charge(ii,i)
@@ -338,19 +344,27 @@ c
                rincg(k)=rnormal(k,i)*rfac-rinc*dr(k)
             enddo
 
-            do k=1,dim
-               rinch(k)=-rfac*(dr(k)*rnormal(k,i)+rinc)
-     1             - rincg(k)*dr(k)
-            enddo
+            if (dim.ne.2) then
+               do k=1,dim
+                  rinch(k)=-rfac*(dr(k)*rnormal(k,i)+rinc)
+     1                - rincg(k)*dr(k)
+               enddo
 
-            m=dim
-            do k=1,dim-1
-            do j=k+1,dim
-               m=m+1
-               rinch(m)=-rfac*dr(k)*rnormal(j,i) - rincg(k)*dr(j)
-            enddo
-            enddo
-c
+               m=dim
+               do k=1,dim-1
+                  do j=k+1,dim
+                     m=m+1
+                     rinch(m)=-rfac*dr(k)*rnormal(j,i) - rincg(k)*dr(j)
+                  enddo
+               enddo
+            else
+               rinch(1)=-rfac*(dr(1)*rnormal(1,i)+rinc)
+     1             - rincg(1)*dr(1)
+               rinch(2)=-rfac*dr(1)*rnormal(2,i) - rincg(1)*dr(2)
+               rinch(3)=-rfac*(dr(2)*rnormal(2,i)+rinc)
+     1             - rincg(2)*dr(2)
+            endif
+c     
             do ii = 1,nd
                rtmp = dtmp*dipstr(ii,i)
                
@@ -525,17 +539,23 @@ c
                dg(k)=rfac*dr(k)
             enddo
             
-            do k=1,dim
-               dh(k)=rfac+dg(k)*dg(k)
-            enddo
+            if (dim.ne.2) then
+               do k=1,dim
+                  dh(k)=rfac+dg(k)*dg(k)
+               enddo
 
-            m=dim
-            do k=1,dim-1
-            do j=k+1,dim
-               m=m+1
-               dh(m)=dg(k)*dg(j)
-            enddo
-            enddo
+               m=dim
+               do k=1,dim-1
+                  do j=k+1,dim
+                     m=m+1
+                     dh(m)=dg(k)*dg(j)
+                  enddo
+               enddo
+            else
+               dh(1)=rfac+dg(1)*dg(1)
+               dh(2)=dg(1)*dg(2)
+               dh(3)=rfac+dg(2)*dg(2)
+            endif
 c
             do ii = 1,nd
                rinc = dtmp*charge(ii,i)
@@ -557,18 +577,26 @@ c
                rincg(k)=-rnormal(k,i)*rfac+rinc*dg(k)
             enddo
 
-            do k=1,dim
-               rinch(k)=rfac*(-dg(k)*rnormal(k,i)+rinc)
-     1             + rincg(k)*dg(k)
-            enddo
+            if (dim.ne.2) then
+               do k=1,dim
+                  rinch(k)=-rfac*(dg(k)*rnormal(k,i)+rinc)
+     1                - rincg(k)*dg(k)
+               enddo
 
-            m=dim
-            do k=1,dim-1
-            do j=k+1,dim
-               m=m+1
-               rinch(m)=-rfac*dg(k)*rnormal(j,i) + rincg(k)*dg(j)
-            enddo
-            enddo
+               m=dim
+               do k=1,dim-1
+                  do j=k+1,dim
+                     m=m+1
+                     rinch(m)=-rfac*dg(k)*rnormal(j,i) - rincg(k)*dg(j)
+                  enddo
+               enddo
+            else
+               rinch(1)=-rfac*(dg(1)*rnormal(1,i)+rinc)
+     1             - rincg(1)*dg(1)
+               rinch(2)=-rfac*dg(1)*rnormal(2,i) - rincg(1)*dg(2)
+               rinch(3)=-rfac*(dg(2)*rnormal(2,i)+rinc)
+     1             - rincg(2)*dg(2)
+            endif
 c
             do ii = 1,nd
                rtmp = dtmp*dipstr(ii,i)

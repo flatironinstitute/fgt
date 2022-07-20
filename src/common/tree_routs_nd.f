@@ -972,7 +972,7 @@ c     Setting parameters for level = 0
          ilastbox = itree(2*ilev+2)
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,dad,i,jbox,j,kbox,dis,distest,k)
-C$OMP$PRIVATE(iflist1)
+C$OMP$PRIVATE(iflist1,dp1)
          do ibox = ifirstbox,ilastbox
             dad = itree(iptr(3)+ibox-1)
 c           Compute list1 of ibox if it is childless

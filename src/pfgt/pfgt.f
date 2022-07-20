@@ -816,9 +816,9 @@ c       pw expansions
 C$    time1=omp_get_wtime()
       
       do 1300 ilev = ncutoff,ncutoff
-C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,jbox,j,ind)
-C$OMP$SCHEDULE(DYNAMIC)
+ccC$OMP PARALLEL DO DEFAULT(SHARED)
+ccC$OMP$PRIVATE(ibox,jbox,j,ind)
+ccC$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
 c           ibox is the target box
 c           shift PW expansions
@@ -831,7 +831,7 @@ c              jbox is the source box
      1             rmlexp(iaddr(2,ibox)),wpwshift(1,ind))
             enddo
          enddo
-C$OMP END PARALLEL DO        
+ccC$OMP END PARALLEL DO        
  1300 continue
 c
 

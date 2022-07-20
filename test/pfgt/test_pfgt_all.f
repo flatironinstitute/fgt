@@ -332,7 +332,7 @@ c
 
       
       call cpu_time(t1)
-C$    t1=omp_get_wtime()
+C$    t1 = omp_get_wtime()      
       call pfgt(nd,dim,delta,eps,iperiod,bs0,cen0,
      1    nsrc,sources,
      2    ifcharge,charges,ifdipole,rnormal,dipstr,
@@ -350,7 +350,6 @@ cccc      call prin2('gradtarg=*',gradtarg,nd*dim*ntt)
 cccc      call prin2('hesstarg=*',hesstarg,nd*6*ntt)
 
       dmax = log(1.0d2/eps)*delta
-      call cpu_time(t1)
 c     try to compute the true potential for periodic conditions by including 
 c     the nearest neighbors of the original computational box
 c      
@@ -415,6 +414,8 @@ c     delta is not too large.
       endif
       
       iperiod0=0
+      call cpu_time(t1)
+C$      t1 = omp_get_wtime()      
       call pfgt_direct(nd,dim,delta,dmax,iperiod0,shifts,
 c     1    1,nsrc,1,nts,sources,
 c     1    ifcharge,charges,ifdipole,rnormal,dipstr,
@@ -423,6 +424,7 @@ c     1    ifcharge,charges,ifdipole,rnormal,dipstr,
      2    sources,ifpgh,potex,gradex,hessex)
 cccc      call prin2('potex=*',potex,nts*nd)
       call cpu_time(t2)
+C$       t2 = omp_get_wtime()      
       print *, 'direct eval time = ', t2-t1
       call pfgt_direct(nd,dim,delta,dmax,iperiod0,shifts,
      1    1,nsim,1,ntt,sim, 

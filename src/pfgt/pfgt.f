@@ -596,7 +596,7 @@ c     or this is if you want default opts, make a null pointer...
       integer omp_get_max_threads,omp_get_thread_num
 
       nthd = 1
-C$     nthd = omp_get_max_threads()
+C$    nthd = omp_get_max_threads()
       allocate(fftplan(nthd),fftplantarg(nthd))
 c      
 c     ifprint is an internal information printing flag. 
@@ -772,7 +772,7 @@ C$OMP$SCHEDULE(DYNAMIC)
             iend = isrcse(2,ibox)
             npts = iend-istart+1
             ithd = 0
-C$            ithd = omp_get_thread_num()
+C$          ithd = omp_get_thread_num()
             ithd = ithd+1
 
 c           Check if current box needs to form pw exp         
@@ -820,15 +820,15 @@ C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,jbox,j,ind)
 C$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
-c           ibox is the source box
+c           ibox is the target box
 c           shift PW expansions
             do j=1,nlistpw(ibox)
                jbox=listpw(j,ibox)
-c              jbox is the target box
-               call gnd_find_pwshift_ind(dim,iperiod0,centers(1,jbox),
-     1             centers(1,ibox),bs0,xmin,nmax,ind)
-               call gnd_shiftpw(nd,nexp,rmlexp(iaddr(1,ibox)),
-     1             rmlexp(iaddr(2,jbox)),wpwshift(1,ind))
+c              jbox is the source box
+               call gnd_find_pwshift_ind(dim,iperiod0,centers(1,ibox),
+     1             centers(1,jbox),bs0,xmin,nmax,ind)
+               call gnd_shiftpw(nd,nexp,rmlexp(iaddr(1,jbox)),
+     1             rmlexp(iaddr(2,ibox)),wpwshift(1,ind))
             enddo
          enddo
 C$OMP END PARALLEL DO        
@@ -888,14 +888,14 @@ C$OMP$SCHEDULE(DYNAMIC)
                istartt = itargse(1,ibox) 
                iendt = itargse(2,ibox)
                nptstarg = iendt-istartt + 1
-               
+              
                istarts = isrcse(1,ibox)
                iends = isrcse(2,ibox)
                nptssrc = iends-istarts+1
                ithd = 0
-C$               ithd = omp_get_thread_num()
+C$             ithd = omp_get_thread_num()
                ithd = ithd+1
-
+               
 ccc               nb=nb+1
                if (ifpghtarg.ne.ifpgh) then
 c                 evaluate local expansion at targets
@@ -916,6 +916,7 @@ c                 evaluate local expansion at sources
      4                   hess(1,1,istarts),fftplan(ithd))
                   endif
                else
+                  if (nthd.gt.1) then
 c                 evaluate local expansion at targets
                   if (nptstarg.gt.0 .and. nptssrc.eq.0) then
                      call gnd_pweval(nd,dim,delta0,eps,centers(1,ibox),
@@ -933,7 +934,8 @@ c                 evaluate local expansion at sources
      3                   pot(1,istarts),grad(1,1,istarts),
      4                   hess(1,1,istarts),fftplan(ithd))
                   endif
-                  
+
+                  else
 c                 evaluate local expansion at sources and targets 
 c                 together using one NUFFT
                   if (nptssrc.gt.0 .and. nptstarg.gt.0) then
@@ -1050,6 +1052,7 @@ c                 together using one NUFFT
                      endif
                      deallocate(targtmp,pottmp,gradtmp,hesstmp)
                   endif
+                  endif
                endif
             endif
          enddo
@@ -1083,41 +1086,44 @@ C$    time1=omp_get_wtime()
 ccc      nb=0
       do 2000 ilev = 0,nlevend
 C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,jbox,istartt,iendt,jstart,jend,istarts,iends)
-C$OMP$PRIVATE(ns,n1,nptssrc,nptstarg,shifts)
+C$OMP$PRIVATE(ibox,jbox,istart,iend,jstartt,jendt,jstarts,jends)
+C$OMP$PRIVATE(ns,n1,nptssrc,nptstarg,shifts,npts)
 C$OMP$SCHEDULE(DYNAMIC)  
          do jbox = itree(2*ilev+1),itree(2*ilev+2)
-c        jbox is the source box            
-            jstart = isrcse(1,jbox)
-            jend = isrcse(2,jbox)
-            ns = jend-jstart+1
+c        jbox is the target box            
+            jstarts = isrcse(1,jbox)
+            jends = isrcse(2,jbox)
+            nptssrc = jends-jstarts+1
+
+            jstartt = itargse(1,jbox)
+            jendt = itargse(2,jbox)
+            nptstarg = jendt-jstartt + 1
+
+            npts = nptssrc+nptstarg
             
             n1 = nlist1(jbox)
 ccc            if (n1.gt.0) nb=nb+1
-            if (ns.gt.0 .and. n1.gt.0) then
+            if (npts.gt.0 .and. n1.gt.0) then
             do i=1,n1
-cccc           ibox is the target box
+cccc           ibox is the source box
                ibox = list1(i,jbox)
                if (iperiod0.eq.1) call pfgt_find_local_shift(dim,
-     1             centers(1,ibox),centers(1,jbox),bs0,shifts)
+     1             centers(1,jbox),centers(1,ibox),bs0,shifts)
                
-               istarts = isrcse(1,ibox)
-               iends = isrcse(2,ibox)
-               nptssrc = iends-istarts + 1
+               istart = isrcse(1,ibox)
+               iend = isrcse(2,ibox)
+               ns = iend-istart + 1
                   
-               istartt = itargse(1,ibox)
-               iendt = itargse(2,ibox)
-               nptstarg = iendt-istartt + 1
                if (nptstarg.gt.0) then
                   call pfgt_direct(nd,dim,delta,dmax,iperiod0,shifts,
-     1                jstart,jend,istartt,iendt,sourcesort,
+     1                istart,iend,jstartt,jendt,sourcesort,
      2                ifcharge,chargesort,
      3                ifdipole,rnormalsort,dipstrsort,targetsort,
      4                ifpghtarg,pottarg,gradtarg,hesstarg)
                endif
                if (nptssrc.gt.0) then
                   call pfgt_direct(nd,dim,delta,dmax,iperiod0,shifts,
-     1                jstart,jend,istarts,iends,sourcesort,
+     1                istart,iend,jstarts,jends,sourcesort,
      2                ifcharge,chargesort,
      3                ifdipole,rnormalsort,dipstrsort,sourcesort,
      4                ifpgh,pot,grad,hess)

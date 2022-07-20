@@ -1170,7 +1170,7 @@ c     Setting parameters for level = 0
          ilastbox = itree(2*ilev+2)
 C$OMP PARALLEL DO DEFAULT(SHARED)
 C$OMP$PRIVATE(ibox,dad,i,jbox,j,kbox,dis,distest,k)
-C$OMP$PRIVATE(iflist1)
+C$OMP$PRIVATE(iflist1,dp1)
          do ibox = ifirstbox,ilastbox
             dad = itree(iptr(3)+ibox-1)
 c           Compute list1 of ibox if it is childless
@@ -1182,8 +1182,10 @@ cc                boxes in list 1 at the same level
 c
                   if (itree(iptr(4)+jbox-1).eq.0 .or. ilev.eq.npwlevel)
      1                then
-                     nlist1(ibox) = nlist1(ibox) + 1
-                     list1(nlist1(ibox),ibox) = jbox
+c                     nlist1(ibox) = nlist1(ibox) + 1
+c                     list1(nlist1(ibox),ibox) = jbox
+                     nlist1(jbox) = nlist1(jbox) + 1
+                     list1(nlist1(jbox),jbox) = ibox
                   else
 c
 cc                     boxes in list1 at level ilev+1
@@ -1209,8 +1211,10 @@ c
                                  endif
                               enddo
                               if(iflist1.eq.1) then
-                                 nlist1(ibox) = nlist1(ibox)+1
-                                 list1(nlist1(ibox),ibox) = kbox
+c                                 nlist1(ibox) = nlist1(ibox)+1
+c                                 list1(nlist1(ibox),ibox) = kbox
+                                 nlist1(kbox) = nlist1(kbox)+1
+                                 list1(nlist1(kbox),kbox) = ibox
                               endif
                            endif
                         enddo
@@ -1237,8 +1241,10 @@ cc               compute list1 at level ilev-1
                         endif
                      enddo
                      if(iflist1.eq.1) then
-                        nlist1(ibox) = nlist1(ibox)+1
-                        list1(nlist1(ibox),ibox) = jbox
+c                        nlist1(ibox) = nlist1(ibox)+1
+c                        list1(nlist1(ibox),ibox) = jbox
+                        nlist1(jbox) = nlist1(jbox)+1
+                        list1(nlist1(jbox),jbox) = ibox
                      endif
                   endif
                enddo
@@ -1534,8 +1540,10 @@ c             has children. If both of them are leaf boxes, their
 c             interaction will be computed directly. Self interaction
 c             is always directly copied from mp exp to the loc exp and
 c             thus is not in the pw list.
-                 nlistpw(ibox)=nlistpw(ibox)+1
-                 listpw(nlistpw(ibox),ibox) = jbox
+c                 nlistpw(ibox)=nlistpw(ibox)+1
+c                 listpw(nlistpw(ibox),ibox) = jbox
+                 nlistpw(jbox)=nlistpw(jbox)+1
+                 listpw(nlistpw(jbox),jbox) = ibox
               endif
            enddo
 cccc           print *, ibox, ncoll, nlistpw(ibox)

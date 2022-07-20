@@ -902,25 +902,25 @@ cc
       call cpu_time(time1)
 C$    time1=omp_get_wtime()  
       do 2000 ilev = 0,nlevend
-         bs = boxsize(ilev)
 C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,jbox,j,nl1,ixyz,jlev)
+C$OMP$PRIVATE(ibox,jbox,j,nl1,ixyz,jlev,bs)
 C$OMP$SCHEDULE(DYNAMIC)  
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
-c        ibox is the source box            
+c        ibox is the target box            
            nl1 = nlist1(ibox)
            do j=1,nl1
-cccc       jbox is the target box
+cccc       jbox is the source box
              jbox = list1(j,ibox)
              jlev = itree(iptr(2)+jbox-1)
+             bs = boxsize(jlev)
              call gnd_find_loctab_ind(ndim,iperiod,
-     1           centers(1,jbox),centers(1,ibox),bs,bs0,mrefinelev,ixyz)
-cccc             call prinf('ixyz=*',ixyz,ndim)
+     1           centers(1,ibox),centers(1,jbox),bs,bs0,mrefinelev,ixyz)
+cccc  call prinf('ixyz=*',ixyz,ndim)
              call gnd_tens_prod_to_pghloc(ndim,nd,norder,
-     1         fvals(1,1,ibox),ifpgh,pot(1,1,jbox),
-     2         grad(1,1,1,jbox),hess(1,1,1,jbox),nloctab,
-     3         tab_loc(1,1,-nloctab,jlev),tabx_loc(1,1,-nloctab,jlev),
-     4         tabxx_loc(1,1,-nloctab,jlev),ind_loc(1,1,-nloctab,jlev),
+     1         fvals(1,1,jbox),ifpgh,pot(1,1,ibox),
+     2         grad(1,1,1,ibox),hess(1,1,1,ibox),nloctab,
+     3         tab_loc(1,1,-nloctab,ilev),tabx_loc(1,1,-nloctab,ilev),
+     4         tabxx_loc(1,1,-nloctab,ilev),ind_loc(1,1,-nloctab,ilev),
      5         ixyz)
             enddo
          enddo

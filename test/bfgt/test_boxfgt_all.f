@@ -57,7 +57,7 @@ c      write(iw,*) 'ndim=',ndim,' ifpgh=',ifpgh
       do i=4,4
          eps = epsvals(i)
 c     figure 6.1
-         do j=4,4
+         do j=10,10
 c     figures 6.2 and 6.3
 c         do j=1,11
             delta=deltas(j)
@@ -91,7 +91,7 @@ c
          enddo  
       enddo
 c     figure 6.1
-      do j=4,4
+      do j=6,6
 c         write(iw2,*) ntot(j), pps(j,1), pps(j,2), pps(j,3)
 c     figures 6.2 and 6.3
 c     do j=1,11

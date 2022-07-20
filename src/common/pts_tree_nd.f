@@ -288,7 +288,8 @@ C$OMP END PARALLEL DO
      1       ifirstbox,nbloc,centers,boxsize(ilev+1),nbctr,ilev+1,
      2       ilevel,iparent,nchild,ichild)
 
-C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox) 
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox)
+C$OMP$SCHEDULE(DYNAMIC)  
           do i=1,nbloc
             ibox = ifirstbox+i-1
             if(irefinebox(i).eq.1) then
@@ -1239,12 +1240,16 @@ c     sort points to the tree, works for arbitrary dimension
       ixyse(2,1) = n
 
       do ilev = 0,nlevels-1
+C$OMP PARALLEL DO DEFAULT(SHARED)
+C$OMP$PRIVATE(ibox)
+C$OMP$SCHEDULE(DYNAMIC)  
         do ibox=itree(2*ilev+1),itree(2*ilev+2)
           if(itree(iptr(4)+ibox-1).gt.0) then
             call sort_pts_to_children(ndim,ibox,nboxes,centers,
      1          itree(iptr(5)),xys,n,ixy,ixyse)
           endif
         enddo
+C$OMP END PARALLEL DO         
       enddo
 
       return

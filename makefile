@@ -13,7 +13,7 @@ FC = gfortran
 CLINK = -lstdc++
 FLINK = $(CLINK)
 
-FFLAGS = -fPIC -O3 -march=x86-64 -funroll-loops -std=legacy -w
+FFLAGS = -fPIC -O3 -march=native -funroll-loops -std=legacy -w
 # -pg -no-pie is for profiling
 #FFLAGS = -fPIC -O3 -march=native -funroll-loops -std=legacy -fcx-limited-range -pg -no-pie
 

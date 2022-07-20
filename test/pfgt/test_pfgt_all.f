@@ -47,7 +47,7 @@ c     whether to have dipole sources -> 1: yes; 0: no
 c     evaluation flag for sources -> 1: pot; 2: pot+grad; 3: pot+grad+hess
       ifpgh=3
 c     evaluation flag for targets -> 1: pot; 2: pot+grad; 3: pot+grad+hess
-      ifpghtarg=3
+      ifpghtarg=2
 c
 c     
 c
@@ -332,12 +332,14 @@ c
 
       
       call cpu_time(t1)
+C$    t1=omp_get_wtime()
       call pfgt(nd,dim,delta,eps,iperiod,bs0,cen0,
      1    nsrc,sources,
      2    ifcharge,charges,ifdipole,rnormal,dipstr,
      2    ifpgh,pot,grad,hess,ntarg,targ,
      3    ifpghtarg,pottarg,gradtarg,hesstarg)
       call cpu_time(t2)
+C$    t2=omp_get_wtime()
       pps=(nsrc*ifpgh+ntarg*ifpghtarg+0.0d0)/(t2-t1)
       call prin2('time in pfgt=*',t2-t1,1)
       call prin2('points per sec=*',pps,1)

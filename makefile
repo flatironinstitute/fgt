@@ -7,13 +7,13 @@
 # for ubunutu linux/gcc system). 
 
 # compiler, and linking from C, fortran
-CC = gcc-10
-CXX = g++-10
-FC = gfortran-10
+CC = gcc
+CXX = g++
+FC = gfortran
 CLINK = -lstdc++
 FLINK = $(CLINK)
 
-FFLAGS = -fPIC -O3 -march=native -funroll-loops -std=legacy -w
+FFLAGS = -fPIC -O3 -march=x86-64 -funroll-loops -std=legacy -w
 # -pg -no-pie is for profiling
 #FFLAGS = -fPIC -O3 -march=native -funroll-loops -std=legacy -fcx-limited-range -pg -no-pie
 
@@ -27,7 +27,7 @@ FFTWOMPSUFFIX = threads
 LIBS := -lm
 
 # extra flags for multithreaded: C/Fortran, MATLAB
-OMPFLAGS =-fopenmp -DFFTW_PLAN_SAFE
+OMPFLAGS =-fopenmp 
 OMPLIBS =-lgomp 
 #OMP = OFF
 
@@ -140,7 +140,7 @@ PFGTOBJS = $(PFGT)/pfgt_direct.o \
 	$(PFGT)/pfgt_nufftrouts.o
 
 ifneq ($(OMP),OFF)
-  PFGTOBJS += $(PFGT)/pfgt_omp.o
+  PFGTOBJS += $(PFGT)/pfgt.o
 else
   PFGTOBJS += $(PFGT)/pfgt.o
 endif

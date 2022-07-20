@@ -24,7 +24,7 @@ FFTWNAME = fftw3
 # linux default is fftw3_omp, since 10% faster than fftw3_threads...
 #FFTWOMPSUFFIX = omp
 FFTWOMPSUFFIX = threads
-LIBS := -lm
+LIBS := -lm $(CLINK)
 
 # extra flags for multithreaded: C/Fortran, MATLAB
 OMPFLAGS =-fopenmp 
@@ -136,18 +136,9 @@ COMOBJS = $(COM)/prini_new.o \
 
 # point Gauss transform objects
 PFGT = src/pfgt
-PFGTOBJS = $(PFGT)/pfgt_direct.o \
-
-
-ifneq ($(OMP),OFF)
-  PFGTOBJS += $(PFGT)/pfgt.o
-  PFGTOBJS += $(PFGT)/pfgt_nufftrouts.o
-#  PFGTOBJS += $(PFGT)/pfgt_omp2.o
-#  PFGTOBJS += $(PFGT)/pfgt_nufftrouts_omp.o
-else
-  PFGTOBJS += $(PFGT)/pfgt.o
-  PFGTOBJS += $(PFGT)/pfgt_nufftrouts.o
-endif
+PFGTOBJS = $(PFGT)/pfgt.o \
+	$(PFGT)/pfgt_direct.o \
+	$(PFGT)/pfgt_nufftrouts.o
 
 # box Gauss transform objects
 BFGT = src/bfgt

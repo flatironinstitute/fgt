@@ -137,12 +137,16 @@ COMOBJS = $(COM)/prini_new.o \
 # point Gauss transform objects
 PFGT = src/pfgt
 PFGTOBJS = $(PFGT)/pfgt_direct.o \
-	$(PFGT)/pfgt_nufftrouts.o
+
 
 ifneq ($(OMP),OFF)
   PFGTOBJS += $(PFGT)/pfgt.o
+  PFGTOBJS += $(PFGT)/pfgt_nufftrouts.o
+#  PFGTOBJS += $(PFGT)/pfgt_omp2.o
+#  PFGTOBJS += $(PFGT)/pfgt_nufftrouts_omp.o
 else
   PFGTOBJS += $(PFGT)/pfgt.o
+  PFGTOBJS += $(PFGT)/pfgt_nufftrouts.o
 endif
 
 # box Gauss transform objects

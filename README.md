@@ -53,4 +53,27 @@ To verify successful installation of static and dynamic libraries,
 run ``make test-static`` and ``make test-dyn`` respectively. 
 The output of the code should have an error of roughly 1e-6 as the last line.
 
+# Citing
 
+If you find FGT useful in your work, please star this repository and cite it and the following. 
+
+```
+@article{greengard2024fgt,
+author = {Greengard, Leslie F. and Jiang, Shidong and Rachh, Manas and Wang, Jun},
+title = {A New Version of the Adaptive Fast Gauss Transform for Discrete and Continuous Sources},
+journal = {SIAM Review},
+volume = {66},
+number = {2},
+pages = {287-315},
+year = {2024},
+doi = {10.1137/23M1572453},
+URL = {https://doi.org/10.1137/23M1572453},
+eprint = {https://doi.org/10.1137/23M1572453},
+}
+```
+
+# Main developers
+
+* Leslie Greengard, Flatiron Institute, Simons Foundation
+* Shidong Jiang, Flatiron Institute, Simons Foundation
+* Manas Rachh, Flatiron Institute, Simons Foundation

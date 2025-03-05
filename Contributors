@@ -1,0 +1,8 @@
+Main developers: Leslie Greengard (lgreengard@flatironinstitute.org),
+                 Shidong Jiang (sjiang@flatironinstitute.org), 
+                 Manas Rachh (mrachh@flatironinstitute.org)
+Contributors:
+
+1. Libin Lu (llu@flatironinstitute.org) wrote the makefile and tested on various operating systems.
+
+2. Many files in src/common are adapted from the FMM3D library.

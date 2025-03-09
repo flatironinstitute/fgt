@@ -3,7 +3,7 @@ Fast Gauss transform (FGT) for discrete and continuous sources in two and three 
 
 # Introduction
 
-This repository contains a simple implementation of the new version of the fast Gauss transform that evaluates the discrete and continuous Gauss transforms:
+This repository contains an openmp implementation of the new version of the fast Gauss transform that evaluates the discrete and continuous Gauss transforms:
 
 $$u_i=\sum_{j=1}^N G({\boldsymbol x}_i- {\boldsymbol y}_j;\delta)q_j,
 \qquad {\boldsymbol x}_i, {\boldsymbol y}_j \in B, \qquad i=1,\ldots M,$$
@@ -53,12 +53,21 @@ To verify successful installation of static and dynamic libraries,
 run ``make test-static`` and ``make test-dyn`` respectively. 
 The output of the code should have an error of roughly 1e-6 as the last line.
 
+# Callable subroutines
+
+* The driver for discrete summation is src/pfgt/pfgt.f. See the comments in pfgt.f for its
+  input and output arguments and test/pfgt/test_pfgt_all.f for examples. 
+
+* The driver for continuous convolution is src/bfgt/boxfgt.f, which requires calling subroutines
+vol_tree_mem and vol_tree_build in src/common/tree_vol_coeffs.f first to build the tree. See the
+comments in boxfgt.f for its input and output arguments and test/bfgt/test_boxfgt_all.f for examples.
+
 # Citing
 
 If you find FGT useful in your work, please star this repository and cite it and the following. 
 
 ```
-@article{greengard2024fgt,
+@article{GJRW2024sirev,
 author = {Greengard, Leslie F. and Jiang, Shidong and Rachh, Manas and Wang, Jun},
 title = {A New Version of the Adaptive Fast Gauss Transform for Discrete and Continuous Sources},
 journal = {SIAM Review},
@@ -77,3 +86,4 @@ eprint = {https://doi.org/10.1137/23M1572453},
 * Leslie Greengard, Flatiron Institute, Simons Foundation
 * Shidong Jiang, Flatiron Institute, Simons Foundation
 * Manas Rachh, Flatiron Institute, Simons Foundation
+* Jun Wang, Tsinghua University, China

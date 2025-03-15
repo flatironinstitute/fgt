@@ -1,18 +1,18 @@
 # makefile overrides
 # OS:       Linux
-# Compiler: ifort 
+# Compiler: ifort
 # OpenMP:   enabled
 # BLAS:     mkl
 #
 
 
-CC=icc
-CXX=icpc
-FC=ifort
-FFLAGS= -fPIC -O3 -march=native -funroll-loops 
+CC=icx
+CXX=icpx
+FC=ifx
+FFLAGS= -fPIC -O3 -march=native -funroll-loops
 
 
-OMPLIBS = 
+OMPLIBS =
 OMPFLAGS = -qopenmp
 
-LBLAS = -mkl
+LBLAS = -qmkl

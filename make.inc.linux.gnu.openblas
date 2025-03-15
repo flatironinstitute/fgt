@@ -1,9 +1,10 @@
 # makefile overrides
 # OS:       Linux
-# Compiler: gfortran 
+# Compiler: gfortran
 # OpenMP:   enabled
 # BLAS:     openblas
 #
 
 LBLAS=-lopenblas
-LDBLASINC
+# change -L/usr/lib to the directory where libopenblas.so is located
+LDBLASINC=-L/usr/lib

@@ -2,9 +2,9 @@
 # # This is the only makefile; there are no makefiles in subdirectories.
 # Users should not need to edit this makefile (doing so would make it
 # hard to stay up to date with repo version). Rather in order to
-# change OS/environment-specific compilers and flags, create 
-# the file make.inc, which overrides the defaults below (which are 
-# for ubunutu linux/gcc system). 
+# change OS/environment-specific compilers and flags, create
+# the file make.inc, which overrides the defaults below (which are
+# for ubunutu linux/gcc system).
 
 # compiler, and linking from C, fortran
 CC = gcc
@@ -27,8 +27,8 @@ FFTWOMPSUFFIX = threads
 LIBS := -lm $(CLINK)
 
 # extra flags for multithreaded: C/Fortran, MATLAB
-OMPFLAGS =-fopenmp 
-OMPLIBS =-lgomp 
+OMPFLAGS =-fopenmp
+OMPLIBS =-lgomp
 #OMP = OFF
 
 LBLAS = -lblas -llapack
@@ -38,9 +38,9 @@ ifeq ($(PREFIX),)
 	FGT_INSTALL_DIR = ${HOME}/lib
 endif
 
-FINUFFT_INSTALL_DIR=$(PREFIX_FINUFFT)
 ifeq ($(PREFIX_FINUFFT),)
 	FINUFFT_INSTALL_DIR = ${HOME}/lib
+	FINUFFT_INCLUDE_DIR = ${HOME}/include
 endif
 
 # absolute path of this makefile, ie FGT's top-level directory...
@@ -49,9 +49,9 @@ FGT = $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 # For your OS, override the above by placing make variables in make.inc
 -include make.inc
 
-INCL = -I$(FINUFFT_INSTALL_DIR)
+INCL = -I$(FINUFFT_INCLUDE_DIR)
 # here /usr/include needed for fftw3.f "fortran header"... (JiriK: no longer)
-FFLAGS := $(FFLAGS) -I/usr/include $(INCL) 
+FFLAGS := $(FFLAGS) -I/usr/include $(INCL)
 
 DYLIBS = -lm
 F2PYDYLIBS = -lm -lblas -llapack
@@ -71,7 +71,7 @@ ifneq ($(OMP),OFF)
   ifneq ($(MINGW),ON)
     ifneq ($(MSYS),ON)
 # omp override for total list of math and FFTW libs (now both precisions)...
-      LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)_$(FFTWOMPSUFFIX) -l$(FFTWNAME)f -l$(FFTWNAME)f_$(FFTWOMPSUFFIX) $(LIBS)
+      #LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)_$(FFTWOMPSUFFIX) -l$(FFTWNAME)f -l$(FFTWNAME)f_$(FFTWOMPSUFFIX) $(LIBS)
     endif
   endif
 endif
@@ -100,7 +100,7 @@ LLINKLIB = $(subst lib, -l, $(LIBNAME))
 FINUFFTSTATICLIB = $(FINUFFT_INSTALL_DIR)/$(FINUFFTLIBNAME).a
 
 #
-# Note: the static library is used for DYLIBS, so that fmm3d 
+# Note: the static library is used for DYLIBS, so that fmm3d
 # does not get bundled in with the fmm3dbie dynamic library
 #
 LIBS := $(LIBSFFT)
@@ -132,7 +132,7 @@ COMOBJS = $(COM)/prini_new.o \
 	$(COM)/tensor_prod_routs_nd.o \
 	$(COM)/lapack_f77.o \
 	$(COM)/tree_vol_coeffs_nd.o \
-	$(COM)/fgtterms.o 
+	$(COM)/fgtterms.o
 
 # point Gauss transform objects
 PFGT = src/pfgt
@@ -153,7 +153,7 @@ OBJS = $(COMOBJS) $(PFGTOBJS) $(BFGTOBJS)
 
 
 
-.PHONY: usage lib install test-static test-dyn python 
+.PHONY: usage lib install test-static test-dyn python
 
 default: usage
 
@@ -178,7 +178,7 @@ usage:
 #
 %.o: %.f
 	$(FC) -c $(FFLAGS) $< -o $@
-%.o: %.f90 
+%.o: %.f90
 	$(FC) -c $(FFLAGS) $< -o $@
 
 #
@@ -191,12 +191,12 @@ else
 	@echo "$(STATICLIB) and $(DYNAMICLIB) built, single-threaded versions"
 endif
 
-$(STATICLIB): $(OBJS) 
+$(STATICLIB): $(OBJS)
 	ar rcs $(STATICLIB) $(OBJS)
 	mv $(STATICLIB) lib-static/
 
-$(DYNAMICLIB): $(OBJS) 
-	$(FC) -shared $(FFLAGS) $(OBJS) -o $(DYNAMICLIB)
+$(DYNAMICLIB): $(OBJS)
+	$(FC) -shared -Wl,-rpath,$(FINUFFT_INSTALL_DIR) $(FFLAGS) $(DYLIBS) $(OBJS) -o $(DYNAMICLIB)
 	mv $(DYNAMICLIB) lib/
 	[ ! -f $(LIMPLIB) ] || mv $(LIMPLIB) lib/
 
@@ -217,13 +217,13 @@ install: $(STATICLIB) $(DYNAMICLIB)
 #
 # testing routines
 #
-test-static: $(STATICLIB)  test/pfgt-static test/bfgt-static 
+test-static: $(STATICLIB)  test/pfgt-static test/bfgt-static
 	cd test/pfgt; ./int2-pfgt
 	cd test/bfgt; ./int2-bfgt
 
-test-dyn: $(DYNAMICLIB)  test/pfgt-dyn test/bfgt-dyn 
-	cd test/pfgt; ./int2-pfgt
-	cd test/bfgt; ./int2-bfgt
+test-dyn: $(DYNAMICLIB)  test/pfgt-dyn test/bfgt-dyn
+	cd lib; ../test/pfgt/int2-pfgt
+	cd lib; ../test/bfgt/int2-bfgt
 
 test/pfgt-static:
 	$(FC) $(FFLAGS) test/pfgt/test_pfgt_all.f -o test/pfgt/int2-pfgt lib-static/$(STATICLIB) $(FINUFFTSTATICLIB) $(LIBS)
@@ -238,17 +238,17 @@ test/bfgt-static:
 #
 
 test/pfgt-dyn:
-	$(FC) $(FFLAGS) test/pfgt/test_pfgt_all.f -o test/pfgt/int2-pfgt $(ABSDYNLIB) -L$(FINUFFT_INSTALL_DIR) $(LFINUFFTLINKLIB) 
+	$(FC) $(FFLAGS) test/pfgt/test_pfgt_all.f $(ABSDYNLIB) -o test/pfgt/int2-pfgt
 
 
 test/bfgt-dyn:
-	$(FC) $(FFLAGS) test/bfgt/test_boxfgt_all.f -o test/bfgt/int2-bfgt $(ABSDYNLIB) -L$(FINUFFT_INSTALL_DIR) $(LFINUFFTLINKLIB) 
+	$(FC) $(FFLAGS) test/bfgt/test_boxfgt_all.f $(ABSDYNLIB) -o test/bfgt/int2-bfgt
 
 #
 # build the python bindings/interface
 #
 python: $(STATICLIB)
-	cd python && export FGTND_LIBS='$(LIBS)' && pip install -e . 
+	cd python && export FGTND_LIBS='$(LIBS)' && pip install -e .
 
 #
 # housekeeping routines
@@ -258,7 +258,7 @@ clean: objclean
 	rm -f test/pfgt/int2-pfgt
 	rm -f test/bfgt/int2-bfgt
 
-objclean: 
+objclean:
 	rm -f $(OBJS) $(TOBJS)
-	rm -f test/pfgt/*.o 
-	rm -f test/bfgt/*.o 
+	rm -f test/pfgt/*.o
+	rm -f test/bfgt/*.o

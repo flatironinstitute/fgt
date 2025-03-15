@@ -101,7 +101,6 @@ c         write(iw2,*) deltas(j), pps(j,1), pps(j,2), pps(j,3)
       close(iw)
       close(iw2)
 
-      return
       end
 c
 c

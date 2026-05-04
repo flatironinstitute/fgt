@@ -18,7 +18,7 @@ c
       epsvals(4) = 1d-12
 c
       do i=1,10
-         deltas(i)=10.0d0**(-i+2)
+         deltas(i)=10.0d0**(-i)
       enddo
 
       do i=1,5
@@ -28,12 +28,12 @@ c
          nsrcs(i)=nsrcs(5)
       enddo
       do i=1,10
-         nsrcs(i)=10**6
+         nsrcs(i)=10**7
       enddo
 c     nd - number of different densities
       nd=1
 c     dim - dimension of the problem
-      dim=2
+      dim=3
 c     iperiod -> 0: free space; 1: periodic in all dimensions
       iperiod=0
 c     ntarg: number of extra targets
@@ -45,9 +45,9 @@ c     whether to have monopole sources -> 1: yes; 0: no
 c     whether to have dipole sources -> 1: yes; 0: no
       ifdipole=0
 c     evaluation flag for sources -> 1: pot; 2: pot+grad; 3: pot+grad+hess
-      ifpgh=3
+      ifpgh=1
 c     evaluation flag for targets -> 1: pot; 2: pot+grad; 3: pot+grad+hess
-      ifpghtarg=2
+      ifpghtarg=0
 c
 c     
 c
@@ -56,7 +56,7 @@ c
       iw = 70
       iw2 = 80
 
-      ifuniform=0
+      ifuniform=1
       if (iperiod.eq.1 .and. dim.eq.2) then
          open(iw, file='errorp2d.txt', position='append')
          open(iw2, file='timingp2d.txt', position='append')
@@ -71,12 +71,14 @@ c
          open(iw2, file='timingf3d.txt', position='append')
       endif
       
-      do i=3,3
+c      do i=1,3
+      do i=2,2
          eps = epsvals(i)
-         do j=5,5
+c         do j=1,10
+         do j=10,10
             delta=deltas(j)
             nsrc=nsrcs(j)
-            ntarg=nsrc
+            ntarg=1
 c
  2000       format(2x, i8, 2x)
 c     write(iw,2000,advance="no") nint(1/ratio)
@@ -84,8 +86,8 @@ c     write(iw,2000,advance="no") nint(1/ratio)
             call testpfgt(nd,dim,eps,delta,iperiod,nsrc,ntarg,ifcharge,
      1          ifdipole,ifpgh,ifpghtarg,ifuniform,pps(j,i),rerr)
 
- 4800       format(2x,'&',2x,D8.2,1x,'&',2x,D8.2,1x,'&',2x,D8.2,1x,'\\')
-            write(iw,4800) eps, delta, rerr
+ 2200       format(2x,'&',2x,D9.2,1x,'&',2x,D9.2,1x,'&',2x,D9.2,1x,'\\')
+            write(iw,2200) eps, delta, rerr
 c     
 c            if (isnan(rerr) .or. rerr.gt.eps) then               
 c               call prin2('eps=*',eps,1)
@@ -95,8 +97,11 @@ c
          enddo  
       enddo
 
-      do j=5,5
-         write(iw2,*) deltas(j), pps(j,1), pps(j,2), pps(j,3)
+      stop
+      
+ 2400 format(2x,D9.2,2x,D9.2,2x,D9.2,2x,D9.2)
+      do j=1,10
+         write(iw2,2400) deltas(j), pps(j,1), pps(j,2), pps(j,3)
       enddo
       
       close(iw)
@@ -517,7 +522,7 @@ c
       subroutine errprint(errps,errgs,errhs,errpt,errgt,errht,
      1    ifpgh,ifpghtarg)
       implicit real *8 (a-h,o-z)
- 1100 format(3(2x,e11.5))
+ 1100 format(3(2x,e12.5))
 
 
       write(6,*) 'ifpgh is ', ifpgh
@@ -594,7 +599,7 @@ c            tree_plot.m
         if(itree(iptr(4)+i-1).eq.0) nleafbox = nleafbox+1
       enddo
 
- 1111 format(10(2x,e11.5))      
+ 1111 format(10(2x,e12.5))      
 
       do ibox=1,nboxes
          if(itree(iptr(4)+ibox-1).eq.0) then
@@ -617,7 +622,7 @@ c            tree_plot.m
       enddo
       close(33)
 
- 2222 format(2(2x,e11.5))
+ 2222 format(2(2x,e12.5))
 
       open(unit=33,file=trim(fname2))
       if (ns .gt. 0) then

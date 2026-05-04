@@ -1,22 +1,22 @@
 # makefile overrides
-# OS:       windows
-# Compiler: mingw
-# OpenMP:   default enabled unless specified
+# OS:       Windows (MSYS2 / mingw-w64)
+# Compiler: mingw-w64 gcc/gfortran
+# OpenMP:   enabled (libgomp)
+# BLAS:     OpenBLAS (mingw-w64-x86_64-openblas)
+# FFTW:     mingw-w64 (mingw-w64-x86_64-fftw)
 #
+# NOTE for user:
+#   * Run from an MSYS2 mingw64 shell with:
+#       pacman -S mingw-w64-x86_64-{gcc,gcc-fortran,fftw,openblas,pkgconf}
+#   * Compilers are taken from PATH; no version suffix needed in MSYS2.
+#   * Output is libfgt.dll instead of libfgt.so.
 
-FFLAGS= -fPIC -O3 -funroll-loops -std=legacy -fno-underscoring
+FFLAGS = -fPIC -O3 -funroll-loops -std=legacy
 
-DYNAMICLIB = $(LIBNAME).dll
-LIMPLIB = $(LIBNAME)_dll.lib
+# Override default linkage: emit .dll on Windows.
+MINGW = ON
 
-
-LLINKLIB = -llibfmm3dbie_dll -llibfmm3d_dll
-
-DYLIBS +=  -Wl,--out-implib,$(LIMPLIB)
+OMPFLAGS = -fopenmp
+OMPLIBS  = -lgomp
 
 LBLAS = -lopenblas
-LDBLASINC = -LC:\lib -LC:\mingw-w64\mingw64\bin -LC:\MATLAB\R2020b\bin\win64
-
-
-MINGW_LPATH=C:/mingw-w64/mingw64/lib/gcc/x86_64-w64-mingw32/8.1.0
-MEXLIBS = -lmex -lmat -lmx -lgfortran -lquadmath -L${MINGW_LPATH}

@@ -170,15 +170,18 @@ C$    time2=omp_get_wtime()
 
 c     plot the tree
       ifplot=0
-      if (ifplot.eq.1) then
-         fname1 = 'tree.data'
-         fname2 = 'src.data'
-         fname3 = 'targ.data'
-      
-         call print_tree2d_matlab(dim,itree,ltree,nboxes,centers,
-     1       boxsize,nlevels,iptr,ns,sources,nt,targ,
-     2       fname1,fname2,fname3)
-      endif
+c     print_tree2d_matlab is a debug helper not present in this tree;
+c     dead code (ifplot=0) but must be commented out to allow non-O3
+c     builds where dead-code elimination doesn't drop the call.
+ccc      if (ifplot.eq.1) then
+ccc         fname1 = 'tree.data'
+ccc         fname2 = 'src.data'
+ccc         fname3 = 'targ.data'
+ccc
+ccc         call print_tree2d_matlab(dim,itree,ltree,nboxes,centers,
+ccc     1       boxsize,nlevels,iptr,ns,sources,nt,targ,
+ccc     2       fname1,fname2,fname3)
+ccc      endif
       
       allocate(isrc(ns),isrcse(2,nboxes))
       allocate(itarg(nt),itargse(2,nboxes))
@@ -528,11 +531,17 @@ c   pottarg: potential at the target locations
 c   gradtarg: gradient at the target locations
 c   hesstarg: gradient at the target locations
 c------------------------------------------------------------------
+c     finufft_mod is the F90 module form of the finufft_opts struct
+c     declaration. It uses C_INT/C_DOUBLE/C_SIZE_T kinds from
+c     iso_c_binding, so the Fortran type exactly matches the C struct
+c     on every supported ABI. The fixed-form include 'finufft.fh'
+c     declares the fftw_lock_* fields as plain `integer` (4 bytes),
+c     which is shorter than the C pointer fields (8 bytes on LP64);
+c     finufft_default_opts() then writes past the end of the Fortran
+c     struct and corrupts adjacent stack memory.
+      use finufft_mod
       implicit real *8 (a-h,o-z)
       integer nd,dim,iperiod,nsource,ntarget
-
-c     our fortran-header, always needed
-      include 'finufft.fh'
 
       integer ndiv,nlevels,npwlevel,ncutoff
       integer ifcharge,ifdipole
@@ -682,7 +691,15 @@ c
 c       ... allocate iaddr and temporary arrays
 c
       allocate(iaddr(2,nboxes))
-c     
+c     Initialize iaddr to 0. pfgt_mpalloc only sets iaddr for boxes with
+c     ifpwexp(ibox)==1; without this init, boxes with ifpwexp==0 retain
+c     garbage which can cause out-of-bounds rmlexp accesses in steps that
+c     do not guard with ifpwexp (e.g. step 2 mp-to-loc shift).
+      do i=1,nboxes
+         iaddr(1,i)=0
+         iaddr(2,i)=0
+      enddo
+c
       call pfgt_mpalloc(nd,dim,itree,iaddr,
      1    nlevels,npwlevel,ifpwexp,lmptot,npw)
       if(ifprint .eq. 1) call prinf_long(' lmptot is *',lmptot,1)
@@ -754,7 +771,6 @@ c     change the FFTW plan to MEASURE, which slows down makeplan, but speeds up
 c     subsequent FFTW calls.
       opts%nthreads=1
 
-      print *, "nthd=",nthd 
       do ithd=1,nthd
         call finufft_makeplan(ttype,dim,n_modes,iflag,ntrans,
      $      eps,fftplan(ithd),opts,ier)
@@ -775,8 +791,12 @@ C$OMP$SCHEDULE(DYNAMIC)
 C$          ithd = omp_get_thread_num()
             ithd = ithd+1
 
-c           Check if current box needs to form pw exp         
-            if(npts.gt.ndiv) then
+c           Check if current box needs to form pw exp.
+c           Also require ifpwexp(ibox)==1: only those boxes have valid
+c           iaddr(1,ibox)/iaddr(2,ibox) set by pfgt_mpalloc; without this
+c           guard, boxes with ifpwexp==0 can produce wild writes via
+c           uninitialized iaddr.
+            if (npts.gt.ndiv .and. ifpwexp(ibox).eq.1) then
 ccc               nb=nb+1
 c              form the pw expansion
                call gnd_formpw(nd,dim,delta0,eps,sourcesort(1,istart),
@@ -786,7 +806,7 @@ c              form the pw expansion
      4             rmlexp(iaddr(1,ibox)),fftplan(ithd))
 
 c              copy the multipole PW exp into local PW exp
-c              for self interaction 
+c              for self interaction
                call gnd_copy_pwexp(nd,nexp,rmlexp(iaddr(1,ibox)),
      1             rmlexp(iaddr(2,ibox)))
             endif
@@ -816,22 +836,27 @@ c       pw expansions
 C$    time1=omp_get_wtime()
       
       do 1300 ilev = ncutoff,ncutoff
-ccC$OMP PARALLEL DO DEFAULT(SHARED)
-ccC$OMP$PRIVATE(ibox,jbox,j,ind)
-ccC$OMP$SCHEDULE(DYNAMIC)
+C$OMP PARALLEL DO DEFAULT(SHARED)
+C$OMP$PRIVATE(ibox,jbox,j,ind)
+C$OMP$SCHEDULE(DYNAMIC)
          do ibox = itree(2*ilev+1),itree(2*ilev+2)
-c           ibox is the target box
-c           shift PW expansions
+c           ibox is the target box. Only boxes with plane-wave expansions
+c           have valid iaddr(2,ibox); skip the rest to avoid wild writes
+c           into rmlexp via uninitialized iaddr.
+            if (ifpwexp(ibox).eq.1) then
             do j=1,nlistpw(ibox)
                jbox=listpw(j,ibox)
-c              jbox is the source box
-               call gnd_find_pwshift_ind(dim,iperiod0,centers(1,ibox),
-     1             centers(1,jbox),bs0,xmin,nmax,ind)
-               call gnd_shiftpw(nd,nexp,rmlexp(iaddr(1,jbox)),
-     1             rmlexp(iaddr(2,ibox)),wpwshift(1,ind))
+c              jbox is the source box; same guard for iaddr(1,jbox).
+               if (ifpwexp(jbox).eq.1) then
+                  call gnd_find_pwshift_ind(dim,iperiod0,
+     1                centers(1,ibox),centers(1,jbox),bs0,xmin,nmax,ind)
+                  call gnd_shiftpw(nd,nexp,rmlexp(iaddr(1,jbox)),
+     1                rmlexp(iaddr(2,ibox)),wpwshift(1,ind))
+               endif
             enddo
+            endif
          enddo
-ccC$OMP END PARALLEL DO        
+C$OMP END PARALLEL DO
  1300 continue
 c
 
@@ -1086,9 +1111,9 @@ C$    time1=omp_get_wtime()
 ccc      nb=0
       do 2000 ilev = 0,nlevend
 C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,jbox,istart,iend,jstartt,jendt,jstarts,jends)
+C$OMP$PRIVATE(ibox,jbox,i,istart,iend,jstartt,jendt,jstarts,jends)
 C$OMP$PRIVATE(ns,n1,nptssrc,nptstarg,shifts,npts)
-C$OMP$SCHEDULE(DYNAMIC)  
+C$OMP$SCHEDULE(DYNAMIC)
          do jbox = itree(2*ilev+1),itree(2*ilev+2)
 c        jbox is the target box            
             jstarts = isrcse(1,jbox)

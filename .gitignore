@@ -39,3 +39,25 @@ fort*
 
 # emacs files
 *~
+
+.DS_Store
+
+# session/build local state
+.claude/
+build/
+dist/
+*.egg-info/
+python/fgt/lib/
+
+# perf logs (regenerable)
+docs/perf/*.csv
+docs/perf/*.log
+docs/perf/baseline-*.md
+
+# brainstorming/planning artifacts (kept locally, not in repo)
+docs/superpowers/
+
+# test logs
+test/*/int*-*
+__pycache__/
+*.pyc

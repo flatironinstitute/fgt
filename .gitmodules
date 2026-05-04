@@ -1,0 +1,3 @@
+[submodule "external/finufft"]
+	path = external/finufft
+	url = git@github.com:flatironinstitute/finufft.git

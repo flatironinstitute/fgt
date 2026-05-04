@@ -38,9 +38,27 @@ ifeq ($(PREFIX),)
 	FGT_INSTALL_DIR = ${HOME}/lib
 endif
 
+# Bundled finufft submodule (built automatically by `make finufft`).
+FINUFFT_SUBMODULE = external/finufft
+
+FINUFFT_INSTALL_DIR=$(PREFIX_FINUFFT)
 ifeq ($(PREFIX_FINUFFT),)
-	FINUFFT_INSTALL_DIR = ${HOME}/lib
-	FINUFFT_INCLUDE_DIR = ${HOME}/include
+	FINUFFT_INSTALL_DIR = $(FGT)$(FINUFFT_SUBMODULE)/lib-static
+endif
+
+FINUFFT_INCLUDE_DIR=$(PREFIX_FINUFFT_INCLUDE)
+ifeq ($(PREFIX_FINUFFT_INCLUDE),)
+	FINUFFT_INCLUDE_DIR = $(FGT)$(FINUFFT_SUBMODULE)/include
+endif
+
+FFT_INSTALL_DIR=$(PREFIX_FFT)
+ifeq ($(PREFIX_FFT),)
+	FFT_INSTALL_DIR = /usr/lib
+endif
+
+FFT_INCLUDE_DIR=$(PREFIX_FFT_INCLUDE)
+ifeq ($(PREFIX_FFT_INCLUDE),)
+	FFT_INCLUDE_DIR = /usr/include
 endif
 
 # absolute path of this makefile, ie FGT's top-level directory...
@@ -50,15 +68,14 @@ FGT = $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 -include make.inc
 
 INCL = -I$(FINUFFT_INCLUDE_DIR)
-# here /usr/include needed for fftw3.f "fortran header"... (JiriK: no longer)
-FFLAGS := $(FFLAGS) -I/usr/include $(INCL)
+FFLAGS := $(FFLAGS) -I$(FFT_INCLUDE_DIR) $(INCL) -Isrc/pfgt
 
 DYLIBS = -lm
 F2PYDYLIBS = -lm -lblas -llapack
 
 # single-thread total list of math and FFTW libs (now both precisions)...
 # (Note: finufft tests use LIBSFFT; spread & util tests only need LIBS)
-LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)f $(LIBS)
+LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)f -L$(FFT_INSTALL_DIR) -I$(FFT_INCLUDE_DIR) $(LIBS)
 
 # multi-threaded libs & flags, and req'd flags (OO for new interface)...
 ifneq ($(OMP),OFF)
@@ -71,7 +88,7 @@ ifneq ($(OMP),OFF)
   ifneq ($(MINGW),ON)
     ifneq ($(MSYS),ON)
 # omp override for total list of math and FFTW libs (now both precisions)...
-      #LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)_$(FFTWOMPSUFFIX) -l$(FFTWNAME)f -l$(FFTWNAME)f_$(FFTWOMPSUFFIX) $(LIBS)
+      LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)f -L$(FFT_INSTALL_DIR) -I$(FFT_INCLUDE_DIR) $(LIBS)
     endif
   endif
 endif
@@ -136,16 +153,26 @@ COMOBJS = $(COM)/prini_new.o \
 
 # point Gauss transform objects
 PFGT = src/pfgt
-PFGTOBJS = $(PFGT)/pfgt.o \
+# finufft_mod is the F90 module form of the finufft_opts struct that ships
+# in the finufft submodule. We compile it into our build (with .mod placed
+# in $(PFGT) via -J) so pfgt.f's `use finufft_mod` resolves correctly.
+# Using the module instead of the fixed-form `include 'finufft.fh'` avoids
+# a struct-size mismatch in finufft.fh's pointer fields that overflows the
+# Fortran type and corrupts adjacent stack memory on 64-bit targets.
+FINUFFT_MOD_OBJ = $(PFGT)/finufft_mod.o
+PFGTOBJS = $(FINUFFT_MOD_OBJ) \
+	$(PFGT)/pfgt.o \
 	$(PFGT)/pfgt_direct.o \
-	$(PFGT)/pfgt_nufftrouts.o
+	$(PFGT)/pfgt_nufftrouts.o \
+	$(PFGT)/pfgt_c.o
 
 # box Gauss transform objects
 BFGT = src/bfgt
 BFGTOBJS = $(BFGT)/boxfgt.o \
 	$(BFGT)/bfgt_volrouts.o \
 	$(BFGT)/bfgt_pwrouts.o \
-	$(BFGT)/bfgt_local.o
+	$(BFGT)/bfgt_local.o \
+	$(BFGT)/bfgt_c.o
 
 
 # Test objects
@@ -153,7 +180,7 @@ OBJS = $(COMOBJS) $(PFGTOBJS) $(BFGTOBJS)
 
 
 
-.PHONY: usage lib install test-static test-dyn python
+.PHONY: usage lib install test-static test-dyn python finufft perftest
 
 default: usage
 
@@ -181,10 +208,37 @@ usage:
 %.o: %.f90
 	$(FC) -c $(FFLAGS) $< -o $@
 
+# Compile finufft_mod from the finufft submodule, putting both the .o and
+# the generated finufft_mod.mod into $(PFGT). pfgt.f then finds the .mod
+# via -Isrc/pfgt (added to FFLAGS above).
+$(FINUFFT_MOD_OBJ): $(FINUFFT_SUBMODULE)/include/finufft_mod.f90
+	$(FC) -c $(FFLAGS) -J$(PFGT) $< -o $@
+
+# pfgt.o `use finufft_mod`, so it needs the .mod produced by the rule above.
+$(PFGT)/pfgt.o: $(FINUFFT_MOD_OBJ)
+
+#
+# build the bundled finufft submodule (single-threaded). fgt parallelizes
+# externally; fgt threads each call into a per-thread finufft plan.
+#
+finufft: $(FINUFFT_INSTALL_DIR)/libfinufft.a
+
+$(FINUFFT_INSTALL_DIR)/libfinufft.a:
+	@echo "Building finufft submodule (single-threaded)..."
+	@if [ ! -f $(FINUFFT_SUBMODULE)/include/finufft.fh ]; then \
+		echo "ERROR: $(FINUFFT_SUBMODULE)/include/finufft.fh missing."; \
+		echo "Run: git submodule update --init --recursive"; \
+		exit 1; \
+	fi
+	CPATH="$(FFT_INCLUDE_DIR):$$CPATH" \
+	LIBRARY_PATH="$(FFT_INSTALL_DIR):$$LIBRARY_PATH" \
+	$(MAKE) -C $(FINUFFT_SUBMODULE) lib OMP=OFF LTO=OFF \
+		FC=$(FC) CC=$(CC) CXX=$(CXX)
+
 #
 # build the library...
 #
-lib: $(STATICLIB) $(DYNAMICLIB)
+lib: finufft $(STATICLIB) $(DYNAMICLIB)
 ifneq ($(OMP),OFF)
 	@echo "$(STATICLIB) and $(DYNAMICLIB) built, multithread versions"
 else
@@ -195,12 +249,19 @@ $(STATICLIB): $(OBJS)
 	ar rcs $(STATICLIB) $(OBJS)
 	mv $(STATICLIB) lib-static/
 
-$(DYNAMICLIB): $(OBJS)
-	$(FC) -shared -Wl,-rpath,$(FINUFFT_INSTALL_DIR) $(FFLAGS) $(DYLIBS) $(OBJS) -o $(DYNAMICLIB)
+# On macOS, set install_name so consumers find the lib via rpath.
+ifeq ($(shell uname -s),Darwin)
+  DYLIB_INSTALL_NAME = -Wl,-install_name,@rpath/$(DYNAMICLIB)
+else
+  DYLIB_INSTALL_NAME =
+endif
+
+$(DYNAMICLIB): $(OBJS) $(FINUFFT_INSTALL_DIR)/libfinufft.a
+	$(FC) -shared -fPIC -Wl,-rpath,$(FINUFFT_INSTALL_DIR) $(OBJS) -o $(DYNAMICLIB) $(DYLIBS) $(DYLIB_INSTALL_NAME)
 	mv $(DYNAMICLIB) lib/
 	[ ! -f $(LIMPLIB) ] || mv $(LIMPLIB) lib/
 
-install: $(STATICLIB) $(DYNAMICLIB)
+install: lib
 	echo $(FGT_INSTALL_DIR)
 	mkdir -p $(FGT_INSTALL_DIR)
 	cp -f lib/$(DYNAMICLIB) $(FGT_INSTALL_DIR)/
@@ -217,19 +278,28 @@ install: $(STATICLIB) $(DYNAMICLIB)
 #
 # testing routines
 #
-test-static: $(STATICLIB)  test/pfgt-static test/bfgt-static
+test-static: finufft $(STATICLIB)  test/pfgt-static test/bfgt-static
 	cd test/pfgt; ./int2-pfgt
 	cd test/bfgt; ./int2-bfgt
 
-test-dyn: $(DYNAMICLIB)  test/pfgt-dyn test/bfgt-dyn
-	cd lib; ../test/pfgt/int2-pfgt
-	cd lib; ../test/bfgt/int2-bfgt
+test-dyn: finufft $(DYNAMICLIB)  test/pfgt-dyn test/bfgt-dyn
+	cd test/pfgt; ./int2-pfgt
+	cd test/bfgt; ./int2-bfgt
 
-test/pfgt-static:
+# Build only -- the run is driven by run_scaling.sh.
+test/pfgt-perf: $(STATICLIB) $(FINUFFTSTATICLIB)
+	$(FC) $(FFLAGS) test/pfgt/test_pfgt_perf.f -o test/pfgt/int2-pfgt-perf \
+		lib-static/$(STATICLIB) $(FINUFFTSTATICLIB) $(LIBS)
+
+# `make perftest`: run an OMP scaling sweep using run_scaling.sh.
+perftest: finufft test/pfgt-perf
+	cd test/pfgt && ./run_scaling.sh
+
+test/pfgt-static: $(FINUFFTSTATICLIB)
 	$(FC) $(FFLAGS) test/pfgt/test_pfgt_all.f -o test/pfgt/int2-pfgt lib-static/$(STATICLIB) $(FINUFFTSTATICLIB) $(LIBS)
 
 
-test/bfgt-static:
+test/bfgt-static: $(FINUFFTSTATICLIB)
 	$(FC) $(FFLAGS) test/bfgt/test_boxfgt_all.f -o test/bfgt/int2-bfgt lib-static/$(STATICLIB) $(FINUFFTSTATICLIB) $(LIBS)
 
 
@@ -237,18 +307,18 @@ test/bfgt-static:
 # Linking test files to dynamic libraries
 #
 
-test/pfgt-dyn:
-	$(FC) $(FFLAGS) test/pfgt/test_pfgt_all.f $(ABSDYNLIB) -o test/pfgt/int2-pfgt
+test/pfgt-dyn: $(FINUFFTSTATICLIB)
+	$(FC) $(FFLAGS) test/pfgt/test_pfgt_all.f -o test/pfgt/int2-pfgt $(ABSDYNLIB) -L$(FINUFFT_INSTALL_DIR) $(LFINUFFTLINKLIB) $(LBLAS) $(LDBLASINC) -Wl,-rpath,$(FGT)lib
 
 
-test/bfgt-dyn:
-	$(FC) $(FFLAGS) test/bfgt/test_boxfgt_all.f $(ABSDYNLIB) -o test/bfgt/int2-bfgt
+test/bfgt-dyn: $(FINUFFTSTATICLIB)
+	$(FC) $(FFLAGS) test/bfgt/test_boxfgt_all.f -o test/bfgt/int2-bfgt $(ABSDYNLIB) -L$(FINUFFT_INSTALL_DIR) $(LFINUFFTLINKLIB) $(LBLAS) $(LDBLASINC) -Wl,-rpath,$(FGT)lib
 
 #
 # build the python bindings/interface
 #
 python: $(STATICLIB)
-	cd python && export FGTND_LIBS='$(LIBS)' && pip install -e .
+	pip install -e .
 
 #
 # housekeeping routines
@@ -262,3 +332,4 @@ objclean:
 	rm -f $(OBJS) $(TOBJS)
 	rm -f test/pfgt/*.o
 	rm -f test/bfgt/*.o
+	rm -f $(PFGT)/*.mod

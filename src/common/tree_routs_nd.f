@@ -31,7 +31,7 @@ c
       allocate(isum(nbloc))
       if(nbloc.gt.0) call cumsum(nbloc,irefinebox,isum)
       
-C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,nbl,j,jbox)
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,nbl,j,jbox,k,l)
       do i = 1,nbloc
         ibox = ifirstbox + i-1
         if(irefinebox(i).eq.1) then
@@ -311,7 +311,7 @@ c     Temporary variables
       distest = 1.05d0*(boxsize(curlev) + boxsize(curlev+1))/2.0d0
 c     Loop over all boxes at the current level     
 
-C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,i,jbox,j,kbox,dis,ict)
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(ibox,i,jbox,j,kbox,dis,ict,k)
       do ibox = laddr(1,curlev),laddr(2,curlev)
          if(iflag(ibox).eq.3) then
             iflag(ibox) = 0
@@ -391,7 +391,7 @@ c
       enddo
       if(nbloc.gt.0) call cumsum(nbloc,itmp,isum)
       
-C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,nbl,j,jbox)
+C$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,ibox,nbl,j,jbox,k,l)
       do i = 1,nbloc
         ibox = ifirstbox + i-1
         if(iflag(ibox).gt.0) then
@@ -528,7 +528,7 @@ C$OMP END PARALLEL DO
          firstbox = laddr(1,ilev)
          lastbox = laddr(2,ilev)
 C$OMP PARALLEL DO DEFAULT(SHARED)
-C$OMP$PRIVATE(ibox,dad,i,jbox,j,kbox,distest,dis,iflist1,ifnbor)
+C$OMP$PRIVATE(ibox,dad,i,jbox,j,kbox,distest,dis,iflist1,ifnbor,k,dp1)
          do ibox = firstbox,lastbox
             dad = iparent(ibox)
 c           Compute list1 and list3 of ibox if it is childless
@@ -1184,8 +1184,13 @@ c
      1                then
 c                     nlist1(ibox) = nlist1(ibox) + 1
 c                     list1(nlist1(ibox),ibox) = jbox
+c                    Multiple threads (different ibox) can hit the same
+c                    jbox, so the increment + indexed write must be done
+c                    atomically as a single critical region.
+C$OMP CRITICAL
                      nlist1(jbox) = nlist1(jbox) + 1
                      list1(nlist1(jbox),jbox) = ibox
+C$OMP END CRITICAL
                   else
 c
 cc                     boxes in list1 at level ilev+1
@@ -1213,8 +1218,11 @@ c
                               if(iflist1.eq.1) then
 c                                 nlist1(ibox) = nlist1(ibox)+1
 c                                 list1(nlist1(ibox),ibox) = kbox
+c                                 multi-thread write to shared kbox
+C$OMP CRITICAL
                                  nlist1(kbox) = nlist1(kbox)+1
                                  list1(nlist1(kbox),kbox) = ibox
+C$OMP END CRITICAL
                               endif
                            endif
                         enddo
@@ -1243,14 +1251,17 @@ cc               compute list1 at level ilev-1
                      if(iflist1.eq.1) then
 c                        nlist1(ibox) = nlist1(ibox)+1
 c                        list1(nlist1(ibox),ibox) = jbox
+c                       multi-thread write to shared jbox
+C$OMP CRITICAL
                         nlist1(jbox) = nlist1(jbox)+1
                         list1(nlist1(jbox),jbox) = ibox
+C$OMP END CRITICAL
                      endif
                   endif
                enddo
             endif
           enddo
-C$OMP END PARALLEL DO         
+C$OMP END PARALLEL DO
       enddo
 
       return

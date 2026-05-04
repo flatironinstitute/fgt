@@ -1,10 +1,15 @@
 # makefile overrides
 # OS:       Linux
-# Compiler: gfortran
+# Compiler: gfortran (system or distro package; >= 13 recommended)
 # OpenMP:   enabled
-# BLAS:     openblas
-#
+# BLAS:     OpenBLAS (`apt install libopenblas-dev`,
+#                     `dnf install openblas-devel`,
+#                     `apk add openblas-dev`)
+# FFTW:     `apt install libfftw3-dev`,
+#           `dnf install fftw-devel`, etc.
+
+# Compiler defaults: use gfortran/gcc/g++ from PATH. Override on the
+# command line if you have a non-default install (e.g. gcc-toolset-13):
+#     make FC=gfortran CC=gcc CXX=g++
 
 LBLAS=-lopenblas
-# change -L/usr/lib to the directory where libopenblas.so is located
-LDBLASINC=-L/usr/lib

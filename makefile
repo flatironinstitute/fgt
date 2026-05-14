@@ -73,10 +73,6 @@ FFLAGS := $(FFLAGS) -I$(FFT_INCLUDE_DIR) $(INCL) -Isrc/pfgt
 DYLIBS = -lm
 F2PYDYLIBS = -lm -lblas -llapack
 
-# single-thread total list of math and FFTW libs (now both precisions)...
-# (Note: finufft tests use LIBSFFT; spread & util tests only need LIBS)
-LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)f -L$(FFT_INSTALL_DIR) -I$(FFT_INCLUDE_DIR) $(LIBS)
-
 # multi-threaded libs & flags, and req'd flags (OO for new interface)...
 ifneq ($(OMP),OFF)
   CXXFLAGS += $(OMPFLAGS)
@@ -85,13 +81,16 @@ ifneq ($(OMP),OFF)
   MFLAGS += $(MOMPFLAGS) -DR2008OO
   OFLAGS += $(OOMPFLAGS) -DR2008OO
   LIBS += $(OMPLIBS)
-  ifneq ($(MINGW),ON)
-    ifneq ($(MSYS),ON)
-# omp override for total list of math and FFTW libs (now both precisions)...
-      LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)f -L$(FFT_INSTALL_DIR) -I$(FFT_INCLUDE_DIR) $(LIBS)
-    endif
-  endif
 endif
+
+# Total list of math + FFTW libs. Must be evaluated AFTER the OMP block so
+# $(LIBS) carries $(OMPLIBS) (e.g. -lgomp) when OMP=ON. Previously this was
+# evaluated above the OMP block and then re-evaluated inside it under
+# `ifneq MINGW`/`ifneq MSYS` guards, which silently dropped -lgomp from the
+# libfgt.{so,dll} link on Windows MSYS2/mingw and produced pages of
+# undefined references to GOMP_parallel / omp_get_thread_num.
+# (Note: finufft tests use LIBSFFT; spread & util tests only need LIBS.)
+LIBSFFT := -l$(FFTWNAME) -l$(FFTWNAME)f -L$(FFT_INSTALL_DIR) -I$(FFT_INCLUDE_DIR) $(LIBS)
 
 LIBNAME=$(PREFIX_LIBNAME)
 ifeq ($(LIBNAME),)
@@ -333,3 +332,4 @@ objclean:
 	rm -f test/pfgt/*.o
 	rm -f test/bfgt/*.o
 	rm -f $(PFGT)/*.mod
+

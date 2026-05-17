@@ -98,11 +98,12 @@ ifeq ($(LIBNAME),)
 endif
 ifeq ($(MINGW),ON)
   DYNLIB = lib/$(LIBNAME).dll
+  DYNAMICLIB = $(LIBNAME).dll
 else
   DYNLIB = lib/$(LIBNAME).so
+  DYNAMICLIB = $(LIBNAME).so
 endif
 
-DYNAMICLIB = $(LIBNAME).so
 STATICLIB = $(LIBNAME).a
 LIMPLIB = $(DYNAMICLIB)
 # absolute path to the .so, useful for linking so executables portable...

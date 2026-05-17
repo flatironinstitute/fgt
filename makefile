@@ -256,8 +256,22 @@ else
   DYLIB_INSTALL_NAME =
 endif
 
+# On Windows MinGW, force re-export of every public symbol in the DLL.
+# libfinufft.a is built with -DFINUFFT_DLL -Ddll_EXPORTS so its public C API
+# carries __declspec(dllexport) attributes. As soon as the linker sees any
+# dllexport-marked symbol in the link it switches off auto-export, so our
+# Fortran ISO_C_BINDING shims (fgt_pfgt_d, fgt_bfgt_d) -- which have no
+# dllexport attribute, only bind(C, name=...) -- end up absent from the DLL
+# export table and `ctypes.CDLL(...).fgt_pfgt_d` raises AttributeError.
+# --export-all-symbols re-exports everything, including the Fortran shims.
+ifeq ($(MINGW),ON)
+  DLL_EXPORT_FLAGS = -Wl,--export-all-symbols
+else
+  DLL_EXPORT_FLAGS =
+endif
+
 $(DYNAMICLIB): $(OBJS) $(FINUFFT_INSTALL_DIR)/libfinufft.a
-	$(FC) -shared -fPIC -Wl,-rpath,$(FINUFFT_INSTALL_DIR) $(OBJS) -o $(DYNAMICLIB) $(DYLIBS) $(DYLIB_INSTALL_NAME)
+	$(FC) -shared -fPIC -Wl,-rpath,$(FINUFFT_INSTALL_DIR) $(OBJS) -o $(DYNAMICLIB) $(DYLIBS) $(DYLIB_INSTALL_NAME) $(DLL_EXPORT_FLAGS)
 	mv $(DYNAMICLIB) lib/
 	[ ! -f $(LIMPLIB) ] || mv $(LIMPLIB) lib/
 

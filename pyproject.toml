@@ -43,7 +43,13 @@ fgt = ["lib/*.so", "lib/*.dylib", "lib/*.dll"]
 
 [tool.cibuildwheel]
 build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
-skip = "*-musllinux_i686 *_i686 *_ppc64le *_s390x *_armv7l"
+# Explicitly skip PyPy too. The pyproject `build` whitelist is CPython-only, but
+# the workflow's CIBW_BUILD='*-win_amd64' override matches PyPy as well. We
+# don't test against PyPy: its ctypes does not pass LOAD_LIBRARY_SEARCH_USER_DIRS
+# to LoadLibraryExW, so the delvewheel-bundled MinGW DLLs in fgt.libs/ are not
+# found during transitive resolution, even though CPython loads the same wheel
+# fine. (cibuildwheel v3 will disable PyPy by default; this is the equivalent.)
+skip = "pp* *-musllinux_i686 *_i686 *_ppc64le *_s390x *_armv7l"
 test-requires = "pytest"
 # --import-mode=importlib so pytest imports the installed wheel via importlib
 # instead of prepending {project}/python/ to sys.path. Without it, the source

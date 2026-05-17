@@ -45,7 +45,11 @@ fgt = ["lib/*.so", "lib/*.dylib", "lib/*.dll"]
 build = "cp39-* cp310-* cp311-* cp312-* cp313-*"
 skip = "*-musllinux_i686 *_i686 *_ppc64le *_s390x *_armv7l"
 test-requires = "pytest"
-test-command = "pytest {project}/python/tests"
+# --import-mode=importlib so pytest imports the installed wheel via importlib
+# instead of prepending {project}/python/ to sys.path. Without it, the source
+# tree's python/fgt/ shadows the installed (and delvewheel-repaired) wheel's
+# fgt package, so on Windows the bundled MinGW DLLs are never seen.
+test-command = "pytest --import-mode=importlib {project}/python/tests"
 
 [tool.cibuildwheel.linux]
 # manylinux_2_28 (Almalinux 8) has dnf, gcc-toolset, and modern packages.

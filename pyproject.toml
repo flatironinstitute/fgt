@@ -79,5 +79,14 @@ environment = { MACOSX_DEPLOYMENT_TARGET = "14.0" }
 
 [tool.cibuildwheel.windows]
 # Toolchain is installed by the workflow (pacman step) before cibuildwheel runs.
-before-build = "bash {project}/python/scripts/build-libfgt.sh"
+# cibuildwheel does not vendor DLLs into Windows wheels by default, so we
+# install delvewheel and run `delvewheel repair` to bundle the MinGW runtime
+# (libgcc_s_seh, libwinpthread, libstdc++, libgfortran, libgomp, libquadmath)
+# plus libfftw3-3, libfftw3f-3, libopenblas from C:\msys64\mingw64\bin into
+# the wheel. Same pattern as flatironinstitute/finufft. --analyze-existing
+# tells delvewheel to recurse on libfgt.dll's transitive deps using the
+# environment PATH (which the `environment` block below adds the MinGW bin
+# dir to).
+before-build = "pip install delvewheel && bash {project}/python/scripts/build-libfgt.sh"
+repair-wheel-command = "delvewheel repair -v --analyze-existing -w {dest_dir} {wheel}"
 environment = { CC = "gcc", CXX = "g++", FC = "gfortran", PATH = "C:\\\\msys64\\\\mingw64\\\\bin;$PATH" }
